@@ -89,7 +89,6 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
 
     private boolean isPrivate;
     private boolean noForwards;
-    private boolean updatedNoForwards = false;
 
     private TLRPC.Chat currentChat;
     private TLRPC.ChatFull info;
@@ -417,25 +416,24 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
 
         headerCell3 = new HeaderCell(context);
         headerCell3.setHeight(46);
-        headerCell3.setText("Saving content");
+        headerCell3.setText(LocaleController.getString("GroupSavingContentHeader", R.string.GroupSavingContentHeader));
         linearLayoutNoForwardsContainer.addView(headerCell3);
 
         noforwardsCheckCell = new TextCheckCell(context);
         noforwardsCheckCell.setBackgroundDrawable(Theme.getSelectorDrawable(true));
         noforwardsCheckCell.setTextAndCheck(
-                "Restrict saving content",
+                LocaleController.getString("GroupSavingContent", R.string.GroupSavingContent),
                 noForwards,
                 false
         );
         noforwardsCheckCell.setOnClickListener(v -> {
             noForwards = !noForwards;
-            updatedNoForwards = true;
             noforwardsCheckCell.setChecked(noForwards);
         });
         linearLayoutNoForwardsContainer.addView(noforwardsCheckCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         typeInfoCell2 = new TextInfoPrivacyCell(context);
-        typeInfoCell2.setText("Participants won’t be able to forward messages from this group or save media files.");
+        typeInfoCell2.setText(LocaleController.getString("GroupSavingContentHelp", R.string.GroupSavingContentHelp));
         linearLayout.addView(typeInfoCell2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
 
