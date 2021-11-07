@@ -24,6 +24,7 @@ import android.widget.ScrollView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
@@ -43,6 +44,7 @@ import org.telegram.ui.Cells.LoadingCell;
 import org.telegram.ui.Cells.RadioButtonCell;
 import org.telegram.ui.Cells.ShadowSectionCell;
 import org.telegram.ui.Cells.TextCell;
+import org.telegram.ui.Cells.TextCheckCell;
 import org.telegram.ui.Cells.TextInfoPrivacyCell;
 import org.telegram.ui.Cells.TextSettingsCell;
 import org.telegram.ui.Components.EditTextBoldCursor;
@@ -60,15 +62,19 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
     private EditTextBoldCursor editText;
 
     private TextInfoPrivacyCell typeInfoCell;
+    private TextInfoPrivacyCell typeInfoCell2;
     private HeaderCell headerCell;
     private HeaderCell headerCell2;
+    private HeaderCell headerCell3;
     private TextInfoPrivacyCell checkTextView;
     private LinearLayout linearLayout;
     private ActionBarMenuItem doneButton;
 
     private LinearLayout linearLayoutTypeContainer;
+    private LinearLayout linearLayoutNoForwardsContainer;
     private RadioButtonCell radioButtonCell1;
     private RadioButtonCell radioButtonCell2;
+    private TextCheckCell noforwardsCheckCell;
     private LinearLayout adminnedChannelsLayout;
     private LinearLayout linkContainer;
     private LinearLayout publicContainer;
@@ -82,6 +88,8 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
     private TextSettingsCell textCell2;
 
     private boolean isPrivate;
+    private boolean noForwards;
+    private boolean updatedNoForwards = false;
 
     private TLRPC.Chat currentChat;
     private TLRPC.ChatFull info;
@@ -133,6 +141,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
         }
         isPrivate = !isForcePublic && TextUtils.isEmpty(currentChat.username);
         isChannel = ChatObject.isChannel(currentChat) && !currentChat.megagroup;
+        noForwards = currentChat.noforwards;
         if (isForcePublic && TextUtils.isEmpty(currentChat.username) || isPrivate && currentChat.creator) {
             TLRPC.TL_channels_checkUsername req = new TLRPC.TL_channels_checkUsername();
             req.username = "1";
@@ -399,6 +408,37 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
         manageLinksInfoCell = new TextInfoPrivacyCell(context);
         linearLayout.addView(manageLinksInfoCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+        /* no forwards */
+
+        linearLayoutNoForwardsContainer = new LinearLayout(context);
+        linearLayoutNoForwardsContainer.setOrientation(LinearLayout.VERTICAL);
+        linearLayoutNoForwardsContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        linearLayout.addView(linearLayoutNoForwardsContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        headerCell3 = new HeaderCell(context);
+        headerCell3.setHeight(46);
+        headerCell3.setText("Saving content");
+        linearLayoutNoForwardsContainer.addView(headerCell3);
+
+        noforwardsCheckCell = new TextCheckCell(context);
+        noforwardsCheckCell.setBackgroundDrawable(Theme.getSelectorDrawable(true));
+        noforwardsCheckCell.setTextAndCheck(
+                "Restrict saving content",
+                noForwards,
+                false
+        );
+        noforwardsCheckCell.setOnClickListener(v -> {
+            noForwards = !noForwards;
+            updatedNoForwards = true;
+            noforwardsCheckCell.setChecked(noForwards);
+        });
+        linearLayoutNoForwardsContainer.addView(noforwardsCheckCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        typeInfoCell2 = new TextInfoPrivacyCell(context);
+        typeInfoCell2.setText("Participants won’t be able to forward messages from this group or save media files.");
+        linearLayout.addView(typeInfoCell2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+
         if (!isPrivate && currentChat.username != null) {
             ignoreTextChanges = true;
             usernameTextView.setText(currentChat.username);
@@ -434,9 +474,17 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
     }
 
     private void processDone() {
-        if (trySetUsername()) {
+        if (trySetUsername() && trySetNoForwards()) {
             finishFragment();
         }
+    }
+
+    private boolean trySetNoForwards() {
+        if (currentChat.noforwards != noForwards) {
+            getMessagesController().toggleNoForwards(currentChat, noForwards, this);
+            currentChat.noforwards = noForwards;
+        }
+        return true;
     }
 
     private boolean trySetUsername() {
@@ -797,6 +845,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
         themeDescriptions.add(new ThemeDescription(radioButtonCell2, ThemeDescription.FLAG_CHECKBOXCHECK, new Class[]{RadioButtonCell.class}, new String[]{"radioButton"}, null, null, null, Theme.key_radioBackgroundChecked));
         themeDescriptions.add(new ThemeDescription(radioButtonCell2, ThemeDescription.FLAG_TEXTCOLOR, new Class[]{RadioButtonCell.class}, new String[]{"textView"}, null, null, null, Theme.key_windowBackgroundWhiteBlackText));
         themeDescriptions.add(new ThemeDescription(radioButtonCell2, ThemeDescription.FLAG_TEXTCOLOR, new Class[]{RadioButtonCell.class}, new String[]{"valueTextView"}, null, null, null, Theme.key_windowBackgroundWhiteGrayText2));
+        // TODO(dkaraush): theme descriptions for noforwardsCheckCell
 
         themeDescriptions.add(new ThemeDescription(adminnedChannelsLayout, ThemeDescription.FLAG_TEXTCOLOR, new Class[]{AdminedChannelCell.class}, new String[]{"nameTextView"}, null, null, null, Theme.key_windowBackgroundWhiteBlackText));
         themeDescriptions.add(new ThemeDescription(adminnedChannelsLayout, ThemeDescription.FLAG_TEXTCOLOR, new Class[]{AdminedChannelCell.class}, new String[]{"statusTextView"}, null, null, null, Theme.key_windowBackgroundWhiteGrayText));

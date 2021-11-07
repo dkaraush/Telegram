@@ -2921,6 +2921,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     oldChat.photo = chat.photo;
                     oldChat.broadcast = chat.broadcast;
                     oldChat.verified = chat.verified;
+                    oldChat.noforwards = chat.noforwards;
                     oldChat.megagroup = chat.megagroup;
                     oldChat.call_not_empty = chat.call_not_empty;
                     oldChat.call_active = chat.call_active;
@@ -2997,6 +2998,7 @@ public class MessagesController extends BaseController implements NotificationCe
                 chat.photo = oldChat.photo;
                 chat.broadcast = oldChat.broadcast;
                 chat.verified = oldChat.verified;
+                chat.noforwards = oldChat.noforwards;
                 chat.megagroup = oldChat.megagroup;
 
                 if (oldChat.default_banned_rights != null) {
@@ -9152,6 +9154,18 @@ public class MessagesController extends BaseController implements NotificationCe
         }, ConnectionsManager.RequestFlagInvokeAfter);
     }
 
+    public void toggleNoForwards(TLRPC.Chat chat, boolean enabled, BaseFragment fragment) {
+        TLRPC.TL_messages_toggleNoForwards req = new TLRPC.TL_messages_toggleNoForwards();
+        req.peer = getInputPeer(chat);
+        req.enabled = enabled;
+        getConnectionsManager().sendRequest(req, (response, error) -> {
+            if (error != null) {
+                return;
+            }
+            processUpdates((TLRPC.Updates) response, false);
+        });
+    }
+
     public void sendBotStart(final TLRPC.User user, String botHash) {
         if (user == null) {
             return;
@@ -11084,6 +11098,7 @@ public class MessagesController extends BaseController implements NotificationCe
         boolean needGetDiff = false;
         boolean needReceivedQueue = false;
         boolean updateStatus = false;
+        FileLog.d("processUpdates(" + updates + ")");
         if (updates instanceof TLRPC.TL_updateShort) {
             ArrayList<TLRPC.Update> arr = new ArrayList<>();
             arr.add(updates.update);
