@@ -9161,7 +9161,7 @@ public class MessagesController extends BaseController implements NotificationCe
         getConnectionsManager().sendRequest(req, (response, error) -> {
             if (error == null) {
                 processUpdates((TLRPC.Updates) response, false);
-            } else if (error.text.equals("MESSAGE_NOT_UPDATED")) {
+            } else if (error.text != null && error.text.equals("MESSAGE_NOT_UPDATED")) {
                 chat.noforwards = enabled;
             }
 

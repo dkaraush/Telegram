@@ -781,8 +781,8 @@
     <string name="EventLogToggledInvitesOff">un1 disabled group invites</string>
     <string name="EventLogToggledSignaturesOn">un1 enabled signatures</string>
     <string name="EventLogToggledSignaturesOff">un1 disabled signatures</string>
-    <string name="EventLogToggledNoForwardsOn">un1 enabled forwarding</string>
-    <string name="EventLogToggledNoForwardsOff">un1 disabled forwarding</string>
+    <string name="EventLogToggledNoForwardsOn">un1 restricted to forward messages</string>
+    <string name="EventLogToggledNoForwardsOff">un1 allowed to forward messages</string>
     <string name="EventLogRestrictedUntil">changed permissions for %1$s\n\nDuration: %2$s</string>
     <string name="EventLogDefaultPermissions">changed default permissions</string>
     <string name="EventLogRestrictedSendStickers">Send stickers &amp; GIFs</string>

@@ -1066,12 +1066,15 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
     private VelocityTracker velocityTracker;
 
     private boolean isActionModeShowed;
+    private boolean isForwardingAllowed;
 
     final Delegate delegate;
 
-    public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, boolean membersFirst, BaseFragment parent, Delegate delegate, int viewType) {
+    public SharedMediaLayout(Context context, long did, SharedMediaPreloader preloader, int commonGroupsCount, ArrayList<Integer> sortedUsers, TLRPC.ChatFull chatInfo, boolean membersFirst, BaseFragment parent, Delegate delegate, int viewType, boolean allowForwarding) {
         super(context);
         this.viewType = viewType;
+
+        isForwardingAllowed = allowForwarding;
 
         globalGradientView = new FlickerLoadingView(context);
         globalGradientView.setIsSingleCell(true);
@@ -1431,7 +1434,17 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
             forwardItem.setDuplicateParentStateEnabled(false);
             actionModeLayout.addView(forwardItem, new LinearLayout.LayoutParams(AndroidUtilities.dp(54), ViewGroup.LayoutParams.MATCH_PARENT));
             actionModeViews.add(forwardItem);
-            forwardItem.setOnClickListener(v -> onActionBarItemClick(forward));
+            if (isForwardingAllowed) {
+                forwardItem.setOnClickListener(v -> onActionBarItemClick(forward));
+            } else {
+                forwardItem.setAlpha(0.6f);
+                forwardItem.setEnabled(false);
+//                HintView forwardItemHint = new HintView(context, 4);
+//                forwardItemHint.setText("Forwards from this channel are restricted");
+//                forwardItemHint.setVisibility(View.INVISIBLE);
+//                forwardItem.setOnClickListener(v -> forwardItemHint.showForView(forwardItem, true));
+//                addView(forwardItemHint);
+            }
         }
         deleteItem = new ActionBarMenuItem(context, null, Theme.getColor(Theme.key_actionBarActionModeDefaultSelector), Theme.getColor(Theme.key_windowBackgroundWhiteGrayText2), false);
         deleteItem.setIcon(R.drawable.msg_delete);

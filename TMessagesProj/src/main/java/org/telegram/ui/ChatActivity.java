@@ -1830,7 +1830,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (currentUser != null) {
             MediaController.getInstance().stopMediaObserver();
         }
-        if (currentEncryptedChat != null) {
+        if (currentEncryptedChat != null || (currentChat != null && currentChat.noforwards)) {
             try {
                 if (Build.VERSION.SDK_INT >= 23 && (SharedConfig.passcodeHash.length() == 0 || SharedConfig.allowScreenCapture)) {
                     AndroidUtilities.setFlagSecure(this, false);
@@ -2542,8 +2542,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         actionMode.getItem(copy).setVisibility(!noforwards && (selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0) ? View.VISIBLE : View.GONE);
         actionMode.getItem(star).setVisibility(selectedMessagesCanStarIds[0].size() + selectedMessagesCanStarIds[1].size() != 0 ? View.VISIBLE : View.GONE);
         actionMode.getItem(delete).setVisibility(cantDeleteMessagesCount == 0 ? View.VISIBLE : View.GONE);
-        actionMode.getItem(forward).setVisibility(!noforwards ? View.VISIBLE : View.GONE);
-        actionMode.getItem(save_to).setVisibility(!noforwards ? View.VISIBLE : View.GONE);
         checkActionBarMenu(false);
 
         scrimPaint = new Paint() {
@@ -7697,7 +7695,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
 
         try {
-            if (currentEncryptedChat != null && Build.VERSION.SDK_INT >= 23 && (SharedConfig.passcodeHash.length() == 0 || SharedConfig.allowScreenCapture)) {
+            if ((currentEncryptedChat != null || (currentChat != null && currentChat.noforwards)) && Build.VERSION.SDK_INT >= 23 && (SharedConfig.passcodeHash.length() == 0 || SharedConfig.allowScreenCapture)) {
                 AndroidUtilities.setFlagSecure(this, true);
             }
         } catch (Throwable e) {
@@ -19525,6 +19523,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 currentChat != null && (ChatObject.isNotInChat(currentChat) && !isThreadChat() || ChatObject.isChannel(currentChat) && !ChatObject.canPost(currentChat) && !currentChat.megagroup || !ChatObject.canSendMessages(currentChat))) {
             allowChatActions = false;
         }
+        boolean hasCancelSending = false;
 
         if (single || type < 2 || type == 20) {
             if (getParentActivity() == null) {
@@ -19547,6 +19546,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     items.add(LocaleController.getString("CancelSending", R.string.CancelSending));
                     options.add(24);
                     icons.add(R.drawable.msg_delete);
+                    hasCancelSending = true;
                 } else if (type == 0) {
                     items.add(LocaleController.getString("Retry", R.string.Retry));
                     options.add(0);
@@ -20226,7 +20226,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 scrimPopupContainerLayout.addView(messageSeenLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 60));
             }
             scrimPopupContainerLayout.addView(popupLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, showMessageSeen ? -8 : 0, 0, 0));
-            if (noforwards) {
+            if (noforwards && !hasCancelSending) {
                 Drawable shadowDrawable2 = ContextCompat.getDrawable(contentView.getContext(), R.drawable.popup_fixed_alert).mutate();
                 shadowDrawable2.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), PorterDuff.Mode.MULTIPLY));
                 TextView noforwardsText = new TextView(getParentActivity());
@@ -22476,11 +22476,14 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             ActionBarMenuItem copyItem = actionBar.createActionMode().getItem(copy);
             ActionBarMenuItem forwardItem = actionBar.createActionMode().getItem(forward);
 
-            copyItem.setVisibility(!noforwards && (selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0) ? View.VISIBLE : View.GONE);
-            forwardItem.setVisibility(!noforwards ? View.VISIBLE : View.GONE);
+            if (copyItem != null)
+                copyItem.setVisibility(!noforwards && (selectedMessagesCanCopyIds[0].size() + selectedMessagesCanCopyIds[1].size() != 0) ? View.VISIBLE : View.GONE);
+            if (forwardItem != null)
+                forwardItem.setVisibility(!noforwards ? View.VISIBLE : View.GONE);
             // forwardItem.setAlpha(!noforwards ? 1f : 0.5f);
             // forwardItem.setTooltipText(noforwards ? "Forwards from this group are restricted." : null);
-            saveItem.setVisibility(!noforwards ? View.VISIBLE : View.GONE);
+            if (saveItem != null)
+                saveItem.setVisibility(!noforwards ? View.VISIBLE : View.GONE);
         }
 
         if (forwardButton != null) {

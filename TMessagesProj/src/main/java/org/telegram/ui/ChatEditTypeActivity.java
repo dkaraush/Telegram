@@ -421,7 +421,6 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
 
         noforwardsCheckCell = new TextCheckCell(context);
         noforwardsCheckCell.setBackgroundDrawable(Theme.getSelectorDrawable(true));
-        noForwardsUpdated = false;
         noforwardsCheckCell.setTextAndCheck(
                 LocaleController.getString("GroupSavingContent", R.string.GroupSavingContent),
                 noForwards,
@@ -435,7 +434,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
 
         typeInfoCell2 = new TextInfoPrivacyCell(context);
         typeInfoCell2.setText(LocaleController.getString("GroupSavingContentHelp", R.string.GroupSavingContentHelp));
-        linearLayout.addView(typeInfoCell2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        linearLayout.addView(typeInfoCell2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 69));
 
 
         if (!isPrivate && currentChat.username != null) {

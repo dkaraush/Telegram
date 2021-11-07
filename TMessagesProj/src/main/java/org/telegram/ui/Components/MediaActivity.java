@@ -162,6 +162,43 @@ public class MediaActivity extends BaseFragment implements SharedMediaLayout.Sha
                 return textView;
             }
         };
+
+        boolean noforwards = false;
+        TLObject avatarObject = null;
+        if (DialogObject.isEncryptedDialog(dialogId)) {
+            TLRPC.EncryptedChat encryptedChat = getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
+            if (encryptedChat != null) {
+                TLRPC.User user = getMessagesController().getUser(encryptedChat.user_id);
+                if (user != null) {
+                    nameTextView.setText(ContactsController.formatName(user.first_name, user.last_name));
+                    avatarDrawable.setInfo(user);
+                    avatarObject = user;
+                }
+            }
+        } else if (DialogObject.isUserDialog(dialogId)) {
+            TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(dialogId);
+            if (user != null) {
+                if (user.self) {
+                    nameTextView.setText(LocaleController.getString("SavedMessages", R.string.SavedMessages));
+                    avatarDrawable.setAvatarType(AvatarDrawable.AVATAR_TYPE_SAVED);
+                    avatarDrawable.setSmallSize(true);
+                } else {
+                    nameTextView.setText(ContactsController.formatName(user.first_name, user.last_name));
+                    avatarDrawable.setInfo(user);
+                    avatarObject = user;
+                }
+            }
+
+        } else {
+            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
+            if (chat != null) {
+                nameTextView.setText(chat.title);
+                avatarDrawable.setInfo(chat);
+                avatarObject = chat;
+                noforwards = chat.noforwards;
+            }
+        }
+
         avatarContainer.addView(mediaCounterTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 118, 0, 56, 0));
         sharedMediaLayout = new SharedMediaLayout(context, dialogId, sharedMediaPreloader, 0, null, currentChatInfo, false, this, new SharedMediaLayout.Delegate() {
             @Override
@@ -198,7 +235,7 @@ public class MediaActivity extends BaseFragment implements SharedMediaLayout.Sha
             public void updateSelectedMediaTabText() {
                 updateMediaCount();
             }
-        }, SharedMediaLayout.VIEW_TYPE_MEDIA_ACTIVITY) {
+        }, SharedMediaLayout.VIEW_TYPE_MEDIA_ACTIVITY, !noforwards) {
             @Override
             protected void onSelectedTabChanged() {
                 updateMediaCount();
@@ -220,40 +257,6 @@ public class MediaActivity extends BaseFragment implements SharedMediaLayout.Sha
         fragmentView.addView(sharedMediaLayout);
         fragmentView.addView(actionBar);
         fragmentView.addView(avatarContainer);
-
-        TLObject avatarObject = null;
-        if (DialogObject.isEncryptedDialog(dialogId)) {
-            TLRPC.EncryptedChat encryptedChat = getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
-            if (encryptedChat != null) {
-                TLRPC.User user = getMessagesController().getUser(encryptedChat.user_id);
-                if (user != null) {
-                    nameTextView.setText(ContactsController.formatName(user.first_name, user.last_name));
-                    avatarDrawable.setInfo(user);
-                    avatarObject = user;
-                }
-            }
-        } else if (DialogObject.isUserDialog(dialogId)) {
-            TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(dialogId);
-            if (user != null) {
-                if (user.self) {
-                    nameTextView.setText(LocaleController.getString("SavedMessages", R.string.SavedMessages));
-                    avatarDrawable.setAvatarType(AvatarDrawable.AVATAR_TYPE_SAVED);
-                    avatarDrawable.setSmallSize(true);
-                } else {
-                    nameTextView.setText(ContactsController.formatName(user.first_name, user.last_name));
-                    avatarDrawable.setInfo(user);
-                    avatarObject = user;
-                }
-            }
-
-        } else {
-            TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(-dialogId);
-            if (chat != null) {
-                nameTextView.setText(chat.title);
-                avatarDrawable.setInfo(chat);
-                avatarObject = chat;
-            }
-        }
 
         final ImageLocation thumbLocation = ImageLocation.getForUserOrChat(avatarObject, ImageLocation.TYPE_SMALL);
         avatarImageView.setImage(thumbLocation, "50_50", avatarDrawable, avatarObject);
