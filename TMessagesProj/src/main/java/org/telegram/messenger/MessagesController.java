@@ -9154,15 +9154,19 @@ public class MessagesController extends BaseController implements NotificationCe
         }, ConnectionsManager.RequestFlagInvokeAfter);
     }
 
-    public void toggleNoForwards(TLRPC.Chat chat, boolean enabled, BaseFragment fragment) {
+    public void toggleNoForwards(TLRPC.Chat chat, boolean enabled, Runnable onFinishRunnable) {
         TLRPC.TL_messages_toggleNoForwards req = new TLRPC.TL_messages_toggleNoForwards();
         req.peer = getInputPeer(chat);
         req.enabled = enabled;
         getConnectionsManager().sendRequest(req, (response, error) -> {
-            if (error != null) {
-                return;
+            if (error == null) {
+                processUpdates((TLRPC.Updates) response, false);
+            } else if (error.text.equals("MESSAGE_NOT_UPDATED")) {
+                chat.noforwards = enabled;
             }
-            processUpdates((TLRPC.Updates) response, false);
+
+            if (onFinishRunnable != null)
+                AndroidUtilities.runOnUIThread(onFinishRunnable);
         });
     }
 
@@ -9185,6 +9189,10 @@ public class MessagesController extends BaseController implements NotificationCe
 
     public boolean isJoiningChannel(long chatId) {
         return joiningToChannels.contains(chatId);
+    }
+
+    public void deleteParticipantFromChat(long chatId, TLRPC.User user, TLRPC.ChatFull info) {
+        deleteParticipantFromChat(chatId, user, null, info, false, false);
     }
 
     public void addUserToChat(long chatId, TLRPC.User user, int forwardCount, String botHash, BaseFragment fragment, Runnable onFinishRunnable) {
@@ -9272,10 +9280,6 @@ public class MessagesController extends BaseController implements NotificationCe
                 AndroidUtilities.runOnUIThread(onFinishRunnable);
             }
         });
-    }
-
-    public void deleteParticipantFromChat(long chatId, TLRPC.User user, TLRPC.ChatFull info) {
-        deleteParticipantFromChat(chatId, user, null, info, false, false);
     }
 
     public void deleteParticipantFromChat(long chatId, TLRPC.User user, TLRPC.Chat chat, TLRPC.ChatFull info, boolean forceDelete, boolean revoke) {
@@ -11098,7 +11102,6 @@ public class MessagesController extends BaseController implements NotificationCe
         boolean needGetDiff = false;
         boolean needReceivedQueue = false;
         boolean updateStatus = false;
-        FileLog.d("processUpdates(" + updates + ")");
         if (updates instanceof TLRPC.TL_updateShort) {
             ArrayList<TLRPC.Update> arr = new ArrayList<>();
             arr.add(updates.update);

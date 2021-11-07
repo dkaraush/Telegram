@@ -421,6 +421,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
 
         noforwardsCheckCell = new TextCheckCell(context);
         noforwardsCheckCell.setBackgroundDrawable(Theme.getSelectorDrawable(true));
+        noForwardsUpdated = false;
         noforwardsCheckCell.setTextAndCheck(
                 LocaleController.getString("GroupSavingContent", R.string.GroupSavingContent),
                 noForwards,
@@ -477,10 +478,15 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
         }
     }
 
+    private boolean noForwardsUpdated = false;
     private boolean trySetNoForwards() {
-        if (currentChat.noforwards != noForwards) {
-            getMessagesController().toggleNoForwards(currentChat, noForwards, this);
-            currentChat.noforwards = noForwards;
+        if (!noForwardsUpdated) {
+            getMessagesController().toggleNoForwards(currentChat, noForwards, () -> {
+                currentChat.noforwards = noForwards;
+                noForwardsUpdated = true;
+                processDone();
+            });
+            return false;
         }
         return true;
     }

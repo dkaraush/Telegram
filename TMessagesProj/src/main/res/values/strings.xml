@@ -1238,6 +1238,8 @@
     <string name="HiddenSendersNameDescription">Sender names removed</string>
     <string name="ForwardingFromNameAndMessage">%s: %s</string>
     <string name="ForwardingFromNames">From %s</string>
+    <string name="ChannelForwardsRestricted">Forwards from this channel are restricted.</string>
+    <string name="GroupForwardsRestricted">Forwards from this group are restricted.</string>
     <!--notification-->
     <string name="MessageLifetimeChanged">%1$s set the self-destruct timer to %2$s</string>
     <string name="MessageLifetimeChangedOutgoing">You set the self-destruct timer to %1$s</string>
