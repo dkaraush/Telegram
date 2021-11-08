@@ -171,6 +171,7 @@ import org.telegram.ui.Cells.TextSelectionHelper;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.AnimatedFileDrawable;
 import org.telegram.ui.Components.AnimationProperties;
+import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.BlurBehindDrawable;
 import org.telegram.ui.Components.BluredView;
@@ -1399,6 +1400,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             if (inlineQuery != null) {
                 getMessagesController().sendBotStart(currentUser, inlineQuery);
             }
+            if (chatActivityEnterView != null)
+                chatActivityEnterView.setSendAs(new AvatarDrawable(currentUser));
         } else if (encId != 0) {
             currentEncryptedChat = getMessagesController().getEncryptedChat(encId);
             final MessagesStorage messagesStorage = getMessagesStorage();
@@ -6750,6 +6753,11 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             int lastSize;
 
             @Override
+            public void onSendAsClick(boolean closeShown) {
+
+            }
+
+            @Override
             public void onMessageSend(CharSequence message, boolean notify, int scheduleDate) {
                 if (chatListItemAnimator != null) {
                     chatActivityEnterViewAnimateFromTop = chatActivityEnterView.getBackgroundTop();
@@ -7120,6 +7128,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (!ChatObject.isChannel(currentChat) || currentChat.megagroup) {
             chatActivityEnterView.setBotInfo(botInfo);
         }
+        if (chatActivityEnterView != null)
+            chatActivityEnterView.setSendAs(new AvatarDrawable(currentUser));
         contentView.addView(chatActivityEnterView, contentView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
 
         chatActivityEnterTopView = new ChatActivityEnterTopView(context) {
@@ -8171,6 +8181,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (button != null) {
             button.setTextColor(getThemedColor(Theme.key_dialogTextRed2));
         }
+    }
+
+    private boolean shouldShowSendAs() {
+        return currentChat != null && currentChat.megagroup && (!currentChat.username.isEmpty() || currentChat.has_geo) || currentChat.has_link;
     }
 
     private void openPinnedMessagesList(boolean preview) {
@@ -12696,6 +12710,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 return;
             }
             currentUser = user;
+            if (chatActivityEnterView != null)
+                chatActivityEnterView.setSendAs(new AvatarDrawable(currentUser));
         } else if (currentChat != null) {
             TLRPC.Chat chat = getMessagesController().getChat(currentChat.id);
             if (chat == null) {
@@ -14058,6 +14074,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     TLRPC.User user = getMessagesController().getUser(currentUser.id);
                     if (user != null) {
                         currentUser = user;
+                        if (chatActivityEnterView != null)
+                            chatActivityEnterView.setSendAs(new AvatarDrawable(currentUser));
                     }
                 }
                 updateTitle();

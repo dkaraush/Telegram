@@ -211,6 +211,11 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         default boolean hasForwardingMessages() {
             return false;
         }
+
+        default void onSendAsClick(boolean closeShown) {
+        }
+
+        ;
     }
 
     private final static int RECORD_STATE_ENTER = 0;
@@ -248,6 +253,18 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
     private float searchToOpenProgress;
 
     private HashMap<View, Float> animationParamsX = new HashMap<>();
+
+    private Drawable sendAsAvatar = null;
+
+    public void setSendAs(Drawable avatar) {
+        boolean hadSendAs = sendAsAvatar != null;
+        sendAsAvatar = avatar;
+        sendAsButton.setVisibility(avatar != null ? View.VISIBLE : View.GONE);
+        sendAsButton.setAvatar(sendAsAvatar);
+        if (hadSendAs == (avatar != null)) {
+            invalidate();
+        }
+    }
 
     private class SeekBarWaveformView extends View {
 
@@ -324,6 +341,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
     private ActionBarPopupWindow sendPopupWindow;
     private ActionBarPopupWindow.ActionBarPopupWindowLayout sendPopupLayout;
     private ImageView cancelBotButton;
+    private CloseableAvatar sendAsButton;
     private ImageView[] emojiButton = new ImageView[2];
     @SuppressWarnings("FieldCanBeLocal")
     private ImageView emojiButton1;
@@ -1725,6 +1743,23 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         };
         frameLayout.setClipChildren(false);
         textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, 48, 0));
+
+        sendAsButton = new CloseableAvatar(context, AndroidUtilities.dp(3));
+        if (sendAsAvatar == null) {
+            sendAsButton.setVisibility(View.GONE);
+        } else {
+            sendAsButton.setAvatar(sendAsAvatar);
+        }
+        if (Build.VERSION.SDK_INT >= 21) {
+            sendAsButton.setBackgroundDrawable(Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector)));
+        }
+        sendAsButton.setOnClickListener(view -> {
+            sendAsButton.toggleShowClose();
+            if (delegate != null) {
+                delegate.onSendAsClick(sendAsButton.showClose);
+            }
+        });
+        frameLayout.addView(sendAsButton, LayoutHelper.createFrame(48, 48, Gravity.BOTTOM | Gravity.LEFT, 3, 0, 0, 0));
 
         for (int a = 0; a < 2; a++) {
             emojiButton[a] = new ImageView(context) {
@@ -3957,6 +3992,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                         ObjectAnimator.ofFloat(botCommandsMenuButton, View.SCALE_Y, 1.0f)
                 );
             }
+
             recordPannelAnimation.setDuration(150);
             recordPannelAnimation.addListener(new AnimatorListenerAdapter() {
                 @Override
@@ -8400,18 +8436,21 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+        int additionallLeftMargin = 0;
         if (botCommandsMenuButton != null && botCommandsMenuButton.getTag() != null) {
             botCommandsMenuButton.measure(widthMeasureSpec, heightMeasureSpec);
-            for (int i = 0; i < emojiButton.length; i++) {
-                ((MarginLayoutParams) emojiButton[i].getLayoutParams()).leftMargin = AndroidUtilities.dp(10) + botCommandsMenuButton.getMeasuredWidth();
-            }
-            ((MarginLayoutParams) messageEditText.getLayoutParams()).leftMargin = AndroidUtilities.dp(57) + botCommandsMenuButton.getMeasuredWidth();
-        } else {
-            for (int i = 0; i < emojiButton.length; i++) {
-                ((MarginLayoutParams) emojiButton[i].getLayoutParams()).leftMargin = AndroidUtilities.dp(3);
-            }
-            ((MarginLayoutParams) messageEditText.getLayoutParams()).leftMargin = AndroidUtilities.dp(50);
+            additionallLeftMargin += AndroidUtilities.dp(7) + botCommandsMenuButton.getMeasuredWidth();
         }
+        if (sendAsAvatar != null) {
+            ((MarginLayoutParams) sendAsButton.getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionallLeftMargin;
+            additionallLeftMargin += sendAsButton.getMeasuredWidth() - AndroidUtilities.dp(3);
+        }
+        for (int i = 0; i < emojiButton.length; i++) {
+            ((MarginLayoutParams) emojiButton[i].getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionallLeftMargin;
+        }
+        ((MarginLayoutParams) messageEditText.getLayoutParams()).leftMargin = AndroidUtilities.dp(50) + additionallLeftMargin;
+
         if (botCommandsMenuContainer != null) {
             int padding;
             if (botCommandsAdapter.getItemCount() > 4) {

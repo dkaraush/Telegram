@@ -1,0 +1,75 @@
+package org.telegram.ui.Components;
+
+import android.content.Context;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.OvalShape;
+import android.graphics.drawable.shapes.Shape;
+import android.view.Gravity;
+import android.view.ViewPropertyAnimator;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
+
+import org.telegram.messenger.R;
+import org.telegram.ui.ActionBar.Theme;
+
+public class CloseableAvatar extends FrameLayout {
+
+    public boolean showClose = false;
+    private RelativeLayout layout;
+    private ImageView avatar;
+    private ImageView closeIcon;
+
+    public CloseableAvatar(Context context) {
+        this(context, 0);
+    }
+    public CloseableAvatar(Context context,  float padding) {
+        super(context);
+
+        layout = new RelativeLayout(context);
+        addView(layout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL, padding, padding, padding, padding));
+
+        ShapeDrawable shape = new ShapeDrawable(new OvalShape());
+        shape.getPaint().setColor(Theme.getColor(Theme.key_changephoneinfo_image2));
+        layout.setBackground(shape);
+
+        avatar = new ImageView(context);
+        avatar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        avatar.setImageResource(R.drawable.widget_avatar_2);
+        layout.addView(avatar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
+        avatar.setAlpha(showClose ? 0f : 1f);
+
+        closeIcon = new ImageView(context);
+        closeIcon.setImageResource(R.drawable.ic_close_white);
+        closeIcon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        closeIcon.setRotation(45f);
+        closeIcon.setAlpha(0f);
+        layout.addView(closeIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER, 4f, 4f, 4f, 4f));
+    }
+
+    public void setAvatar(Drawable drawable) {
+//        avatar.setImageDrawable(drawable);
+    }
+
+    public void toggleShowClose() {
+        setShowClose(!showClose);
+    }
+
+    private ViewPropertyAnimator closeIconAnimation;
+    private ViewPropertyAnimator avatarAnimation;
+    public void setShowClose(boolean enabled) {
+        showClose = enabled;
+
+        if (closeIconAnimation != null)
+            closeIconAnimation.cancel();
+        if (avatarAnimation != null)
+            avatarAnimation.cancel();
+
+        avatarAnimation = avatar.animate().alpha(enabled ? 0f : 1f).setDuration(150);
+        closeIconAnimation = closeIcon.animate().rotation(enabled ? 0f : 45f).alpha(enabled ? 1f : 0f).setDuration(150);
+    }
+}
