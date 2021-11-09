@@ -27,7 +27,7 @@ public class CloseableAvatar extends FrameLayout {
     public CloseableAvatar(Context context) {
         this(context, 0);
     }
-    public CloseableAvatar(Context context,  float padding) {
+    public CloseableAvatar(Context context, float padding) {
         super(context);
 
         layout = new RelativeLayout(context);
@@ -39,20 +39,20 @@ public class CloseableAvatar extends FrameLayout {
 
         avatar = new ImageView(context);
         avatar.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        avatar.setImageResource(R.drawable.widget_avatar_2);
+//        avatar.setImageResource(R.drawable.widget_avatar_2);
         layout.addView(avatar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
         avatar.setAlpha(showClose ? 0f : 1f);
 
         closeIcon = new ImageView(context);
         closeIcon.setImageResource(R.drawable.ic_close_white);
         closeIcon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        closeIcon.setRotation(45f);
+        closeIcon.setRotation(90f);
         closeIcon.setAlpha(0f);
         layout.addView(closeIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER, 4f, 4f, 4f, 4f));
     }
 
     public void setAvatar(Drawable drawable) {
-//        avatar.setImageDrawable(drawable);
+        avatar.setImageDrawable(drawable);
     }
 
     public void toggleShowClose() {
@@ -62,14 +62,17 @@ public class CloseableAvatar extends FrameLayout {
     private ViewPropertyAnimator closeIconAnimation;
     private ViewPropertyAnimator avatarAnimation;
     public void setShowClose(boolean enabled) {
+        boolean toggled = enabled != showClose;
         showClose = enabled;
 
-        if (closeIconAnimation != null)
-            closeIconAnimation.cancel();
-        if (avatarAnimation != null)
-            avatarAnimation.cancel();
+        if (toggled) {
+            if (closeIconAnimation != null)
+                closeIconAnimation.cancel();
+            if (avatarAnimation != null)
+                avatarAnimation.cancel();
 
-        avatarAnimation = avatar.animate().alpha(enabled ? 0f : 1f).setDuration(150);
-        closeIconAnimation = closeIcon.animate().rotation(enabled ? 0f : 45f).alpha(enabled ? 1f : 0f).setDuration(150);
+            avatarAnimation = avatar.animate().alpha(enabled ? 0f : 1f).setDuration(150);
+            closeIconAnimation = closeIcon.animate().rotation(enabled ? 0f : 90f).alpha(enabled ? 1f : 0f).setDuration(150);
+        }
     }
 }

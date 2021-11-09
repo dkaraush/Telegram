@@ -9161,12 +9161,63 @@ public class MessagesController extends BaseController implements NotificationCe
         getConnectionsManager().sendRequest(req, (response, error) -> {
             if (error == null) {
                 processUpdates((TLRPC.Updates) response, false);
-            } else if (error.text != null && error.text.equals("MESSAGE_NOT_UPDATED")) {
+            } else if (error.text != null && error.text.equals("CHAT_NOT_MODIFIED")) {
                 chat.noforwards = enabled;
             }
 
             if (onFinishRunnable != null)
                 AndroidUtilities.runOnUIThread(onFinishRunnable);
+        });
+    }
+
+    public interface SendAsPeersCallback {
+        void run(boolean success, ArrayList<TLRPC.Peer> peers);
+    }
+    public void loadSendAsPeers(TLRPC.Chat chat, SendAsPeersCallback onReceive) {
+        TLRPC.TL_channels_getSendAs req = new TLRPC.TL_channels_getSendAs();
+        req.peer = getInputPeer(chat);
+        getConnectionsManager().sendRequest(req, (res, error) -> {
+            if (res instanceof TLRPC.TL_channels_sendAsPeers) {
+                TLRPC.TL_channels_sendAsPeers response = (TLRPC.TL_channels_sendAsPeers) res;
+                putChats(response.chats, false);
+                putUsers(response.users, false);
+                if (onReceive != null) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        onReceive.run(true, response.peers);
+                    });
+                }
+            } else {
+                if (onReceive != null) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        onReceive.run(false, new ArrayList());
+                    });
+                }
+            }
+        });
+    }
+    public void saveDefaultSaveAs(TLRPC.Chat chat, TLRPC.Peer send_as, MessagesStorage.BooleanCallback onFinish) {
+        TLRPC.TL_messages_saveDefaultSendAs req = new TLRPC.TL_messages_saveDefaultSendAs();
+        req.peer = getInputPeer(chat);
+        req.send_as = getInputPeer(send_as);
+        getConnectionsManager().sendRequest(req, (res, error) -> {
+            if (res instanceof TLRPC.TL_boolTrue) {
+                TLRPC.ChatFull chatFull = getChatFull(chat.id);
+                if (chatFull != null) {
+                    chatFull.default_send_as = send_as;
+                }
+
+                if (onFinish != null) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        onFinish.run(true);
+                    });
+                }
+            } else {
+                if (onFinish != null) {
+                    AndroidUtilities.runOnUIThread(() -> {
+                        onFinish.run(false);
+                    });
+                }
+            }
         });
     }
 
