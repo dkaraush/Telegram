@@ -7146,6 +7146,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             @Override
             public void onSelect(TLRPC.Peer peer) {
                 setDefaultSendAs(peer);
+                sendAsPopup.show(false);
+                if (chatActivityEnterView != null) {
+                    chatActivityEnterView.setSendAsShowClose(false);
+                }
             }
         });
         contentView.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));

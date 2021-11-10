@@ -1683,6 +1683,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             ArrayList<Integer> ids = new ArrayList<>();
             LongSparseArray<TLRPC.Message> messagesByRandomIds = new LongSparseArray<>();
             TLRPC.InputPeer inputPeer = getMessagesController().getInputPeer(peer);
+            TLRPC.InputPeer sendAs = getSendAs(inputPeer);
             long lastDialogId = 0;
             final boolean toMyself = peer == myId;
             long lastGroupedId;
@@ -1881,6 +1882,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         newMsg.from_id = peer_id;
                     }
                     newMsg.post = true;
+                } else if (sendAs != null) {
+                    newMsg.from_id = getMessagesController().getPeer(DialogObject.getPeerDialogId(sendAs));
                 } else if (ChatObject.shouldSendAnonymously(chat)) {
                     newMsg.from_id = peer_id;
                     if (rank != null) {
@@ -1964,7 +1967,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     req.drop_author = forwardFromMyName;
                     req.drop_media_captions = hideCaption;
                     req.with_my_score = messages.size() == 1 && messages.get(0).messageOwner.with_my_score;
-                    TLRPC.InputPeer sendAs = getSendAs(inputPeer);
                     if (sendAs != null) {
                         req.send_as = sendAs;
                         req.flags |= 8192;
@@ -3142,6 +3144,7 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         TLRPC.EncryptedChat encryptedChat = null;
         TLRPC.InputPeer sendToPeer = !DialogObject.isEncryptedDialog(peer) ? getMessagesController().getInputPeer(peer) : null;
         long myId = getUserConfig().getClientUserId();
+        TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
         if (DialogObject.isEncryptedDialog(peer)) {
             encryptedChat = getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(peer));
             if (encryptedChat == null) {
@@ -3462,6 +3465,8 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 if (isChannel && sendToPeer != null) {
                     newMsg.from_id = new TLRPC.TL_peerChannel();
                     newMsg.from_id.channel_id = sendToPeer.channel_id;
+                } else if (sendAs != null) {
+                    newMsg.from_id = getMessagesController().getPeer(DialogObject.getPeerDialogId(sendAs));
                 } else if (anonymously) {
                     newMsg.from_id = getMessagesController().getPeer(peer);
                     if (rank != null) {
@@ -3673,7 +3678,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     reqSend.silent = newMsg.silent;
                     reqSend.peer = sendToPeer;
                     reqSend.random_id = newMsg.random_id;
-                    TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
                     if (sendAs != null) {
                         reqSend.send_as = sendAs;
                         reqSend.flags |= 8192;
@@ -4000,7 +4004,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             request = new TLRPC.TL_messages_sendMultiMedia();
                             request.peer = sendToPeer;
                             request.silent = newMsg.silent;
-                            TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
                             if (sendAs != null) {
                                 request.send_as = sendAs;
                                 request.flags |= 8192;
@@ -4052,7 +4055,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             request.schedule_date = scheduleDate;
                             request.flags |= 1024;
                         }
-                        TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
                         if (sendAs != null) {
                             request.send_as = sendAs;
                             request.flags |= 8192;
@@ -4382,7 +4384,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 TLRPC.TL_messages_forwardMessages reqSend = new TLRPC.TL_messages_forwardMessages();
                 reqSend.to_peer = sendToPeer;
                 reqSend.with_my_score = retryMessageObject.messageOwner.with_my_score;
-                TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
                 if (sendAs != null) {
                     reqSend.send_as = sendAs;
                     reqSend.flags |= 8192;
@@ -4437,7 +4438,6 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     reqSend.schedule_date = scheduleDate;
                     reqSend.flags |= 1024;
                 }
-                TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
                 if (sendAs != null) {
                     reqSend.send_as = sendAs;
                     reqSend.flags |= 8192;
