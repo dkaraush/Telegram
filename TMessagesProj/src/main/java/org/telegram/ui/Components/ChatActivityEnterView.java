@@ -257,6 +257,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         boolean hadSendAs = sendAsPeer != null;
         sendAsButton.setVisibility(peer != null ? View.VISIBLE : View.GONE);
         sendAsButton.setAvatar(sendAsPeer = peer);
+        if (recordedAudioPanel != null)
+            ((MarginLayoutParams) recordedAudioPanel.getLayoutParams()).leftMargin = sendAsPeer == null ? 0 : AndroidUtilities.dp(51);
         if (hadSendAs == (peer != null)) {
             requestLayout();
         }
@@ -2481,7 +2483,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         recordedAudioPanel.setFocusable(true);
         recordedAudioPanel.setFocusableInTouchMode(true);
         recordedAudioPanel.setClickable(true);
-        frameLayout.addView(recordedAudioPanel, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM));
+        frameLayout.addView(recordedAudioPanel, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, sendAsPeer == null ? 0 : 51, 0, 0, 0));
 
         recordDeleteImageView = new RLottieImageView(context);
         recordDeleteImageView.setScaleType(ImageView.ScaleType.CENTER);
@@ -5193,7 +5195,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     ObjectAnimator.ofFloat(recordTimerView, View.TRANSLATION_X, 0),
                     ObjectAnimator.ofFloat(recordTimerView, View.ALPHA, 1),
                     ObjectAnimator.ofFloat(slideText, View.TRANSLATION_X, 0),
-                    ObjectAnimator.ofFloat(slideText, View.ALPHA, 1)
+                    ObjectAnimator.ofFloat(slideText, View.ALPHA, 1),
+                    ObjectAnimator.ofFloat(sendAsButton, View.TRANSLATION_X, AndroidUtilities.dp(-51))
             );
             if (audioSendButton != null) {
                 iconChanges.playTogether(ObjectAnimator.ofFloat(audioSendButton, View.ALPHA, 0));
@@ -5317,7 +5320,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                         ObjectAnimator.ofFloat(audioVideoButtonContainer, View.ALPHA, 1.0f),
                         ObjectAnimator.ofFloat(messageEditText, View.ALPHA, 1),
                         ObjectAnimator.ofFloat(messageEditText, View.TRANSLATION_X, 0),
-                        ObjectAnimator.ofFloat(recordCircle, "slideToCancelProgress", 1f)
+                        ObjectAnimator.ofFloat(recordCircle, "slideToCancelProgress", 1f),
+                        ObjectAnimator.ofFloat(sendAsButton, View.TRANSLATION_X, 0)
                 );
                 if (botCommandsMenuButton != null) {
                     runningAnimationAudio.playTogether(
@@ -5409,6 +5413,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
                     FrameLayout.LayoutParams newLayoutParams = new FrameLayout.LayoutParams(parent.getMeasuredWidth(), AndroidUtilities.dp(48));
                     newLayoutParams.gravity = Gravity.BOTTOM;
+                    if (sendAsPeer != null)
+                        newLayoutParams.leftMargin = AndroidUtilities.dp(51);
                     sizeNotifierLayout.addView(recordedAudioPanel, newLayoutParams);
                     videoTimelineView.setVisibility(GONE);
                 } else {
@@ -5436,7 +5442,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                         ObjectAnimator.ofFloat(emojiButton[1], View.SCALE_Y, 0),
                         ObjectAnimator.ofFloat(emojiButton[1], View.SCALE_X, 0),
                         ObjectAnimator.ofFloat(emojiButton[1], View.ALPHA, 0),
-                        ObjectAnimator.ofFloat(messageEditText, View.ALPHA, 0)
+                        ObjectAnimator.ofFloat(messageEditText, View.ALPHA, 0),
+                        ObjectAnimator.ofFloat(sendAsButton, View.TRANSLATION_X, 0)
                 );
                 if (videoSendButton != null) {
                     iconsAnimator.playTogether(
@@ -5544,7 +5551,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                         ObjectAnimator.ofFloat(emojiButton[1], View.SCALE_X, 1),
                         ObjectAnimator.ofFloat(emojiButton[1], View.ALPHA, 1),
                         ObjectAnimator.ofFloat(recordDot, View.SCALE_Y, 0),
-                        ObjectAnimator.ofFloat(recordDot, View.SCALE_X, 0)
+                        ObjectAnimator.ofFloat(recordDot, View.SCALE_X, 0),
+                        ObjectAnimator.ofFloat(sendAsButton, View.TRANSLATION_X, 0)
                 );
 
                 if (botCommandsMenuButton != null) {
@@ -5701,7 +5709,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                         ObjectAnimator.ofFloat(emojiButton[1], View.ALPHA, 1),
                         ObjectAnimator.ofFloat(recordDot, View.SCALE_Y, 0),
                         ObjectAnimator.ofFloat(recordDot, View.SCALE_X, 0),
-                        ObjectAnimator.ofFloat(audioVideoButtonContainer, View.ALPHA, 1.0f)
+                        ObjectAnimator.ofFloat(audioVideoButtonContainer, View.ALPHA, 1.0f),
+                        ObjectAnimator.ofFloat(sendAsButton, View.TRANSLATION_X, 0)
                 );
                 if (botCommandsMenuButton != null) {
                     iconsAnimator.playTogether(
