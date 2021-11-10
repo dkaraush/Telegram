@@ -1811,7 +1811,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     }
                 }
                 setSendAsShowClose(false);
-                if (delegate != null) {
+                if (delegate != null && sendAsPeer != null) {
                     delegate.onSendAsClick(false);
                 }
             });
@@ -2285,7 +2285,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     }
                 });
                 setSendAsShowClose(false);
-                if (delegate != null) {
+                if (delegate != null && sendAsPeer != null) {
                     delegate.onSendAsClick(false);
                 }
             }
@@ -2308,7 +2308,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     botCommandsMenuContainer.dismiss();
                 }
                 setSendAsShowClose(false);
-                if (delegate != null) {
+                if (delegate != null && sendAsPeer != null) {
                     delegate.onSendAsClick(false);
                 }
             });
@@ -2407,7 +2407,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     setStickersExpanded(false, false, false);
                 }
                 setSendAsShowClose(false);
-                if (delegate != null) {
+                if (delegate != null && sendAsPeer != null) {
                     delegate.onSendAsClick(false);
                 }
             });
@@ -2450,7 +2450,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     updateFieldHint(true);
 
                     setSendAsShowClose(false);
-                    if (delegate != null) {
+                    if (delegate != null && sendAsPeer != null) {
                         delegate.onSendAsClick(false);
                     }
                 }
@@ -2471,7 +2471,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                 delegate.didPressAttachButton();
 
                 setSendAsShowClose(false);
-                if (delegate != null) {
+                if (delegate != null && sendAsPeer != null) {
                     delegate.onSendAsClick(false);
                 }
             });

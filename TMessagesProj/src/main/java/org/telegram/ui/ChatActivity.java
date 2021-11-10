@@ -3230,6 +3230,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     } else if (child == sendAsPopup) {
                         int contentWidthSpec = MeasureSpec.makeMeasureSpec(widthSize, MeasureSpec.EXACTLY);
                         int contentHeightSpec = MeasureSpec.makeMeasureSpec(allHeight - inputFieldHeight - chatEmojiViewPadding + AndroidUtilities.dp(2), MeasureSpec.EXACTLY);
+                        child.setPadding(0, actionBarHeight, 0, 0);
                         child.measure(contentWidthSpec, contentHeightSpec);
                     } else if (child == emptyViewContainer) {
                         int contentWidthSpec = MeasureSpec.makeMeasureSpec(widthSize, MeasureSpec.EXACTLY);
@@ -6756,7 +6757,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
             @Override
             public void onSendAsClick(boolean closeShown) {
-                if (sendAsPeers == null && !sendAsPeersLoading)
+                if (closeShown && sendAsPeers == null && !sendAsPeersLoading)
                     loadSendAsPeers();
                 sendAsPopup.show(closeShown);
             }
@@ -7132,7 +7133,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (!ChatObject.isChannel(currentChat) || currentChat.megagroup) {
             chatActivityEnterView.setBotInfo(botInfo);
         }
-        updateSendAs();
         contentView.addView(chatActivityEnterView, contentView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
 
         sendAsPopup = new SendAsPopupView(contentView.getContext(), new SendAsPopupView.SendAsPopupViewDelegate() {
@@ -7152,7 +7152,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
             }
         });
+        sendAsPopup.setPeers(sendAsPeers);
         contentView.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
+
+        updateSendAs();
 
         chatActivityEnterTopView = new ChatActivityEnterTopView(context) {
             @Override
@@ -7950,11 +7953,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
     }
     private void loadSendAsPeers() {
-        if (!sendAsPeersLoading) {
+        if (!sendAsPeersLoading && currentChat != null) {
             getMessagesController().loadSendAsPeers(currentChat, (success, peers) -> {
                 sendAsPeersLoading = false;
                 sendAsPeers = peers;
-                sendAsPopup.setPeers(sendAsPeers = peers);
+                if (sendAsPopup != null)
+                    sendAsPopup.setPeers(sendAsPeers);
                 updateSendAs();
             });
             sendAsPeersLoading = true;

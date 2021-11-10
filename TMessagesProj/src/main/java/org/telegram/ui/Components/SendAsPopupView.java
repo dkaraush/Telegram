@@ -13,6 +13,7 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
@@ -48,6 +49,7 @@ public class SendAsPopupView extends FrameLayout {
     private class SendAsPeerView extends LinearLayout {
 
         private BackupImageView avatar;
+        private LinearLayout container;
         private AvatarDrawable avatarDrawable = new AvatarDrawable();
         private float checkProgress;
         private ValueAnimator animator;
@@ -59,16 +61,31 @@ public class SendAsPopupView extends FrameLayout {
         public SendAsPeerView(Context context) {
             super(context);
 
-            setLayoutParams(
-                    LayoutHelper.createLinear(
-                            LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT
-                    )
-            );
-            setMinimumWidth(AndroidUtilities.dp(260));
+            setLayoutParams(LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            container = new LinearLayout(context) {
+                @Override
+                protected void onDraw(Canvas canvas) {
+                    super.onDraw(canvas);
+
+                    if (paint != null) {
+
+                        paint.setColor(Theme.getColor(Theme.key_checkboxSquareBackground));
+                        float cx = avatar.getLeft() + avatar.getMeasuredWidth() / 2;
+                        float cy = avatar.getTop() + avatar.getMeasuredHeight() / 2;
+
+                        canvas.drawCircle(cx, cy, AndroidUtilities.dp(avatarSize / 2f - 3f) + AndroidUtilities.dp(4) * checkProgress, paint);
+                    }
+                }
+            };
+            container.setMinimumWidth(AndroidUtilities.dp(260));
+            if (Build.VERSION.SDK_INT >= 21) {
+                container.setBackgroundDrawable(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 3));
+            }
 
             avatar = new BackupImageView(context);
             avatar.setRoundRadius(AndroidUtilities.dp(20));
-            addView(avatar, LayoutHelper.createLinear((int) avatarSize, (int) avatarSize, Gravity.CENTER_VERTICAL | Gravity.LEFT, 13, 0, 13, 0));
+            container.addView(avatar, LayoutHelper.createLinear((int) avatarSize, (int) avatarSize, Gravity.CENTER_VERTICAL | Gravity.LEFT, 13, 0, 13, 0));
 
             paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.STROKE);
@@ -93,11 +110,9 @@ public class SendAsPopupView extends FrameLayout {
             subtitle.setEllipsize(TextUtils.TruncateAt.END);
             infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, -2, 0, 0));
 
-            addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
+            container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
 
-            if (Build.VERSION.SDK_INT >= 21) {
-                setBackgroundDrawable(Theme.getSelectorDrawable(false));
-            }
+            addView(container, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         }
 
         private final float avatarSize = 38f;
@@ -123,7 +138,7 @@ public class SendAsPopupView extends FrameLayout {
                     checkProgress = isChecked ? t : 1f - t;
                     avatar.setScaleX(disabledAvatarScale + (1f - checkProgress) * (1.0f - disabledAvatarScale));
                     avatar.setScaleY(disabledAvatarScale + (1f - checkProgress) * (1.0f - disabledAvatarScale));
-                    invalidate();
+                    container.invalidate();
                 });
                 animator.addListener(new AnimatorListenerAdapter() {
                     @Override
@@ -135,17 +150,6 @@ public class SendAsPopupView extends FrameLayout {
                 animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
                 animator.start();
             }
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
-
-            paint.setColor(Theme.getColor(Theme.key_checkboxSquareBackground));
-            float cx = avatar.getLeft() + avatar.getMeasuredWidth() / 2;
-            float cy = avatar.getTop() + avatar.getMeasuredHeight() / 2;
-
-            canvas.drawCircle(cx, cy, AndroidUtilities.dp(avatarSize / 2f - 3f) + AndroidUtilities.dp(4) * checkProgress, paint);
         }
 
         public void setFromPeer(TLRPC.Peer peer, boolean checked) {
@@ -198,8 +202,7 @@ public class SendAsPopupView extends FrameLayout {
         @NonNull
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            SendAsPeerView view = new SendAsPeerView(context);
-            return new RecyclerListView.Holder(view);
+            return new RecyclerListView.Holder(new SendAsPeerView(context));
         }
 
         @Override
@@ -224,10 +227,12 @@ public class SendAsPopupView extends FrameLayout {
     }
 
     public LinearLayout popup;
+    public LinearLayout popupContainer;
     public TextView header;
     public ScrollView scrollView;
     public RecyclerListView listView;
     public PeersAdapter adapter;
+    public LinearLayoutManager layoutManager;
 
     public interface SendAsPopupViewDelegate {
         default void onClose() {}
@@ -237,7 +242,7 @@ public class SendAsPopupView extends FrameLayout {
         super(context);
 
         setVisibility(View.GONE);
-        setBackgroundColor(0x33000000);
+        setBackgroundColor(0x33000000); // TODO(dkaraush): color!
         setAlpha(0);
         setOnClickListener((v) -> {
             this.show(false);
@@ -249,17 +254,26 @@ public class SendAsPopupView extends FrameLayout {
         Drawable shadowDrawable2 = ContextCompat.getDrawable(context, R.drawable.popup_fixed_alert).mutate();
         shadowDrawable2.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), PorterDuff.Mode.MULTIPLY));
 
-        popup = new LinearLayout(context) {
-            @Override
-            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                heightMeasureSpec = MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(420), MeasureSpec.AT_MOST);
-                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            }
-        };
+        popup = new LinearLayout(context);
         popup.setOrientation(LinearLayout.VERTICAL);
         popup.setBackground(shadowDrawable2);
         popup.setTranslationX(8);
         popup.setClickable(true);
+
+        popupContainer = new LinearLayout(context)
+        {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                int heightMode = MeasureSpec.getMode(heightMeasureSpec),
+                    height = MeasureSpec.getSize(heightMeasureSpec);
+                if (heightMode == MeasureSpec.EXACTLY)
+                    heightMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(height, AndroidUtilities.dp(420)), MeasureSpec.EXACTLY);
+                else
+                    heightMeasureSpec = MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(420), MeasureSpec.AT_MOST);
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+            }
+        };
+        popupContainer.addView(popup, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,Gravity.LEFT | Gravity.BOTTOM, -5, 0, 0, -2));
 
         header = new TextView(context);
         header.setGravity(Gravity.LEFT);
@@ -270,9 +284,20 @@ public class SendAsPopupView extends FrameLayout {
         header.setMaxLines(1);
         popup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 8));
 
-        listView = new RecyclerListView(context);
+        listView = new RecyclerListView(context) {
+            @Override
+            protected void onMeasure(int widthSpec, int heightSpec) {
+                super.onMeasure(widthSpec, heightSpec);
+
+                boolean allVisible = (
+                        layoutManager.findFirstCompletelyVisibleItemPosition() == 0 &&
+                        layoutManager.findLastCompletelyVisibleItemPosition() == adapter.getItemCount() - 1
+                );
+                listView.setOverScrollMode(allVisible ? View.OVER_SCROLL_NEVER : View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+            }
+        };
         listView.setAdapter(adapter = new PeersAdapter(context));
-        listView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
+        listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         listView.setVerticalScrollBarEnabled(false);
         listView.setClipToPadding(false);
         listView.setEnabled(true);
@@ -296,26 +321,35 @@ public class SendAsPopupView extends FrameLayout {
         });
         popup.addView(listView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 0));
 
-        addView(popup, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, -5, 0, 0, -2));
+        addView(popupContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.BOTTOM));
     }
 
     private ViewPropertyAnimator popupAnimation;
     private ViewPropertyAnimator containerAnimation;
+    private boolean shown = false;
     public void show(boolean enabled) {
-        if (containerAnimation != null)
-            containerAnimation.cancel();
-        if (popupAnimation != null)
-            popupAnimation.cancel();
+        if (shown != enabled) {
+            if (enabled && !hasPeers) {
+                shouldHadBeenShown = true;
+                return;
+            }
 
-        if (!enabled) {
-            containerAnimation = this.animate().alpha(0f).setDuration(150).withEndAction(() -> {
-                this.setVisibility(View.GONE);
-            });
-            popupAnimation = popup.animate().translationY(8).setDuration(150);
-        } else {
-            this.setVisibility(View.VISIBLE);
-            containerAnimation = this.animate().alpha(1f).setDuration(150);
-            popupAnimation = popup.animate().translationY(0).setDuration(150);
+            shown = enabled;
+            if (containerAnimation != null)
+                containerAnimation.cancel();
+            if (popupAnimation != null)
+                popupAnimation.cancel();
+
+            if (!enabled) {
+                containerAnimation = this.animate().alpha(0f).setDuration(150).withEndAction(() -> {
+                    this.setVisibility(View.GONE);
+                });
+                popupAnimation = popup.animate().translationY(8).setDuration(150);
+            } else {
+                this.setVisibility(View.VISIBLE);
+                containerAnimation = this.animate().alpha(1f).setDuration(150);
+                popupAnimation = popup.animate().translationY(0).setDuration(150);
+            }
         }
     }
 
@@ -323,13 +357,21 @@ public class SendAsPopupView extends FrameLayout {
         adapter.selectPeer(peer);
     }
 
+    private boolean shouldHadBeenShown = false;
+    private boolean hasPeers = false;
     public void setPeers(ArrayList<TLRPC.Peer> peers) {
-        // peers == null -> loading
-        if (peers != null) {
-//            scrollView.setVisibility(View.VISIBLE);
+        hasPeers = peers != null;
+        if (hasPeers) {
             adapter.setPeers(peers);
+            if (shouldHadBeenShown) {
+                shouldHadBeenShown = false;
+                this.show(true);
+            }
         } else {
-//            scrollView.setVisibility(View.GONE);
+            if (shown) {
+                this.show(false);
+                shouldHadBeenShown = true;
+            }
         }
     }
 }
