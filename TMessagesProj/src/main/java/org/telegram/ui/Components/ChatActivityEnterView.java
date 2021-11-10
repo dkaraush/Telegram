@@ -251,14 +251,13 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
     private HashMap<View, Float> animationParamsX = new HashMap<>();
 
-    private Drawable sendAsAvatar = null;
+    private TLRPC.Peer sendAsPeer = null;
 
-    public void setSendAs(Drawable avatar) {
-        boolean hadSendAs = sendAsAvatar != null;
-        sendAsAvatar = avatar;
-        sendAsButton.setVisibility(avatar != null ? View.VISIBLE : View.GONE);
-        sendAsButton.setAvatar(sendAsAvatar);
-        if (hadSendAs == (avatar != null)) {
+    public void setSendAs(TLRPC.Peer peer) {
+        boolean hadSendAs = sendAsPeer != null;
+        sendAsButton.setVisibility(peer != null ? View.VISIBLE : View.GONE);
+        sendAsButton.setAvatar(sendAsPeer = peer);
+        if (hadSendAs == (peer != null)) {
             requestLayout();
         }
     }
@@ -1746,8 +1745,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
         sendAsButton = new CloseableAvatar(context, AndroidUtilities.dp(3));
         sendAsButton.setVisibility(View.GONE);
-        if (sendAsAvatar != null) {
-            sendAsButton.setAvatar(sendAsAvatar);
+        if (sendAsPeer != null) {
+            sendAsButton.setAvatar(sendAsPeer);
 //            sendAsButton.setVisibility(View.VISIBLE);
         }
         if (Build.VERSION.SDK_INT >= 21) {
@@ -8507,7 +8506,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
             botCommandsMenuButton.measure(widthMeasureSpec, heightMeasureSpec);
             additionalLeftMargin += AndroidUtilities.dp(7) + botCommandsMenuButton.getMeasuredWidth();
         }
-        if (sendAsAvatar != null) {
+        if (sendAsPeer != null) {
             ((MarginLayoutParams) sendAsButton.getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionalLeftMargin;
             additionalLeftMargin += sendAsButton.getMeasuredWidth() - AndroidUtilities.dp(3);
         }

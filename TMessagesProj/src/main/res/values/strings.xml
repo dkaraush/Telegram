@@ -946,6 +946,8 @@
     <string name="NoRecent">No recent</string>
     <string name="Message">Message</string>
     <string name="TypeMessage">Message</string>
+    <string name="MessageSendAs">Send message as...</string>
+    <string name="MessageSendAsPersonalAccount">personal account</string>
     <string name="TypeScheduleMessage">Schedule message</string>
     <string name="ShareMyPhone">SHARE MY PHONE NUMBER</string>
     <string name="ShareMyContactInfo">Share my contact</string>

@@ -73,12 +73,10 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
-import android.view.ViewPropertyAnimator;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.animation.Animation;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -100,7 +98,6 @@ import androidx.recyclerview.widget.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
-import com.google.android.exoplayer2.util.Log;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
@@ -173,7 +170,6 @@ import org.telegram.ui.Cells.TextSelectionHelper;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.AnimatedFileDrawable;
 import org.telegram.ui.Components.AnimationProperties;
-import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.BlurBehindDrawable;
 import org.telegram.ui.Components.BluredView;
@@ -222,6 +218,7 @@ import org.telegram.ui.Components.RecyclerAnimationScrollHelper;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.ReportAlert;
 import org.telegram.ui.Components.SearchCounterView;
+import org.telegram.ui.Components.SendAsPopupView;
 import org.telegram.ui.Components.ShareAlert;
 import org.telegram.ui.Components.Size;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
@@ -674,8 +671,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             AndroidUtilities.runOnUIThread(updateDeleteItemRunnable, 1000);
         }
     };
-    private FrameLayout sendAsPopupContainer;
-    private LinearLayout sendAsPopup;
+    private SendAsPopupView sendAsPopup;
 
     private ChatActivityDelegate chatActivityDelegate;
     private RecyclerAnimationScrollHelper chatScrollHelper;
@@ -1536,7 +1532,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         getNotificationCenter().addObserver(this, NotificationCenter.scheduledMessagesUpdated);
         getNotificationCenter().addObserver(this, NotificationCenter.diceStickersDidLoad);
         getNotificationCenter().addObserver(this, NotificationCenter.dialogDeleted);
-        getNotificationCenter().addObserver(this, NotificationCenter.sendAsPeersDidLoad);
 
         super.onFragmentCreate();
 
@@ -3232,7 +3227,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         int contentWidthSpec = MeasureSpec.makeMeasureSpec(widthSize, MeasureSpec.EXACTLY);
                         int contentHeightSpec = MeasureSpec.makeMeasureSpec(allHeight - inputFieldHeight - chatEmojiViewPadding + AndroidUtilities.dp(3), MeasureSpec.EXACTLY);
                         child.measure(contentWidthSpec, contentHeightSpec);
-                    } else if (child == sendAsPopupContainer) {
+                    } else if (child == sendAsPopup) {
                         int contentWidthSpec = MeasureSpec.makeMeasureSpec(widthSize, MeasureSpec.EXACTLY);
                         int contentHeightSpec = MeasureSpec.makeMeasureSpec(allHeight - inputFieldHeight - chatEmojiViewPadding + AndroidUtilities.dp(2), MeasureSpec.EXACTLY);
                         child.measure(contentWidthSpec, contentHeightSpec);
@@ -3469,7 +3464,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (keyboardSize > AndroidUtilities.dp(20) && getLayoutParams().height < 0) {
                             childTop -= keyboardSize;
                         }
-                    } else if (child == instantCameraView || child == sendAsPopupContainer || child == overlayView || child == animatingImageView) {
+                    } else if (child == instantCameraView || child == sendAsPopup || child == overlayView || child == animatingImageView) {
                         childTop = 0;
                     } else if (child == textSelectionHelper.getOverlayView(context)) {
                         childTop -= paddingBottom;
@@ -6761,7 +6756,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
             @Override
             public void onSendAsClick(boolean closeShown) {
-                showSendAsPopup(closeShown);
+                if (sendAsPeers == null && !sendAsPeersLoading)
+                    loadSendAsPeers();
+                sendAsPopup.show(closeShown);
             }
 
             @Override
@@ -7135,37 +7132,23 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (!ChatObject.isChannel(currentChat) || currentChat.megagroup) {
             chatActivityEnterView.setBotInfo(botInfo);
         }
-        updateSendAsAvatar();
+        updateSendAs();
         contentView.addView(chatActivityEnterView, contentView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
 
-        sendAsPopupContainer = new FrameLayout(context);
-        sendAsPopupContainer.setVisibility(View.GONE);
-        sendAsPopupContainer.setBackgroundColor(0x33000000);
-        sendAsPopupContainer.setAlpha(0);
-        sendAsPopupContainer.setOnClickListener((v) -> {
-            showSendAsPopup(false);
-            chatActivityEnterView.setSendAsShowClose(false);
+        sendAsPopup = new SendAsPopupView(contentView.getContext(), new SendAsPopupView.SendAsPopupViewDelegate() {
+            @Override
+            public void onClose() {
+                if (chatActivityEnterView != null) {
+                    chatActivityEnterView.setSendAsShowClose(false);
+                }
+            }
+
+            @Override
+            public void onSelect(TLRPC.Peer peer) {
+                setDefaultSendAs(peer);
+            }
         });
-        contentView.addView(sendAsPopupContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
-
-        Drawable shadowDrawable2 = ContextCompat.getDrawable(contentView.getContext(), R.drawable.popup_fixed_alert).mutate();
-        shadowDrawable2.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), PorterDuff.Mode.MULTIPLY));
-
-        sendAsPopup = new LinearLayout(contentView.getContext());
-        sendAsPopup.setOrientation(LinearLayout.VERTICAL);
-        sendAsPopup.setBackground(shadowDrawable2);
-        sendAsPopup.setTranslationX(8);
-
-        TextView header = new TextView(getParentActivity());
-        header.setGravity(Gravity.LEFT);
-        header.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        header.setTextColor(0xff3995D4);
-        header.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        header.setText("Send message as...");
-        header.setLines(1);
-        sendAsPopup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 16));
-
-        sendAsPopupContainer.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM, -5, 0, 0, -3));
+        contentView.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
 
         chatActivityEnterTopView = new ChatActivityEnterTopView(context) {
             @Override
@@ -7910,35 +7893,56 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
     private boolean sendAsPeersLoading = false;
     private ArrayList<TLRPC.Peer> sendAsPeers = null;
+
+    private TLRPC.Peer defaultSendAsValue;
+    private TLRPC.Peer getSendAs() {
+        if (shouldShowSendAs()) {
+            return getDefaultSendAs();
+        }
+        return null;
+    }
     private TLRPC.Peer getDefaultSendAs() {
-        TLRPC.Peer defaultSendAs = null;
-        if (chatInfo != null && chatInfo instanceof TLRPC.TL_channelFull)
+        TLRPC.Peer defaultSendAs = defaultSendAsValue;
+        if (defaultSendAs == null && chatInfo != null && chatInfo instanceof TLRPC.TL_channelFull)
             defaultSendAs = ((TLRPC.TL_channelFull) chatInfo).default_send_as;
         if (defaultSendAs == null && sendAsPeers != null && sendAsPeers.size() > 0)
             defaultSendAs = sendAsPeers.get(0);
         return defaultSendAs;
     }
-    private void updateSendAsAvatar() {
-        boolean s = shouldShowSendAs();
-        if (s && chatActivityEnterView != null) {
+    private void setDefaultSendAs(TLRPC.Peer peer) {
+        defaultSendAsValue = peer;
+        updateSendAs();
+        getMessagesController().saveDefaultSaveAs(currentChat, peer, (success) -> {
+            if (!success) {
+                defaultSendAsValue = null;
+                updateSendAs();
+            }
+        });
+    }
+    private void updateSendAs(boolean clear) {
+        if (clear) {
+            sendAsPeers = null;
+            defaultSendAsValue = null;
+        }
+        updateSendAs();
+    }
+    private void updateSendAs() {
+        if (shouldShowSendAs()) {
             TLRPC.Peer defaultSendAs = getDefaultSendAs();
             if (defaultSendAs != null) {
-                if (defaultSendAs instanceof TLRPC.TL_peerUser) {
-                    TLRPC.User user = getMessagesController().getUser(defaultSendAs.user_id);
-                    if (user != null)
-                        chatActivityEnterView.setSendAs(new AvatarDrawable(user));
-                } else {
-                    long id = (
-                            defaultSendAs instanceof TLRPC.TL_peerChat ?
-                                    defaultSendAs.chat_id : defaultSendAs.channel_id
-                    );
-                    TLRPC.Chat chat = getMessagesController().getChat(id);
-                    if (chat != null)
-                        chatActivityEnterView.setSendAs(new AvatarDrawable(chat));
+                getSendMessagesHelper().setSendAs(dialog_id, defaultSendAs);
+                if (chatActivityEnterView != null) {
+                    chatActivityEnterView.setSendAs(defaultSendAs);
+                }
+                if (sendAsPopup != null) {
+                    sendAsPopup.setSelected(defaultSendAs);
                 }
             } else if (sendAsPeers == null) {
+                getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
                 loadSendAsPeers();
             }
+        } else {
+            getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
         }
     }
     private void loadSendAsPeers() {
@@ -7946,32 +7950,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             getMessagesController().loadSendAsPeers(currentChat, (success, peers) -> {
                 sendAsPeersLoading = false;
                 sendAsPeers = peers;
-                updateSendAsAvatar();
+                sendAsPopup.setPeers(sendAsPeers = peers);
+                updateSendAs();
             });
             sendAsPeersLoading = true;
-        }
-    }
-
-    private ViewPropertyAnimator sendAsPopupAnimation;
-    private ViewPropertyAnimator sendAsPopupContainerAnimation;
-    private void showSendAsPopup(boolean show) {
-        if (sendAsPopupContainerAnimation != null)
-            sendAsPopupContainerAnimation.cancel();
-        if (sendAsPopupAnimation != null)
-            sendAsPopupAnimation.cancel();
-
-        if (!show) {
-            sendAsPopupContainerAnimation = sendAsPopupContainer.animate().alpha(0f).setDuration(150).withEndAction(() -> {
-                sendAsPopupContainer.setVisibility(View.GONE);
-            });
-            sendAsPopupAnimation = sendAsPopup.animate().translationY(8).setDuration(150);
-        } else {
-            if (sendAsPeers == null)
-                loadSendAsPeers();
-
-            sendAsPopupContainer.setVisibility(View.VISIBLE);
-            sendAsPopupContainerAnimation = sendAsPopupContainer.animate().alpha(1f).setDuration(150);
-            sendAsPopupAnimation = sendAsPopup.animate().translationY(0).setDuration(150);
         }
     }
 
@@ -14211,6 +14193,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             if ((updateMask & MessagesController.UPDATE_MASK_USER_PHONE) != 0) {
                 updateTopPanel(true);
             }
+            updateSendAs();
         } else if (id == NotificationCenter.didReceiveNewMessages) {
             long did = (Long) args[0];
             ArrayList<MessageObject> arr = (ArrayList<MessageObject>) args[1];
@@ -14758,7 +14741,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     pendingRequestsDelegate.setChatInfo(chatInfo, true);
                 }
             }
-            updateSendAsAvatar();
+            updateSendAs();
         } else if (id == NotificationCenter.chatInfoCantLoad) {
             long chatId = (Long) args[0];
             if (currentChat != null && currentChat.id == chatId) {

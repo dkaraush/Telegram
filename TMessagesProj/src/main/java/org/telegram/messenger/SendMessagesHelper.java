@@ -1964,6 +1964,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     req.drop_author = forwardFromMyName;
                     req.drop_media_captions = hideCaption;
                     req.with_my_score = messages.size() == 1 && messages.get(0).messageOwner.with_my_score;
+                    TLRPC.InputPeer sendAs = getSendAs(inputPeer);
+                    if (sendAs != null) {
+                        req.send_as = sendAs;
+                        req.flags |= 8192;
+                    }
 
                     final ArrayList<TLRPC.Message> newMsgObjArr = arr;
                     final ArrayList<MessageObject> newMsgArr = new ArrayList<>(objArr);
@@ -3013,6 +3018,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
         } else {
             request.silent = MessagesController.getNotificationsSettings(currentAccount).getBoolean("silent_" + peer.user_id, false);
         }
+        TLRPC.InputPeer sendAs = getSendAs(peer);
+        if (sendAs != null) {
+            request.send_as = sendAs;
+            request.flags |= 8192;
+        }
         request.random_id = random_id != 0 ? random_id : getNextRandomId();
         request.message = "";
         request.media = game;
@@ -3040,6 +3050,32 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 getMessagesStorage().removePendingTask(newTaskId);
             }
         });
+    }
+
+    private HashMap<Long, TLRPC.InputPeer> sendAsStore = new HashMap();
+    public void setSendAs(TLRPC.Peer peer, TLRPC.Peer sendAs) {
+        setSendAs(peer, getMessagesController().getInputPeer(sendAs));
+    }
+    public void setSendAs(TLRPC.Peer peer, TLRPC.InputPeer sendAs) {
+        setSendAs(MessageObject.getPeerId(peer), sendAs);
+    }
+    public void setSendAs(long peerId, TLRPC.Peer sendAs) {
+        setSendAs(peerId, getMessagesController().getInputPeer(sendAs));
+    }
+    public void setSendAs(long peerId, TLRPC.InputPeer sendAs) {
+        if (sendAs == null) {
+            sendAsStore.remove(peerId);
+        } else {
+            sendAsStore.put(peerId, sendAs);
+        }
+    }
+    private TLRPC.InputPeer getSendAs(TLRPC.InputPeer peer) {
+        if (peer == null)
+            return null;
+        return sendAsStore.get(DialogObject.getPeerDialogId(peer));
+    }
+    private TLRPC.InputPeer getSendAs(long peerId) {
+        return sendAsStore.get(peerId);
     }
 
     public void sendMessage(MessageObject retryMessageObject) {
@@ -3637,6 +3673,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                     reqSend.silent = newMsg.silent;
                     reqSend.peer = sendToPeer;
                     reqSend.random_id = newMsg.random_id;
+                    TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
+                    if (sendAs != null) {
+                        reqSend.send_as = sendAs;
+                        reqSend.flags |= 8192;
+                    }
                     if (newMsg.reply_to != null && newMsg.reply_to.reply_to_msg_id != 0) {
                         reqSend.flags |= 1;
                         reqSend.reply_to_msg_id = newMsg.reply_to.reply_to_msg_id;
@@ -3959,6 +4000,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                             request = new TLRPC.TL_messages_sendMultiMedia();
                             request.peer = sendToPeer;
                             request.silent = newMsg.silent;
+                            TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
+                            if (sendAs != null) {
+                                request.send_as = sendAs;
+                                request.flags |= 8192;
+                            }
                             if (newMsg.reply_to != null && newMsg.reply_to.reply_to_msg_id != 0) {
                                 request.flags |= 1;
                                 request.reply_to_msg_id = newMsg.reply_to.reply_to_msg_id;
@@ -4005,6 +4051,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         if (scheduleDate != 0) {
                             request.schedule_date = scheduleDate;
                             request.flags |= 1024;
+                        }
+                        TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
+                        if (sendAs != null) {
+                            request.send_as = sendAs;
+                            request.flags |= 8192;
                         }
 
                         if (delayedMessage != null) {
@@ -4331,6 +4382,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 TLRPC.TL_messages_forwardMessages reqSend = new TLRPC.TL_messages_forwardMessages();
                 reqSend.to_peer = sendToPeer;
                 reqSend.with_my_score = retryMessageObject.messageOwner.with_my_score;
+                TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
+                if (sendAs != null) {
+                    reqSend.send_as = sendAs;
+                    reqSend.flags |= 8192;
+                }
                 if (params != null && params.containsKey("fwd_id")) {
                     int fwdId = Utilities.parseInt(params.get("fwd_id"));
                     reqSend.drop_author = true;
@@ -4380,6 +4436,11 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 if (scheduleDate != 0) {
                     reqSend.schedule_date = scheduleDate;
                     reqSend.flags |= 1024;
+                }
+                TLRPC.InputPeer sendAs = getSendAs(sendToPeer);
+                if (sendAs != null) {
+                    reqSend.send_as = sendAs;
+                    reqSend.flags |= 8192;
                 }
                 reqSend.query_id = Utilities.parseLong(params.get("query_id"));
                 reqSend.id = params.get("id");
