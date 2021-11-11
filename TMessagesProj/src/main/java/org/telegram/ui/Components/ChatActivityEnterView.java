@@ -258,7 +258,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         sendAsButton.setVisibility(peer != null ? View.VISIBLE : View.GONE);
         sendAsButton.setAvatar(sendAsPeer = peer);
         if (recordedAudioPanel != null)
-            ((MarginLayoutParams) recordedAudioPanel.getLayoutParams()).leftMargin = sendAsPeer == null ? 0 : AndroidUtilities.dp(51);
+            ((MarginLayoutParams) recordedAudioPanel.getLayoutParams()).leftMargin = sendAsPeer == null ? 0 : AndroidUtilities.dp(48);
         if (hadSendAs == (peer != null)) {
             requestLayout();
         }
@@ -2483,7 +2483,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         recordedAudioPanel.setFocusable(true);
         recordedAudioPanel.setFocusableInTouchMode(true);
         recordedAudioPanel.setClickable(true);
-        frameLayout.addView(recordedAudioPanel, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, sendAsPeer == null ? 0 : 51, 0, 0, 0));
+        frameLayout.addView(recordedAudioPanel, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 0, 0, 0, 0));
 
         recordDeleteImageView = new RLottieImageView(context);
         recordDeleteImageView.setScaleType(ImageView.ScaleType.CENTER);
@@ -5411,10 +5411,12 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                     oldLayoutParams = recordedAudioPanel.getLayoutParams();
                     parent.removeView(recordedAudioPanel);
 
-                    FrameLayout.LayoutParams newLayoutParams = new FrameLayout.LayoutParams(parent.getMeasuredWidth(), AndroidUtilities.dp(48));
+                    FrameLayout.LayoutParams newLayoutParams = new FrameLayout.LayoutParams(parent.getMeasuredWidth() - (sendAsPeer != null ? AndroidUtilities.dp(48) : 0), AndroidUtilities.dp(48));
                     newLayoutParams.gravity = Gravity.BOTTOM;
-                    if (sendAsPeer != null)
-                        newLayoutParams.leftMargin = AndroidUtilities.dp(51);
+                    if (sendAsPeer != null) {
+                        newLayoutParams.gravity |= Gravity.RIGHT;
+                        newLayoutParams.rightMargin = AndroidUtilities.dp(48);
+                    }
                     sizeNotifierLayout.addView(recordedAudioPanel, newLayoutParams);
                     videoTimelineView.setVisibility(GONE);
                 } else {
@@ -8517,7 +8519,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         }
         if (sendAsPeer != null) {
             ((MarginLayoutParams) sendAsButton.getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionalLeftMargin;
-            additionalLeftMargin += sendAsButton.getMeasuredWidth() - AndroidUtilities.dp(3);
+            additionalLeftMargin += AndroidUtilities.dp(48 - 5);
         }
         for (int i = 0; i < emojiButton.length; i++) {
             ((MarginLayoutParams) emojiButton[i].getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionalLeftMargin;
