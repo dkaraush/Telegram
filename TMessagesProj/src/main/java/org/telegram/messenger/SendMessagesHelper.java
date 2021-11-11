@@ -5545,7 +5545,15 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;
                     }
-                    if (isSentError) {
+
+                    if (error != null && error.text != null && error.text.equals("CHAT_FORWARDS_RESTRICTED")) {
+                        AndroidUtilities.runOnUIThread(() -> {
+                            ArrayList<Integer> msgObjIdsArr = new ArrayList<Integer>();
+                            msgObjIdsArr.add(newMsgObj.id);
+                            getMessagesController().deleteMessages(msgObjIdsArr, null, null, newMsgObj.dialog_id, false, false, true);
+                        });
+                        getMessagesController().loadFullChat(DialogObject.getPeerDialogId(newMsgObj.peer_id), 0, true);
+                    } else if (isSentError) {
                         getMessagesStorage().markMessageAsSendError(newMsgObj, scheduled);
                         newMsgObj.send_state = MessageObject.MESSAGE_SEND_STATE_SEND_ERROR;
                         getNotificationCenter().postNotificationName(NotificationCenter.messageSendError, newMsgObj.id);

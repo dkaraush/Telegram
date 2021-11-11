@@ -9175,9 +9175,9 @@ public class MessagesController extends BaseController implements NotificationCe
     public interface SendAsPeersCallback {
         void run(boolean success, ArrayList<TLRPC.Peer> peers);
     }
-    public void loadSendAsPeers(TLRPC.Chat chat, SendAsPeersCallback onReceive) {
+    public void loadSendAsPeers(TLRPC.InputPeer peer, SendAsPeersCallback onReceive) {
         TLRPC.TL_channels_getSendAs req = new TLRPC.TL_channels_getSendAs();
-        req.peer = getInputPeer(chat);
+        req.peer = peer;
         getConnectionsManager().sendRequest(req, (res, error) -> {
             if (res instanceof TLRPC.TL_channels_sendAsPeers) {
                 TLRPC.TL_channels_sendAsPeers response = (TLRPC.TL_channels_sendAsPeers) res;
