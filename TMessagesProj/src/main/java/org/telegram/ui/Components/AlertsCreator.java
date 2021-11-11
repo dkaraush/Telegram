@@ -234,6 +234,23 @@ public class AlertsCreator {
                 case "SCHEDULE_TOO_MUCH":
                     showSimpleToast(fragment, LocaleController.getString("MessageScheduledLimitReached", R.string.MessageScheduledLimitReached));
                     break;
+                case "CHAT_FORWARDS_RESTRICTED":
+                    boolean isChannel = false;
+                    if (request instanceof TLRPC.TL_messages_forwardMessages) {
+                        long peerId = DialogObject.getPeerDialogId(((TLRPC.TL_messages_forwardMessages) request).from_peer);
+                        if (DialogObject.isEncryptedDialog(peerId) || DialogObject.isUserDialog(peerId)) {
+                            isChannel = false;
+                        } else {
+                            TLRPC.Chat currentChat = MessagesController.getInstance(currentAccount).getChat(-peerId);
+                            isChannel = currentChat != null && ChatObject.isChannel(currentChat) && !currentChat.megagroup;
+                        }
+                    }
+                    if (isChannel) {
+                        showSimpleToast(fragment, LocaleController.getString("ChannelForwardsRestricted", R.string.ChannelForwardsRestricted));
+                    } else {
+                        showSimpleToast(fragment, LocaleController.getString("GroupForwardsRestricted", R.string.ChannelForwardsRestricted));
+                    }
+                    break;
             }
         } else if (request instanceof TLRPC.TL_messages_importChatInvite) {
             if (error.text.startsWith("FLOOD_WAIT")) {

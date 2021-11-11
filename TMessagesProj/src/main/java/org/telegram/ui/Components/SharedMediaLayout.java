@@ -2166,7 +2166,18 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         if (forwardButtonHint == null) {
             ViewGroup parent = (ViewGroup) profileActivity.getFragmentView();
             forwardButtonHint = new HintView(getContext(), 9/* TODO(dkaraush): theme delegate */);
-            forwardButtonHint.setText(LocaleController.getString("ChannelForwardsRestricted", R.string.ChannelForwardsRestricted));
+            boolean isChannel;
+            if (DialogObject.isEncryptedDialog(dialog_id) || DialogObject.isUserDialog(dialog_id)) {
+                isChannel = false;
+            } else {
+                TLRPC.Chat currentChat = profileActivity.getMessagesController().getChat(-dialog_id);
+                isChannel = currentChat != null && ChatObject.isChannel(currentChat) && !currentChat.megagroup;
+            }
+            if (isChannel) {
+                forwardButtonHint.setText(LocaleController.getString("ChannelForwardsRestricted", R.string.ChannelForwardsRestricted));
+            } else {
+                forwardButtonHint.setText(LocaleController.getString("GroupForwardsRestricted", R.string.GroupForwardsRestricted));
+            }
             parent.addView(forwardButtonHint, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 10, 0, 10, 0));
             forwardButtonHint.bringToFront();
         }
