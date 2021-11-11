@@ -1861,6 +1861,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             pinchToZoomHelper.clear();
         }
         chatThemeBottomSheet = null;
+        defaultSendAsValue = null;
+        sendAsPeers = null;
     }
 
     @Override
@@ -7148,7 +7150,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         sendAsPopup.setPeers(sendAsPeers);
         contentView.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
 
-        updateSendAs();
+        updateSendAs(false);
 
         chatActivityEnterTopView = new ChatActivityEnterTopView(context) {
             @Override
@@ -7915,6 +7917,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         });
     }
     private void updateSendAs() {
+        updateSendAs(true);
+    }
+    private void updateSendAs(boolean animate) {
         if (stickersPanel != null)
             ((ViewGroup.MarginLayoutParams) stickersPanel.getLayoutParams()).leftMargin = shouldShowSendAs() ? AndroidUtilities.dp(45) : 0;
         if (shouldShowSendAs()) {
@@ -7922,17 +7927,19 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             if (defaultSendAs != null) {
                 getSendMessagesHelper().setSendAs(dialog_id, defaultSendAs);
                 if (chatActivityEnterView != null) {
-                    chatActivityEnterView.setSendAs(defaultSendAs);
+                    chatActivityEnterView.setSendAs(defaultSendAs, animate);
                 }
                 if (sendAsPopup != null) {
                     sendAsPopup.setSelected(defaultSendAs);
                 }
             } else if (sendAsPeers == null) {
-                getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
                 loadSendAsPeers();
+                getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
             }
         } else {
             getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
+            if (chatActivityEnterView != null)
+                chatActivityEnterView.setSendAs(null, animate);
         }
     }
     private void loadSendAsPeers() {
@@ -8262,7 +8269,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     }
 
     private boolean shouldShowSendAs() {
-        return currentChat != null && chatInfo instanceof TLRPC.TL_channelFull && currentChat.megagroup && (((currentChat.username != null && !currentChat.username.isEmpty()) || currentChat.has_geo) || currentChat.has_link);
+        return currentChat != null && chatInfo instanceof TLRPC.TL_channelFull && chatInfo.default_send_as != null && currentChat.megagroup && (((currentChat.username != null && !currentChat.username.isEmpty()) || currentChat.has_geo) || currentChat.has_link) && (sendAsPeers == null || sendAsPeers.size() > 0);
     }
 
     private void openPinnedMessagesList(boolean preview) {
@@ -14224,7 +14231,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             if ((updateMask & MessagesController.UPDATE_MASK_USER_PHONE) != 0) {
                 updateTopPanel(true);
             }
-            updateSendAs();
         } else if (id == NotificationCenter.didReceiveNewMessages) {
             long did = (Long) args[0];
             ArrayList<MessageObject> arr = (ArrayList<MessageObject>) args[1];
@@ -14771,8 +14777,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 if (pendingRequestsDelegate != null) {
                     pendingRequestsDelegate.setChatInfo(chatInfo, true);
                 }
+
+                if (shouldShowSendAs()) {
+                    defaultSendAsValue = null;
+                }
+                updateSendAs();
             }
-            updateSendAs();
         } else if (id == NotificationCenter.chatInfoCantLoad) {
             long chatId = (Long) args[0];
             if (currentChat != null && currentChat.id == chatId) {
@@ -15785,6 +15795,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 updateSecretStatus();
                 if (currentChat.gigagroup) {
                     updateBottomOverlay();
+                }
+                if (shouldShowSendAs()) {
+                    loadSendAsPeers();
                 }
             }
         } else if (id == NotificationCenter.updateMentionsCount) {

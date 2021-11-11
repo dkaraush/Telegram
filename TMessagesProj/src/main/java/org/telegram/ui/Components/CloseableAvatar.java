@@ -61,19 +61,23 @@ public class CloseableAvatar extends FrameLayout {
     }
 
     public void setAvatar(TLRPC.Peer peer) {
-        if (peer instanceof TLRPC.TL_peerUser) {
-            TLRPC.User user = MessagesController.getInstance(UserConfig.selectedAccount).getUser(peer.user_id);
-            if (user != null) {
-                this.setAvatar(user);
-            }
+        if (peer == null) {
+            avatar.setForUserOrChat(null, avatarDrawable);
         } else {
-            long id = (
-                    peer instanceof TLRPC.TL_peerChat ?
-                            peer.chat_id : peer.channel_id
-            );
-            TLRPC.Chat chat = MessagesController.getInstance(UserConfig.selectedAccount).getChat(id);
-            if (chat != null) {
-                this.setAvatar(chat);
+            if (peer instanceof TLRPC.TL_peerUser) {
+                TLRPC.User user = MessagesController.getInstance(UserConfig.selectedAccount).getUser(peer.user_id);
+                if (user != null) {
+                    this.setAvatar(user);
+                }
+            } else if (peer instanceof TLRPC.TL_peerChat || peer instanceof TLRPC.TL_peerChannel) {
+                long id = (
+                        peer instanceof TLRPC.TL_peerChat ?
+                                peer.chat_id : peer.channel_id
+                );
+                TLRPC.Chat chat = MessagesController.getInstance(UserConfig.selectedAccount).getChat(id);
+                if (chat != null) {
+                    this.setAvatar(chat);
+                }
             }
         }
     }

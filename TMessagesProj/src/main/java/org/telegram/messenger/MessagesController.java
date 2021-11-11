@@ -9136,8 +9136,8 @@ public class MessagesController extends BaseController implements NotificationCe
         req.channel = getInputChannel(chatId);
         req.username = userName;
         getConnectionsManager().sendRequest(req, (response, error) -> {
-            if (response instanceof TLRPC.TL_boolTrue) {
-                AndroidUtilities.runOnUIThread(() -> {
+            AndroidUtilities.runOnUIThread(() -> {
+                if (response instanceof TLRPC.TL_boolTrue) {
                     TLRPC.Chat chat = getChat(chatId);
                     if (userName.length() != 0) {
                         chat.flags |= TLRPC.CHAT_FLAG_IS_PUBLIC;
@@ -9149,10 +9149,10 @@ public class MessagesController extends BaseController implements NotificationCe
                     arrayList.add(chat);
                     getMessagesStorage().putUsersAndChats(null, arrayList, true, true);
                     getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, UPDATE_MASK_CHAT);
-                });
-            }
-            if (onFinish != null)
-                onFinish.run(response instanceof TLRPC.TL_boolTrue);
+                }
+                if (onFinish != null)
+                    onFinish.run(response instanceof TLRPC.TL_boolTrue);
+            });
         }, ConnectionsManager.RequestFlagInvokeAfter);
     }
 
@@ -9206,6 +9206,8 @@ public class MessagesController extends BaseController implements NotificationCe
                 TLRPC.ChatFull chatFull = getChatFull(chat.id);
                 if (chatFull != null) {
                     chatFull.default_send_as = send_as;
+                    putChatFull(chatFull);
+                    getMessagesStorage().updateChatInfo(chatFull, false);
                 }
 
                 if (onFinish != null) {

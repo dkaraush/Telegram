@@ -67,6 +67,7 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.animation.Animation;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -254,14 +255,15 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
     private TLRPC.Peer sendAsPeer = null;
 
     public void setSendAs(TLRPC.Peer peer) {
-        boolean hadSendAs = sendAsPeer != null;
-        sendAsButton.setVisibility(peer != null ? View.VISIBLE : View.GONE);
+        setSendAs(peer, true);
+    }
+    public void setSendAs(TLRPC.Peer peer, boolean animate) {
+        if ((sendAsPeer == null) != (peer == null)) {
+            showSendAsButton(peer != null, animate);
+        }
         sendAsButton.setAvatar(sendAsPeer = peer);
         if (recordedAudioPanel != null)
             ((MarginLayoutParams) recordedAudioPanel.getLayoutParams()).leftMargin = sendAsPeer == null ? 0 : AndroidUtilities.dp(48);
-        if (hadSendAs == (peer != null)) {
-            requestLayout();
-        }
     }
     public void setSendAsShowClose(boolean showClose) {
         sendAsButton.setShowClose(showClose);
@@ -1747,6 +1749,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
         sendAsButton = new CloseableAvatar(context, AndroidUtilities.dp(3));
         sendAsButton.setVisibility(View.GONE);
+        sendAsButton.setScaleX(0f);
+        sendAsButton.setScaleY(0f);
         if (sendAsPeer != null) {
             sendAsButton.setAvatar(sendAsPeer);
 //            sendAsButton.setVisibility(View.VISIBLE);
@@ -8509,22 +8513,75 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
     int botCommandLastPosition = -1;
     int botCommandLastTop;
 
+    private ValueAnimator sendAsButtonAnimator;
+    private float sendAsButtonAnimatorProgress = 0f;
+    private void showSendAsButton(boolean show, boolean animate) {
+        if (sendAsButtonAnimator != null)
+            sendAsButtonAnimator.cancel();
+
+        if (animate) {
+            sendAsButton.setVisibility(View.VISIBLE);
+
+            sendAsButtonAnimator = ValueAnimator.ofFloat(0.0f, 1.0f);
+            View enterView = this;
+            sendAsButtonAnimator.addUpdateListener(animation -> {
+                float t = (float) animation.getAnimatedValue();
+                sendAsButtonAnimatorProgress = show ? t : 1f - t;
+                sendAsButton.setScaleX(sendAsButtonAnimatorProgress);
+                sendAsButton.setScaleY(sendAsButtonAnimatorProgress);
+                updateLeftMargins();
+                invalidate();
+            });
+            sendAsButtonAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    sendAsButtonAnimator = null;
+                    if (!show)
+                        sendAsButton.setVisibility(View.GONE);
+                    showSendAsButton(show, false);
+                }
+            });
+            sendAsButtonAnimator.setDuration(80);
+            sendAsButtonAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+            sendAsButtonAnimator.start();
+        } else {
+            sendAsButtonAnimator = null;
+            sendAsButton.setVisibility(show ? View.VISIBLE : View.GONE);
+            sendAsButton.setScaleX(show ? 1f : 0f);
+            sendAsButton.setScaleY(show ? 1f : 0f);
+            sendAsButtonAnimatorProgress = show ? 1f : 0f;
+            updateLeftMargins();
+            invalidate();
+        }
+    }
+
+    private void setLeftMargin(View view, int leftMargin) {
+        MarginLayoutParams lp = (MarginLayoutParams) view.getLayoutParams();
+        lp.leftMargin = leftMargin;
+        view.setLayoutParams(lp);
+    }
+    private void updateLeftMargins() {
+        int additionalLeftMargin = 0;
+        if (botCommandsMenuButton != null && botCommandsMenuButton.getTag() != null) {
+            additionalLeftMargin += AndroidUtilities.dp(7) + botCommandsMenuButton.getMeasuredWidth();
+        }
+
+        setLeftMargin(sendAsButton, AndroidUtilities.dp(3) + additionalLeftMargin);
+        additionalLeftMargin += (int) (((float) AndroidUtilities.dp(48 - 5)) * sendAsButtonAnimatorProgress);
+
+        for (int i = 0; i < emojiButton.length; i++) {
+            setLeftMargin(emojiButton[i], AndroidUtilities.dp(3) + additionalLeftMargin);
+        }
+        setLeftMargin(messageEditText, AndroidUtilities.dp(50) + additionalLeftMargin);
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 
-        int additionalLeftMargin = 0;
         if (botCommandsMenuButton != null && botCommandsMenuButton.getTag() != null) {
             botCommandsMenuButton.measure(widthMeasureSpec, heightMeasureSpec);
-            additionalLeftMargin += AndroidUtilities.dp(7) + botCommandsMenuButton.getMeasuredWidth();
         }
-        if (sendAsPeer != null) {
-            ((MarginLayoutParams) sendAsButton.getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionalLeftMargin;
-            additionalLeftMargin += AndroidUtilities.dp(48 - 5);
-        }
-        for (int i = 0; i < emojiButton.length; i++) {
-            ((MarginLayoutParams) emojiButton[i].getLayoutParams()).leftMargin = AndroidUtilities.dp(3) + additionalLeftMargin;
-        }
-        ((MarginLayoutParams) messageEditText.getLayoutParams()).leftMargin = AndroidUtilities.dp(50) + additionalLeftMargin;
+        updateLeftMargins();
 
         if (botCommandsMenuContainer != null) {
             int padding;
