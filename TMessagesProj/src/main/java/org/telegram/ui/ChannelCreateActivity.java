@@ -300,7 +300,7 @@ public class ChannelCreateActivity extends BaseFragment implements NotificationC
                                     AndroidUtilities.shakeView(checkTextView, 2, 0);
                                     return;
                                 } else {
-                                    MessagesController.getInstance(currentAccount).updateChannelUserName(chatId, lastCheckName);
+                                    MessagesController.getInstance(currentAccount).updateChannelUserName(chatId, lastCheckName, null);
                                 }
                             }
                         }

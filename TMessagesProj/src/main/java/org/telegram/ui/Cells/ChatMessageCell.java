@@ -9607,6 +9607,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 return false;
             }
         }
+        TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(messageObject.getChatId());
+        if (chat != null && chat.noforwards) {
+            return false;
+        }
         return messageObject.needDrawShareButton();
     }
 

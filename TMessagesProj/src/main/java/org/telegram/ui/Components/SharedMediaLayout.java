@@ -1438,7 +1438,9 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
                 forwardItem.setOnClickListener(v -> onActionBarItemClick(forward));
             } else {
                 forwardItem.setAlpha(0.6f);
-                forwardItem.setEnabled(false);
+                forwardItem.setBackground(null);
+                forwardItem.setOnClickListener(v -> showNoForwardsHint(true));
+//                forwardItem.setEnabled(false);
 //                HintView forwardItemHint = new HintView(context, 4);
 //                forwardItemHint.setText("Forwards from this channel are restricted");
 //                forwardItemHint.setVisibility(View.INVISIBLE);
@@ -2156,6 +2158,26 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         }
     }
 
+    private HintView forwardButtonHint;
+    private void showNoForwardsHint(boolean show) {
+        if (!show && forwardButtonHint == null) {
+            return;
+        }
+        if (forwardButtonHint == null) {
+            ViewGroup parent = (ViewGroup) profileActivity.getFragmentView();
+            forwardButtonHint = new HintView(getContext(), 9/* TODO(dkaraush): theme delegate */);
+            forwardButtonHint.setText(LocaleController.getString("ChannelForwardsRestricted", R.string.ChannelForwardsRestricted));
+            parent.addView(forwardButtonHint, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP, 10, 0, 10, 0));
+            forwardButtonHint.bringToFront();
+        }
+        if (!show) {
+            forwardButtonHint.hide();
+            return;
+        }
+
+        forwardButtonHint.showForView(forwardItem, true);
+    }
+
     private int getMessageId(View child) {
         if (child instanceof SharedPhotoVideoCell2) {
             return ((SharedPhotoVideoCell2) child).getMessageId();
@@ -2866,6 +2888,11 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         profileActivity.getNotificationCenter().removeObserver(this, NotificationCenter.messagePlayingDidReset);
         profileActivity.getNotificationCenter().removeObserver(this, NotificationCenter.messagePlayingPlayStateChanged);
         profileActivity.getNotificationCenter().removeObserver(this, NotificationCenter.messagePlayingDidStart);
+
+        if (forwardButtonHint != null) {
+            ((ViewGroup) profileActivity.getFragmentView()).removeView(forwardButtonHint);
+            forwardButtonHint = null;
+        }
     }
 
     private void checkCurrentTabValid() {

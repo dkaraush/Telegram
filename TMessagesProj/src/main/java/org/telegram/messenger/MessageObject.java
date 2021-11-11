@@ -5685,7 +5685,12 @@ public class MessageObject {
     }
 
     public boolean canForwardMessage() {
-        return !(messageOwner instanceof TLRPC.TL_message_secret) && !needDrawBluredPreview() && !isLiveLocation() && type != 16 && !isSponsored();
+        if (!(!(messageOwner instanceof TLRPC.TL_message_secret) && !needDrawBluredPreview() && !isLiveLocation() && type != 16 && !isSponsored()))
+            return false;
+        TLRPC.Chat chat = MessagesController.getInstance(currentAccount).getChat(getChatId());
+        if (chat != null && chat.noforwards)
+            return false;
+        return true;
     }
 
     public boolean canEditMedia() {

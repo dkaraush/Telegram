@@ -9131,7 +9131,7 @@ public class MessagesController extends BaseController implements NotificationCe
         }, ConnectionsManager.RequestFlagInvokeAfter);
     }
 
-    public void updateChannelUserName(long chatId, String userName) {
+    public void updateChannelUserName(long chatId, String userName, MessagesStorage.BooleanCallback onFinish) {
         TLRPC.TL_channels_updateUsername req = new TLRPC.TL_channels_updateUsername();
         req.channel = getInputChannel(chatId);
         req.username = userName;
@@ -9151,6 +9151,8 @@ public class MessagesController extends BaseController implements NotificationCe
                     getNotificationCenter().postNotificationName(NotificationCenter.updateInterfaces, UPDATE_MASK_CHAT);
                 });
             }
+            if (onFinish != null)
+                onFinish.run(response instanceof TLRPC.TL_boolTrue);
         }, ConnectionsManager.RequestFlagInvokeAfter);
     }
 

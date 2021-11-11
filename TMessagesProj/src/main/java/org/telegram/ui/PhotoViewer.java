@@ -10256,6 +10256,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                     }
                 }
             }
+            shareButton.setVisibility(noforwards ? View.GONE : View.VISIBLE);
             groupedPhotosListView.fillList();
         } else if (!secureDocuments.isEmpty()) {
             allowShare = false;
