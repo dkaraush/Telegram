@@ -7896,12 +7896,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     private ArrayList<TLRPC.Peer> sendAsPeers = null;
 
     private TLRPC.Peer defaultSendAsValue;
-    private TLRPC.Peer getSendAs() {
-        if (shouldShowSendAs()) {
-            return getDefaultSendAs();
-        }
-        return null;
-    }
     private TLRPC.Peer getDefaultSendAs() {
         TLRPC.Peer defaultSendAs = defaultSendAsValue;
         if (defaultSendAs == null && chatInfo != null && chatInfo instanceof TLRPC.TL_channelFull)
@@ -7920,14 +7914,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             }
         });
     }
-    private void updateSendAs(boolean clear) {
-        if (clear) {
-            sendAsPeers = null;
-            defaultSendAsValue = null;
-        }
-        updateSendAs();
-    }
     private void updateSendAs() {
+        if (stickersPanel != null)
+            ((ViewGroup.MarginLayoutParams) stickersPanel.getLayoutParams()).leftMargin = shouldShowSendAs() ? AndroidUtilities.dp(45) : 0;
         if (shouldShowSendAs()) {
             TLRPC.Peer defaultSendAs = getDefaultSendAs();
             if (defaultSendAs != null) {

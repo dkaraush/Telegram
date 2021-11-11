@@ -242,7 +242,7 @@ public class SendAsPopupView extends FrameLayout {
         super(context);
 
         setVisibility(View.GONE);
-        setBackgroundColor(0x33000000); // TODO(dkaraush): color!
+        setBackgroundColor(0x33000000);
         setAlpha(0);
         setOnClickListener((v) -> {
             this.show(false);
@@ -278,7 +278,7 @@ public class SendAsPopupView extends FrameLayout {
         header = new TextView(context);
         header.setGravity(Gravity.LEFT);
         header.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        header.setTextColor(0xff3995D4);
+        header.setTextColor(0xff3995D4); // TODO(dkaraush): color!
         header.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         header.setText(LocaleController.getString("MessageSendAs", R.string.MessageSendAs));
         header.setMaxLines(1);
