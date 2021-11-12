@@ -2068,6 +2068,8 @@ public class MessagesController extends BaseController implements NotificationCe
     }
 
     public TLRPC.InputPeer getInputPeer(TLRPC.Peer peer) {
+        if (peer == null)
+            return null;
         TLRPC.InputPeer inputPeer;
         if (peer instanceof TLRPC.TL_peerChat) {
             inputPeer = new TLRPC.TL_inputPeerChat();
@@ -3412,6 +3414,7 @@ public class MessagesController extends BaseController implements NotificationCe
                     if (res.full_chat.stickerset != null) {
                         getMediaDataController().getGroupStickerSetById(res.full_chat.stickerset);
                     }
+                    getSendMessagesHelper().setSendAs(dialogId, getInputPeer(res.full_chat.default_send_as));
                     getNotificationCenter().postNotificationName(NotificationCenter.chatInfoDidLoad, res.full_chat, classGuid, false, true);
                     if ((res.full_chat.flags & 2048) != 0) {
                         TLRPC.Dialog dialog = dialogs_dict.get(-chatId);

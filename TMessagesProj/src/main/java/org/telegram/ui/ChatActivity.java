@@ -1861,7 +1861,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             pinchToZoomHelper.clear();
         }
         chatThemeBottomSheet = null;
-        defaultSendAsValue = null;
         sendAsPeers = null;
     }
 
@@ -7897,13 +7896,19 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     private boolean sendAsPeersLoading = false;
     private ArrayList<TLRPC.Peer> sendAsPeers = null;
 
-    private TLRPC.Peer defaultSendAsValue;
+//    private TLRPC.Peer defaultSendAsValue;
+    private TLRPC.Peer toPeer(TLRPC.InputPeer inputPeer) {
+        return getMessagesController().getPeer(DialogObject.getPeerDialogId(inputPeer));
+    }
+    private TLRPC.Peer defaultSendAsValue = null;
     private TLRPC.Peer getDefaultSendAs() {
         TLRPC.Peer defaultSendAs = defaultSendAsValue;
         if (defaultSendAs == null && chatInfo != null && chatInfo instanceof TLRPC.TL_channelFull)
             defaultSendAs = ((TLRPC.TL_channelFull) chatInfo).default_send_as;
-        if (defaultSendAs == null && sendAsPeers != null && sendAsPeers.size() > 0)
-            defaultSendAs = sendAsPeers.get(0);
+        if (defaultSendAs == null)
+            defaultSendAs = toPeer(getSendMessagesHelper().getSendAs(dialog_id));
+//        if (defaultSendAs == null && sendAsPeers != null && sendAsPeers.size() > 0)
+//            defaultSendAs = sendAsPeers.get(0);
         return defaultSendAs;
     }
     private void setDefaultSendAs(TLRPC.Peer peer) {
@@ -7912,6 +7917,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         getMessagesController().saveDefaultSaveAs(currentChat, peer, (success) -> {
             if (!success) {
                 defaultSendAsValue = null;
+                loadSendAsPeers();
                 updateSendAs();
             }
         });
@@ -7922,8 +7928,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     private void updateSendAs(boolean animate) {
         if (stickersPanel != null)
             ((ViewGroup.MarginLayoutParams) stickersPanel.getLayoutParams()).leftMargin = shouldShowSendAs() ? AndroidUtilities.dp(45) : 0;
-        if (shouldShowSendAs()) {
+        if (shouldProcessSendAs()) {
             TLRPC.Peer defaultSendAs = getDefaultSendAs();
+
             if (defaultSendAs != null) {
                 getSendMessagesHelper().setSendAs(dialog_id, defaultSendAs);
                 if (chatActivityEnterView != null) {
@@ -7935,11 +7942,22 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             } else if (sendAsPeers == null) {
                 loadSendAsPeers();
                 getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
+            } else {
+                if (chatActivityEnterView != null) {
+                    chatActivityEnterView.setSendAs(null, animate);
+                    chatActivityEnterView.setSendAsShowClose(false);
+                }
+                if (sendAsPopup != null) {
+                    sendAsPopup.setSelected(null);
+                    sendAsPopup.show(false);
+                }
             }
         } else {
             getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
             if (chatActivityEnterView != null)
                 chatActivityEnterView.setSendAs(null, animate);
+            if (sendAsPopup != null)
+                sendAsPopup.setSelected(null);
         }
     }
     private void loadSendAsPeers() {
@@ -7951,6 +7969,22 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     sendAsPeers = peers;
                     if (sendAsPopup != null)
                         sendAsPopup.setPeers(sendAsPeers);
+//                    if (success && sendAsPeers != null && sendAsPeers.size() > 0) {
+//                        TLRPC.Peer defaultSendAs = chatInfo.default_send_as;
+//                        if (defaultSendAs != null) {
+//                            long defaultSendAsPeerId = DialogObject.getPeerDialogId(defaultSendAs);
+//                            boolean foundPeer = false;
+//                            for (int i = 0; i < sendAsPeers.size(); ++i) {
+//                                if (DialogObject.getPeerDialogId(sendAsPeers.get(i)) == defaultSendAsPeerId) {
+//                                    foundPeer = true;
+//                                    break;
+//                                }
+//                            }
+//                            if (!foundPeer) {
+//                                setDefaultSendAs(chatInfo.default_send_as = sendAsPeers.get(0));
+//                            }
+//                        }
+//                    }
                     updateSendAs();
                 }
             );
@@ -8268,8 +8302,11 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
     }
 
+    private boolean shouldProcessSendAs() {
+        return currentChat != null && chatInfo instanceof TLRPC.TL_channelFull && chatInfo.default_send_as != null && currentChat.megagroup && (((currentChat.username != null && !currentChat.username.isEmpty()) || currentChat.has_geo) || currentChat.has_link);
+    }
     private boolean shouldShowSendAs() {
-        return currentChat != null && chatInfo instanceof TLRPC.TL_channelFull && chatInfo.default_send_as != null && currentChat.megagroup && (((currentChat.username != null && !currentChat.username.isEmpty()) || currentChat.has_geo) || currentChat.has_link) && (sendAsPeers == null || sendAsPeers.size() > 0);
+        return shouldProcessSendAs() && (sendAsPeers == null || sendAsPeers.size() > 0);
     }
 
     private void openPinnedMessagesList(boolean preview) {
@@ -12835,6 +12872,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 return;
             }
             currentChat = chat;
+            updateSendAs();
         }
         if (avatarContainer != null) {
             avatarContainer.checkAndUpdateAvatar();
@@ -14778,9 +14816,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     pendingRequestsDelegate.setChatInfo(chatInfo, true);
                 }
 
-                if (shouldShowSendAs()) {
-                    defaultSendAsValue = null;
-                }
                 updateSendAs();
             }
         } else if (id == NotificationCenter.chatInfoCantLoad) {
@@ -16300,6 +16335,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             }
                             getMessagesController().loadFullChat(currentChat.id, 0, true);
                         }
+                        updateSendAs();
                     }
                 }
             }
@@ -16314,6 +16350,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (avatarContainer != null) {
                             avatarContainer.updateSubtitle(true);
                         }
+                        updateSendAs();
                     }
                 }
             } else if (inlineReturn != 0) {

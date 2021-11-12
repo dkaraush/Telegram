@@ -3067,6 +3067,14 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
     }
 
     private HashMap<Long, TLRPC.InputPeer> sendAsStore = new HashMap();
+    public void setSendAs(TLRPC.Chat chat, TLRPC.Peer sendAs) {
+        if (chat != null)
+            setSendAs(-chat.id, sendAs);
+    }
+    public void setSendAs(TLRPC.Chat chat, TLRPC.InputPeer sendAs) {
+        if (chat != null)
+            setSendAs(-chat.id, sendAs);
+    }
     public void setSendAs(TLRPC.Peer peer, TLRPC.Peer sendAs) {
         setSendAs(peer, getMessagesController().getInputPeer(sendAs));
     }
@@ -3083,12 +3091,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
             sendAsStore.put(peerId, sendAs);
         }
     }
-    private TLRPC.InputPeer getSendAs(TLRPC.InputPeer peer) {
+    public TLRPC.InputPeer getSendAs(TLRPC.InputPeer peer) {
         if (peer == null)
             return null;
         return sendAsStore.get(DialogObject.getPeerDialogId(peer));
     }
-    private TLRPC.InputPeer getSendAs(long peerId) {
+    public TLRPC.InputPeer getSendAs(long peerId) {
         return sendAsStore.get(peerId);
     }
 
@@ -5545,14 +5553,21 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                         AlertsCreator.processError(currentAccount, error, null, req);
                         isSentError = true;
                     }
+                    if (error != null && error.text != null && error.text.equals("SEND_AS_PEER_INVALID")) {
+                        AndroidUtilities.runOnUIThread(() -> {
+                            long chatId = newMsgObj.peer_id instanceof TLRPC.TL_peerChat ? newMsgObj.peer_id.chat_id : newMsgObj.peer_id.channel_id;
+                            getMessagesController().loadFullChat(chatId, 0, true);
+                        });
+                    }
 
                     if (error != null && error.text != null && error.text.equals("CHAT_FORWARDS_RESTRICTED")) {
                         AndroidUtilities.runOnUIThread(() -> {
                             ArrayList<Integer> msgObjIdsArr = new ArrayList<Integer>();
                             msgObjIdsArr.add(newMsgObj.id);
                             getMessagesController().deleteMessages(msgObjIdsArr, null, null, newMsgObj.dialog_id, false, false, true);
+                            long chatId = newMsgObj.peer_id instanceof TLRPC.TL_peerChat ? newMsgObj.peer_id.chat_id : newMsgObj.peer_id.channel_id;
+                            getMessagesController().loadFullChat(chatId, 0, true);
                         });
-                        getMessagesController().loadFullChat(DialogObject.getPeerDialogId(newMsgObj.peer_id), 0, true);
                     } else if (isSentError) {
                         getMessagesStorage().markMessageAsSendError(newMsgObj, scheduled);
                         newMsgObj.send_state = MessageObject.MESSAGE_SEND_STATE_SEND_ERROR;

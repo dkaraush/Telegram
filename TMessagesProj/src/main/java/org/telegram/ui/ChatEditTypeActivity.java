@@ -513,6 +513,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
                     if (param != 0) {
                         chatId = param;
                         currentChat = getMessagesController().getChat(param);
+                        getSendMessagesHelper().setSendAs(currentChat, (TLRPC.InputPeer) null);
                         processDone();
                     }
                 });
@@ -521,6 +522,7 @@ public class ChatEditTypeActivity extends BaseFragment implements NotificationCe
                 getMessagesController().updateChannelUserName(chatId, newUserName, success -> {
                     if (success) {
                         currentChat.username = newUserName;
+                        getSendMessagesHelper().setSendAs(currentChat, (TLRPC.InputPeer) null);
                         processDone();
                     }
                 });
