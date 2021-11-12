@@ -3413,6 +3413,11 @@ public class Theme {
     public static final String key_chat_emojiPanelStickerSetNameHighlight = "chat_emojiPanelStickerSetNameHighlight";
     public static final String key_chat_emojiPanelStickerSetNameIcon = "chat_emojiPanelStickerSetNameIcon";
     public static final String key_chat_emojiPanelTrendingDescription = "chat_emojiPanelTrendingDescription";
+    public static final String key_chat_sendAsButtonBackground = "chat_sendAsButtonBackground";
+    public static final String key_chat_sendAsPanelTitle = "chat_sendAsPanelTitle";
+    public static final String key_chat_sendAsPanelProfileTitle = "chat_sendAsPanelProfileTitle";
+    public static final String key_chat_sendAsPanelProfileSubtitle = "chat_sendAsPanelProfileSubtitle";
+    public static final String key_chat_sendAsPanelProfileSelection = "chat_sendAsPanelProfileSelection";
     public static final String key_chat_botKeyboardButtonText = "chat_botKeyboardButtonText";
     public static final String key_chat_botKeyboardButtonBackground = "chat_botKeyboardButtonBackground";
     public static final String key_chat_botKeyboardButtonBackgroundPressed = "chat_botKeyboardButtonBackgroundPressed";
@@ -4190,6 +4195,11 @@ public class Theme {
         defaultColors.put(key_chat_emojiPanelStickerSetNameHighlight, 0xff278ddb);
         defaultColors.put(key_chat_emojiPanelStickerSetNameIcon, 0xffb1b6bc);
         defaultColors.put(key_chat_emojiPanelTrendingDescription, 0xff8a8a8a);
+        defaultColors.put(key_chat_sendAsButtonBackground, 0xff50a7ea);
+        defaultColors.put(key_chat_sendAsPanelTitle, 0xff3995d4);
+        defaultColors.put(key_chat_sendAsPanelProfileTitle, 0xff222222);
+        defaultColors.put(key_chat_sendAsPanelProfileSubtitle, 0xff8a8a8a);
+        defaultColors.put(key_chat_sendAsPanelProfileSelection, 0xff50a7ea);
         defaultColors.put(key_chat_botKeyboardButtonText, 0xff36474f);
         defaultColors.put(key_chat_botKeyboardButtonBackground, 0xffe4e7e9);
         defaultColors.put(key_chat_botKeyboardButtonBackgroundPressed, 0xffccd1d4);
@@ -4643,6 +4653,12 @@ public class Theme {
         fallbackKeys.put(key_chat_attachContactText, key_chat_attachContactBackground);
         fallbackKeys.put(key_chat_attachLocationText, key_chat_attachLocationBackground);
         fallbackKeys.put(key_chat_attachPollText, key_chat_attachPollBackground);
+
+        fallbackKeys.put(key_chat_sendAsButtonBackground, key_featuredStickers_addButton);
+        fallbackKeys.put(key_chat_sendAsPanelTitle, key_chat_recordVoiceCancel);
+        fallbackKeys.put(key_chat_sendAsPanelProfileTitle, key_dialogTextBlack);
+        fallbackKeys.put(key_chat_sendAsPanelProfileSubtitle, key_chat_emojiPanelTrendingDescription);
+        fallbackKeys.put(key_chat_sendAsPanelProfileSelection, key_featuredStickers_addButton);
 
         fallbackKeys.put(key_chat_inPsaNameText, key_avatar_nameInMessageGreen);
         fallbackKeys.put(key_chat_outPsaNameText, key_avatar_nameInMessageGreen);

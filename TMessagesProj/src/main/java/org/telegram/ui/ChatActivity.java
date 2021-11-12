@@ -7142,10 +7142,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             @Override
             public void onSelect(TLRPC.Peer peer) {
                 setDefaultSendAs(peer);
-                sendAsPopup.show(false);
-                if (chatActivityEnterView != null) {
-                    chatActivityEnterView.setSendAsShowClose(false);
-                }
+//                sendAsPopup.show(false);
+//                if (chatActivityEnterView != null) {
+//                    chatActivityEnterView.setSendAsShowClose(false);
+//                }
             }
         });
         sendAsPopup.setPeers(sendAsPeers);
@@ -7986,7 +7986,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 //                                }
 //                            }
 //                            if (!foundPeer) {
-//                                setDefaultSendAs(chatInfo.default_send_as = sendAsPeers.get(0));
+////                                setDefaultSendAs(chatInfo.default_send_as = sendAsPeers.get(0));
+//                                defaultSendAsValue = null;
+//                                getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
+//                                getMessagesController().loadFullChat(chatInfo.id, classGuid, true);
 //                            }
 //                        }
 //                    }
@@ -14227,9 +14230,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             if ((updateMask & MessagesController.UPDATE_MASK_NAME) != 0 || (updateMask & MessagesController.UPDATE_MASK_CHAT_NAME) != 0) {
                 if (currentChat != null) {
                     TLRPC.Chat chat = getMessagesController().getChat(currentChat.id);
-                    if ((chat != null && chat.signatures) != (currentChat != null && currentChat.signatures)) {
-                        loadSendAsPeers();
-                    }
                     if (chat != null) {
                         currentChat = chat;
                     }
@@ -14261,6 +14261,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     return;
                 }
                 currentChat = chat;
+                updateSendAs();
+                if (shouldShowSendAs()) {
+                    loadSendAsPeers();
+                }
                 updateSubtitle = !isThreadChat();
                 updateNoForwards();
                 updateBottomOverlay();
@@ -20282,12 +20286,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             boolean showMessageSeen = currentChat != null && message.isOutOwner() && message.isSent() && !message.isEditing() && !message.isSending() && !message.isSendError() && !message.isContentUnread() && !message.isUnread() && (ConnectionsManager.getInstance(currentAccount).getCurrentTime() - message.messageOwner.date < 7 * 86400)  && (ChatObject.isMegagroup(currentChat) || !ChatObject.isChannel(currentChat)) && chatInfo != null && chatInfo.participants_count < 50 && !(message.messageOwner.action instanceof TLRPC.TL_messageActionChatJoinedByRequest);
             MessageSeenView messageSeenView = null;
             if (showMessageSeen) {
-                messageSeenView = new MessageSeenView(contentView.getContext(), currentAccount, message, currentChat);
                 Drawable shadowDrawable2 = ContextCompat.getDrawable(contentView.getContext(), R.drawable.popup_fixed_alert).mutate();
                 shadowDrawable2.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), PorterDuff.Mode.MULTIPLY));
                 FrameLayout messageSeenLayout = new FrameLayout(contentView.getContext());
-                messageSeenLayout.addView(messageSeenView);
                 messageSeenLayout.setBackground(shadowDrawable2);
+                messageSeenView = new MessageSeenView(contentView.getContext(), currentAccount, message, currentChat, messageSeenLayout);
+                messageSeenLayout.addView(messageSeenView);
                 MessageSeenView finalMessageSeenView = messageSeenView;
                 messageSeenView.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -24612,6 +24616,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             }
             if (avatarContainer != null) {
                 avatarContainer.updateColors();
+            }
+            if (sendAsPopup != null) {
+                sendAsPopup.updateColors();
             }
         };
         ArrayList<ThemeDescription> themeDescriptions = new ArrayList<>();

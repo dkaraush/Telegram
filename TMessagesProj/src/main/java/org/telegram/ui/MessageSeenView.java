@@ -1,5 +1,6 @@
 package org.telegram.ui;
 
+import android.animation.Animator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
@@ -12,6 +13,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -53,6 +55,7 @@ public class MessageSeenView extends FrameLayout {
 
     ArrayList<Long> peerIds = new ArrayList<>();
     public ArrayList<TLRPC.User> users = new ArrayList<>();
+    private FrameLayout popupContainer;
     AvatarsImageView avatarsImageView;
     TextView titleView;
     ImageView iconView;
@@ -61,10 +64,12 @@ public class MessageSeenView extends FrameLayout {
 
     FlickerLoadingView flickerLoadingView;
 
-    public MessageSeenView(@NonNull Context context, int currentAccount, MessageObject messageObject, TLRPC.Chat chat) {
+    public MessageSeenView(@NonNull Context context, int currentAccount, MessageObject messageObject, TLRPC.Chat chat, FrameLayout popupContainer) {
         super(context);
         this.currentAccount = currentAccount;
         isVoice = (messageObject.isRoundVideo() || messageObject.isVoice());
+        this.popupContainer = popupContainer;
+
         flickerLoadingView = new FlickerLoadingView(context);
         flickerLoadingView.setColors(Theme.key_actionBarDefaultSubmenuBackground, Theme.key_listSelector, null);
         flickerLoadingView.setViewType(FlickerLoadingView.MESSAGE_SEEN_TYPE);
@@ -206,8 +211,20 @@ public class MessageSeenView extends FrameLayout {
         }
     }
 
+    private final boolean SHOULD_HIDE_WHEN_0_SEEN = false;
+    private boolean shown = true;
+    private ViewPropertyAnimator hideAnimator = null;
     private void updateView() {
         setEnabled(users.size() > 0);
+        boolean newShown = users.size() > 0;
+        if (shown != newShown && SHOULD_HIDE_WHEN_0_SEEN) {
+            shown = newShown;
+            if (hideAnimator != null)
+                hideAnimator.cancel();
+            if (popupContainer != null)
+                hideAnimator = popupContainer.animate().alpha(shown ? 1f : 0f).translationY(shown ? 0f : 8f).setDuration(250);
+        }
+
         for (int i = 0; i < 3; i++) {
             if (i < users.size()) {
                 avatarsImageView.setObject(i, currentAccount, users.get(i));

@@ -27,6 +27,7 @@ public class CloseableAvatar extends FrameLayout {
     public boolean showClose = false;
     private RelativeLayout layout;
     private FrameLayout background;
+    private ShapeDrawable backgroundShape;
     private BackupImageView avatar;
     private AvatarDrawable avatarDrawable = new AvatarDrawable();
     private ImageView closeIcon;
@@ -41,9 +42,9 @@ public class CloseableAvatar extends FrameLayout {
         addView(layout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL, padding, padding, padding, padding));
 
         background = new FrameLayout(context);
-        ShapeDrawable shape = new ShapeDrawable(new OvalShape());
-        shape.getPaint().setColor(Theme.getColor(Theme.key_changephoneinfo_image2)); // TODO(dkaraush): color!
-        background.setBackground(shape);
+        backgroundShape = new ShapeDrawable(new OvalShape());
+        backgroundShape.getPaint().setColor(Theme.getColor(Theme.key_chat_sendAsButtonBackground));
+        background.setBackground(backgroundShape);
         background.setAlpha(showClose ? 1f : 0f);
         layout.addView(background, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
 
@@ -58,6 +59,11 @@ public class CloseableAvatar extends FrameLayout {
         closeIcon.setRotation(90f);
         closeIcon.setAlpha(0f);
         layout.addView(closeIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER, 4f, 4f, 4f, 4f));
+    }
+
+    public void updateColors() {
+        backgroundShape.getPaint().setColor(Theme.getColor(Theme.key_chat_sendAsButtonBackground));
+        invalidate();
     }
 
     public void setAvatar(TLRPC.Peer peer) {

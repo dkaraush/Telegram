@@ -262,8 +262,10 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
             showSendAsButton(peer != null, animate);
         }
         sendAsButton.setAvatar(sendAsPeer = peer);
-        if (recordedAudioPanel != null)
+        if (recordedAudioPanel != null) {
             ((MarginLayoutParams) recordedAudioPanel.getLayoutParams()).leftMargin = sendAsPeer == null ? 0 : AndroidUtilities.dp(48);
+        }
+        updateFieldHint(animate);
     }
     public void setSendAsShowClose(boolean showClose) {
         sendAsButton.setShowClose(showClose);
@@ -1768,7 +1770,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                 delegate.onSendAsClick(sendAsButton.showClose);
             }
         });
-        frameLayout.addView(sendAsButton, LayoutHelper.createFrame(48, 48, Gravity.BOTTOM | Gravity.LEFT, 3, 0, 0, 0));
+        frameLayout.addView(sendAsButton, LayoutHelper.createFrame(48, 48, Gravity.BOTTOM | Gravity.LEFT, 1, 1, 0, 0));
 
         for (int a = 0; a < 2; a++) {
             emojiButton[a] = new ImageView(context) {
@@ -3945,7 +3947,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
             if (DialogObject.isChatDialog(dialog_id)) {
                 TLRPC.Chat chat = accountInstance.getMessagesController().getChat(-dialog_id);
                 isChannel = ChatObject.isChannel(chat) && !chat.megagroup;
-                anonymously = ChatObject.shouldSendAnonymously(chat);
+                anonymously = ChatObject.shouldSendAnonymously(chat) || DialogObject.getPeerDialogId(sendAsPeer) < 0;
             }
             if (anonymously) {
                 messageEditText.setHintText(LocaleController.getString("SendAnonymously", R.string.SendAnonymously));
@@ -6109,6 +6111,10 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         }
         for (int i = 0; i < 2; ++i) {
             emojiButton[i].setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_chat_messagePanelIcons), PorterDuff.Mode.MULTIPLY));
+        }
+
+        if (sendAsButton != null) {
+            sendAsButton.updateColors();
         }
     }
 
@@ -8570,8 +8576,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
             additionalLeftMargin += AndroidUtilities.dp(7) + botCommandsMenuButton.getMeasuredWidth();
         }
 
-        setLeftMargin(sendAsButton, AndroidUtilities.dp(3) + additionalLeftMargin);
-        additionalLeftMargin += (int) (((float) AndroidUtilities.dp(48 - 5)) * sendAsButtonAnimatorProgress);
+        setLeftMargin(sendAsButton, AndroidUtilities.dp(1) + additionalLeftMargin);
+        additionalLeftMargin += (int) (((float) AndroidUtilities.dp(48 - 8)) * sendAsButtonAnimatorProgress);
 
         for (int i = 0; i < emojiButton.length; i++) {
             setLeftMargin(emojiButton[i], AndroidUtilities.dp(3) + additionalLeftMargin);

@@ -69,16 +69,14 @@ public class SendAsPopupView extends FrameLayout {
                     super.onDraw(canvas);
 
                     if (paint != null) {
-
-                        paint.setColor(Theme.getColor(Theme.key_checkboxSquareBackground));
+                        paint.setColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileSelection));
                         float cx = avatar.getLeft() + avatar.getMeasuredWidth() / 2;
                         float cy = avatar.getTop() + avatar.getMeasuredHeight() / 2;
-
-                        canvas.drawCircle(cx, cy, AndroidUtilities.dp(avatarSize / 2f - 3f) + AndroidUtilities.dp(4) * checkProgress, paint);
+                        canvas.drawCircle(cx, cy, AndroidUtilities.dp(avatarSize / 2f - 5f) + AndroidUtilities.dp(4) * checkProgress, paint);
                     }
                 }
             };
-            container.setMinimumWidth(AndroidUtilities.dp(260));
+            container.setMinimumWidth(AndroidUtilities.dp(240));
             if (Build.VERSION.SDK_INT >= 21) {
                 container.setBackgroundDrawable(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 3));
             }
@@ -97,7 +95,7 @@ public class SendAsPopupView extends FrameLayout {
             title = new TextView(context);
             title.setGravity(Gravity.LEFT);
             title.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-            title.setTextColor(0xff222222); // TODO(dkaraush): color!
+            title.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileTitle));
             title.setLines(1);
             title.setEllipsize(TextUtils.TruncateAt.END);
             infoLayout.addView(title, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP | Gravity.LEFT | Gravity.RIGHT, 0, 0, 0, 0));
@@ -105,18 +103,25 @@ public class SendAsPopupView extends FrameLayout {
             subtitle = new TextView(context);
             subtitle.setGravity(Gravity.LEFT);
             subtitle.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13);
-            subtitle.setTextColor(0xff8a8a8a); // TODO(dkaraush): color!
+            subtitle.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileSubtitle));
             subtitle.setLines(1);
             subtitle.setEllipsize(TextUtils.TruncateAt.END);
-            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, -2, 0, 0));
+            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, 0    , 0, 0));
 
-            container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
+            container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1,Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
 
             addView(container, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         }
 
+        public void updateColors() {
+            title.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileTitle));
+            subtitle.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileSubtitle));
+            invalidate();
+            container.invalidate();
+        }
+
         private final float avatarSize = 38f;
-        private final float disabledAvatarScale = (avatarSize - 4f) / avatarSize;
+        private final float disabledAvatarScale = (avatarSize - 8f) / avatarSize;
         private boolean isChecked = false;
         public void setChecked(boolean checked, boolean animated) {
             if (!animated) {
@@ -152,32 +157,37 @@ public class SendAsPopupView extends FrameLayout {
             }
         }
 
+        private TLRPC.Peer currentPeer = null;
         public void setFromPeer(TLRPC.Peer peer, boolean checked) {
             setChecked(checked, false);
-            if (peer instanceof TLRPC.TL_peerUser) {
-                TLRPC.User user = MessagesController.getInstance(UserConfig.selectedAccount).getUser(peer.user_id);
-                if (user != null) {
-                    title.setText(ContactsController.formatName(user.first_name, user.last_name));
-                    subtitle.setText(LocaleController.getString("MessageSendAsPersonalAccount", R.string.MessageSendAsPersonalAccount));
-                    avatarDrawable.setInfo(user);
-                    avatar.setForUserOrChat(user, avatarDrawable);
-                }
-            } else {
-                long id = (
-                        peer instanceof TLRPC.TL_peerChat ?
-                                peer.chat_id : peer.channel_id
-                );
-                TLRPC.Chat chat = MessagesController.getInstance(UserConfig.selectedAccount).getChat(id);
-                if (chat != null) {
-                    title.setText(chat.title);
-                    if (ChatObject.isChannel(chat) && !chat.megagroup) {
-                        subtitle.setText(LocaleController.formatPluralString("Subscribers", chat.participants_count));
-                    } else {
-                        subtitle.setText(LocaleController.formatPluralString("Members", chat.participants_count));
+            if (MessageObject.getPeerId(peer) != MessageObject.getPeerId(currentPeer)) {
+                currentPeer = peer;
+                if (peer instanceof TLRPC.TL_peerUser) {
+                    TLRPC.User user = MessagesController.getInstance(UserConfig.selectedAccount).getUser(peer.user_id);
+                    if (user != null) {
+                        title.setText(ContactsController.formatName(user.first_name, user.last_name));
+                        subtitle.setText(LocaleController.getString("MessageSendAsPersonalAccount", R.string.MessageSendAsPersonalAccount));
+                        avatarDrawable.setInfo(user);
+                        avatar.setForUserOrChat(user, avatarDrawable);
                     }
-                    avatarDrawable.setInfo(chat);
-                    avatar.setForUserOrChat(chat, avatarDrawable);
+                } else {
+                    long id = (
+                            peer instanceof TLRPC.TL_peerChat ?
+                                    peer.chat_id : peer.channel_id
+                    );
+                    TLRPC.Chat chat = MessagesController.getInstance(UserConfig.selectedAccount).getChat(id);
+                    if (chat != null) {
+                        title.setText(chat.title);
+                        if (ChatObject.isChannel(chat) && !chat.megagroup) {
+                            subtitle.setText(LocaleController.formatPluralString("Subscribers", chat.participants_count));
+                        } else {
+                            subtitle.setText(LocaleController.formatPluralString("Members", chat.participants_count));
+                        }
+                        avatarDrawable.setInfo(chat);
+                        avatar.setForUserOrChat(chat, avatarDrawable);
+                    }
                 }
+                invalidate();
             }
         }
     }
@@ -196,7 +206,26 @@ public class SendAsPopupView extends FrameLayout {
 
         private long selectedPeerId = 0;
         public void selectPeer(TLRPC.Peer peer) {
+            int oldSelectedPeerPosition = -1,
+                newSelectedPeerPosition = -1;
+            for (int i = 0; i < peers.size(); ++i) {
+                if (MessageObject.getPeerId(peer) == selectedPeerId) {
+                    oldSelectedPeerPosition = i;
+                    break;
+                }
+                if (MessageObject.getPeerId(peer) == MessageObject.getPeerId(peer)) {
+                    newSelectedPeerPosition = i;
+                    break;
+                }
+                if (oldSelectedPeerPosition != -1 && newSelectedPeerPosition != -1)
+                    break;
+            }
             selectedPeerId = MessageObject.getPeerId(peer);
+
+            if (oldSelectedPeerPosition != -1)
+                notifyItemChanged(oldSelectedPeerPosition);
+            if (newSelectedPeerPosition != -1)
+                notifyItemChanged(newSelectedPeerPosition);
         }
 
         @NonNull
@@ -242,7 +271,7 @@ public class SendAsPopupView extends FrameLayout {
         super(context);
 
         setVisibility(View.GONE);
-        setBackgroundColor(0x33000000); // TODO(dkaraush): color!
+        setBackgroundColor(0x33000000);
         setAlpha(0);
         setOnClickListener((v) -> {
             this.show(false);
@@ -257,7 +286,7 @@ public class SendAsPopupView extends FrameLayout {
         popup = new LinearLayout(context);
         popup.setOrientation(LinearLayout.VERTICAL);
         popup.setBackground(shadowDrawable2);
-        popup.setTranslationX(8);
+        popup.setTranslationY(8);
         popup.setClickable(true);
 
         popupContainer = new LinearLayout(context)
@@ -273,16 +302,16 @@ public class SendAsPopupView extends FrameLayout {
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             }
         };
-        popupContainer.addView(popup, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,Gravity.LEFT | Gravity.BOTTOM, -5, 0, 0, -2));
+        popupContainer.addView(popup, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,Gravity.LEFT | Gravity.BOTTOM, -1, 0, 0, -1));
 
         header = new TextView(context);
         header.setGravity(Gravity.LEFT);
         header.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15);
-        header.setTextColor(0xff3995D4); // TODO(dkaraush): color!
+        header.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelTitle));
         header.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         header.setText(LocaleController.getString("MessageSendAs", R.string.MessageSendAs));
         header.setMaxLines(1);
-        popup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 14, 16, 8));
+        popup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 8));
 
         listView = new RecyclerListView(context) {
             @Override
@@ -301,7 +330,6 @@ public class SendAsPopupView extends FrameLayout {
         listView.setVerticalScrollBarEnabled(false);
         listView.setClipToPadding(false);
         listView.setEnabled(true);
-//        listView.setPadding(0, 2, 0, 10);
         listView.setOnItemClickListener((view, position) -> {
             TLRPC.Peer peer = adapter.peers.get(position);
             if (peer != null) {
@@ -322,6 +350,29 @@ public class SendAsPopupView extends FrameLayout {
         popup.addView(listView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 0));
 
         addView(popupContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.BOTTOM));
+    }
+
+    public void updateColors() {
+        if (listView != null && layoutManager != null) {
+            final int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
+            final int lastVisibleItemPosition = layoutManager.findLastVisibleItemPosition();
+            if (firstVisibleItemPosition != RecyclerView.NO_POSITION &&
+                lastVisibleItemPosition != RecyclerView.NO_POSITION) {
+                for (int i = firstVisibleItemPosition; i <= lastVisibleItemPosition; ++i) {
+                    try {
+                        RecyclerView.ViewHolder holder = (RecyclerView.ViewHolder) listView.findViewHolderForAdapterPosition(i);
+                        if (holder != null) {
+                            SendAsPeerView view = (SendAsPeerView) holder.itemView;
+                            if (view != null) {
+                                view.updateColors();
+                            }
+                        }
+                    } catch (Exception e) {}
+                }
+            }
+        }
+        header.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelTitle));
+        invalidate();
     }
 
     private ViewPropertyAnimator popupAnimation;
