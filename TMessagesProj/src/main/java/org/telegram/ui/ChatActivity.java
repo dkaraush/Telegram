@@ -6873,7 +6873,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
             @Override
             public void needSendTyping() {
-                getMessagesController().sendTyping(dialog_id, threadMessageId, 0, classGuid);
+                if (DialogObject.getPeerDialogId(SendMessagesHelper.getInstance(currentAccount).getSendAs(dialog_id)) >= 0) {
+                    getMessagesController().sendTyping(dialog_id, threadMessageId, 0, classGuid);
+                }
             }
 
             @Override
@@ -7919,6 +7921,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 defaultSendAsValue = null;
                 loadSendAsPeers();
                 updateSendAs();
+            } else {
+                if (DialogObject.getPeerDialogId(peer) >= 0) {
+                    getMessagesController().sendTyping(dialog_id, threadMessageId, 2, classGuid);
+                }
             }
         });
     }
@@ -7931,8 +7937,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (shouldProcessSendAs()) {
             TLRPC.Peer defaultSendAs = getDefaultSendAs();
 
+            getSendMessagesHelper().setSendAs(dialog_id, defaultSendAs);
             if (defaultSendAs != null) {
-                getSendMessagesHelper().setSendAs(dialog_id, defaultSendAs);
                 if (chatActivityEnterView != null) {
                     chatActivityEnterView.setSendAs(defaultSendAs, animate);
                 }
@@ -7941,7 +7947,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
             } else if (sendAsPeers == null) {
                 loadSendAsPeers();
-                getSendMessagesHelper().setSendAs(dialog_id, (TLRPC.InputPeer) null);
             } else {
                 if (chatActivityEnterView != null) {
                     chatActivityEnterView.setSendAs(null, animate);

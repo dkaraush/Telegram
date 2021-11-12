@@ -5274,7 +5274,9 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
             if (recordInterfaceState == 0) {
                 return;
             }
-            accountInstance.getMessagesController().sendTyping(dialog_id, getThreadMessageId(), 2, 0);
+            if (DialogObject.getPeerDialogId(SendMessagesHelper.getInstance(currentAccount).getSendAs(dialog_id)) >= 0) {
+                accountInstance.getMessagesController().sendTyping(dialog_id, getThreadMessageId(), 2, 0);
+            }
             recordInterfaceState = 0;
             if (emojiView != null) {
                 emojiView.setEnabled(true);
@@ -7556,7 +7558,9 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
             if (recordInterfaceState != 0 && !wasSendTyping && !isInScheduleMode()) {
                 wasSendTyping = true;
-                accountInstance.getMessagesController().sendTyping(dialog_id, getThreadMessageId(), videoSendButton != null && videoSendButton.getTag() != null ? 7 : 1, 0);
+                if (DialogObject.getPeerDialogId(SendMessagesHelper.getInstance(currentAccount).getSendAs(dialog_id)) >= 0) {
+                    accountInstance.getMessagesController().sendTyping(dialog_id, getThreadMessageId(), videoSendButton != null && videoSendButton.getTag() != null ? 7 : 1, 0);
+                }
             }
 
             if (recordCircle != null) {

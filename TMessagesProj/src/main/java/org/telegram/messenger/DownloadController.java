@@ -1048,6 +1048,8 @@ public class DownloadController extends BaseController implements NotificationCe
                         SendMessagesHelper.DelayedMessage delayedMessage = delayedMessages.get(a);
                         if (delayedMessage.encryptedChat == null) {
                             long dialogId = delayedMessage.peer;
+                            if (DialogObject.getPeerDialogId(getSendMessagesHelper().getSendAs(delayedMessage.peer)) < 0)
+                                continue;
                             int topMessageId = delayedMessage.topMessageId;
                             Long lastTime = typingTimes.get(dialogId);
                             if (delayedMessage.type == 4) {

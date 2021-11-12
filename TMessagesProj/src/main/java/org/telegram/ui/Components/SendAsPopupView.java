@@ -108,7 +108,7 @@ public class SendAsPopupView extends FrameLayout {
             subtitle.setTextColor(0xff8a8a8a); // TODO(dkaraush): color!
             subtitle.setLines(1);
             subtitle.setEllipsize(TextUtils.TruncateAt.END);
-            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, -2, 0, 0));
+            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, -2, 0, 0));
 
             container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
 
@@ -242,7 +242,7 @@ public class SendAsPopupView extends FrameLayout {
         super(context);
 
         setVisibility(View.GONE);
-        setBackgroundColor(0x33000000);
+        setBackgroundColor(0x33000000); // TODO(dkaraush): color!
         setAlpha(0);
         setOnClickListener((v) -> {
             this.show(false);
