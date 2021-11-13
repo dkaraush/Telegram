@@ -220,6 +220,7 @@ import org.telegram.ui.Components.ReportAlert;
 import org.telegram.ui.Components.SearchCounterView;
 import org.telegram.ui.Components.SendAsPopupView;
 import org.telegram.ui.Components.ShareAlert;
+import org.telegram.ui.Components.SharedMediaLayout;
 import org.telegram.ui.Components.Size;
 import org.telegram.ui.Components.SizeNotifierFrameLayout;
 import org.telegram.ui.Components.StickersAlert;
@@ -23558,6 +23559,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
 
                     @Override
+                    public void didTap(ChatActionCell cell, MessageObject message) {
+                        if (message.isDateObject)
+                            tappedOnDate(cell, message);
+                    }
+
+                    @Override
                     public void needOpenUserProfile(long uid) {
                         if (uid < 0) {
                             Bundle args = new Bundle();
@@ -25992,5 +25999,33 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             }
             return color;
         }
+    }
+
+    private void tappedOnDate(ChatActionCell cell, MessageObject message) {
+        Bundle bundle = new Bundle();
+        bundle.putLong("dialog_id", dialog_id);
+        HistoryCalendarActivity calendarActivity = new HistoryCalendarActivity(bundle, message.messageOwner.date);
+        calendarActivity.setCallback(new HistoryCalendarActivity.Callback() {
+            @Override
+            public void onDateSelected(int messageId, int startOffset) {
+//                int index = -1;
+//                for (int i = 0; i < sharedMediaData[0].messages.size(); i++) {
+//                    if (sharedMediaData[0].messages.get(i).getId() == messageId) {
+//                        index = i;
+//                    }
+//                }
+//                SharedMediaLayout.MediaPage mediaPage = getMediaPage(0);
+//                if (index >= 0 && mediaPage != null) {
+//                    mediaPage.layoutManager.scrollToPositionWithOffset(index, 0);
+//                } else {
+//                    jumpToDate(0, messageId, startOffset, true);
+//                }
+//                if (mediaPage != null) {
+//                    mediaPage.highlightMessageId = messageId;
+//                    mediaPage.highlightAnimation = false;
+//                }
+            }
+        });
+        presentFragment(calendarActivity);
     }
 }

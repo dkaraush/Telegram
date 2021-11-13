@@ -57,6 +57,7 @@ public abstract class BaseFragment {
     protected Dialog visibleDialog;
     protected int currentAccount = UserConfig.selectedAccount;
 
+    protected ActionBarPopupWindow.ActionBarPopupWindowLayout fragmentButtons;
     protected View fragmentView;
     protected ActionBarLayout parentLayout;
     protected ActionBar actionBar;
@@ -360,6 +361,10 @@ public abstract class BaseFragment {
         return null;
     }
 
+    public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
+        return parentLayout != null && parentLayout.presentFragmentAsPreviewWithButtons(fragment, buttons);
+    }
+
     public boolean presentFragmentAsPreview(BaseFragment fragment) {
         return parentLayout != null && parentLayout.presentFragmentAsPreview(fragment);
     }
@@ -373,7 +378,7 @@ public abstract class BaseFragment {
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast, boolean forceWithoutAnimation) {
-        return parentLayout != null && parentLayout.presentFragment(fragment, removeLast, forceWithoutAnimation, true, false);
+        return parentLayout != null && parentLayout.presentFragment(fragment, removeLast, forceWithoutAnimation, true, false, null);
     }
 
     public Activity getParentActivity() {

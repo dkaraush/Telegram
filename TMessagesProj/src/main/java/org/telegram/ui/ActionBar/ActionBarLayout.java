@@ -44,6 +44,7 @@ import android.view.ViewOutlineProvider;
 import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
 import com.google.android.exoplayer2.util.Log;
 
@@ -91,7 +92,7 @@ public class ActionBarLayout extends FrameLayout {
 
         @Override
         protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
-            if (child instanceof ActionBar) {
+            if (child instanceof ActionBar || child instanceof ActionBarPopupWindow.ActionBarPopupWindowLayout) {
                 return super.drawChild(canvas, child, drawingTime);
             } else {
                 int actionBarHeight = 0;
@@ -143,7 +144,9 @@ public class ActionBarLayout extends FrameLayout {
             }
             for (int a = 0; a < count; a++) {
                 View child = getChildAt(a);
-                if (!(child instanceof ActionBar)) {
+                if (child instanceof ActionBarPopupWindow.ActionBarPopupWindowLayout) {
+//                    child.measure(widthMeasureSpec, heightMeasureSpec);
+                } else if (!(child instanceof ActionBar)) {
                     if (child.getFitsSystemWindows()) {
                         measureChildWithMargins(child, widthMeasureSpec, 0, heightMeasureSpec, 0);
                     } else {
@@ -161,14 +164,17 @@ public class ActionBarLayout extends FrameLayout {
             for (int a = 0; a < count; a++) {
                 View child = getChildAt(a);
                 if (child instanceof ActionBar) {
-                    actionBarHeight = child.getMeasuredHeight();
-                    child.layout(0, 0, child.getMeasuredWidth(), actionBarHeight);
+                    child.layout(0, 0, child.getMeasuredWidth(), actionBarHeight = child.getMeasuredHeight());
                     break;
                 }
             }
             for (int a = 0; a < count; a++) {
                 View child = getChildAt(a);
-                if (!(child instanceof ActionBar)) {
+                if (child instanceof ActionBarPopupWindow.ActionBarPopupWindowLayout) {
+                    FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) child.getLayoutParams();
+                    int B = b - AndroidUtilities.dp(46);
+                    child.layout(layoutParams.leftMargin, B - child.getMeasuredHeight(), layoutParams.leftMargin + child.getMeasuredWidth(), B);
+                } else if (!(child instanceof ActionBar)) {
                     FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) child.getLayoutParams();
                     if (child.getFitsSystemWindows()) {
                         child.layout(layoutParams.leftMargin, layoutParams.topMargin, layoutParams.leftMargin + child.getMeasuredWidth(), layoutParams.topMargin + child.getMeasuredHeight());
@@ -191,10 +197,13 @@ public class ActionBarLayout extends FrameLayout {
 
         @Override
         public boolean dispatchTouchEvent(MotionEvent ev) {
+            if (inPreviewMode && getChildCount() >= 2)
+                return super.dispatchTouchEvent(ev);
+
             if ((inPreviewMode || transitionAnimationPreviewMode) && (ev.getActionMasked() == MotionEvent.ACTION_DOWN || ev.getActionMasked() == MotionEvent.ACTION_POINTER_DOWN)) {
                 return false;
             }
-            //
+
             try {
                 return (!inPreviewMode || this != containerView) && super.dispatchTouchEvent(ev);
             } catch (Throwable e) {
@@ -637,6 +646,12 @@ public class ActionBarLayout extends FrameLayout {
                         parent.removeViewInLayout(lastFragment.actionBar);
                     }
                 }
+                if (lastFragment.fragmentButtons != null) {
+                    ViewGroup parent = (ViewGroup) lastFragment.fragmentButtons.getParent();
+                    if (parent != null) {
+                        parent.removeViewInLayout(lastFragment.fragmentButtons);
+                    }
+                }
             }
             layoutToIgnore = null;
         }
@@ -682,6 +697,13 @@ public class ActionBarLayout extends FrameLayout {
             }
             containerViewBack.addView(lastFragment.actionBar);
             lastFragment.actionBar.setTitleOverlayText(titleOverlayText, titleOverlayTextId, overlayAction);
+        }
+        if (lastFragment.fragmentButtons != null) {
+            parent = (ViewGroup) lastFragment.fragmentButtons.getParent();
+            if (parent != null) {
+                parent.removeView(lastFragment.fragmentButtons);
+            }
+            containerViewBack.addView(lastFragment.fragmentButtons);
         }
         if (!lastFragment.hasOwnBackground && fragmentView.getBackground() == null) {
             fragmentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
@@ -936,20 +958,29 @@ public class ActionBarLayout extends FrameLayout {
                     parent.removeViewInLayout(fragment.actionBar);
                 }
             }
+            if (fragment.fragmentButtons != null) {
+                ViewGroup parent = (ViewGroup) fragment.fragmentButtons.getParent();
+                if (parent != null) {
+                    parent.removeView(fragment.fragmentButtons);
+                }
+            }
         }
         containerViewBack.setVisibility(View.INVISIBLE);
     }
 
+    public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
+        return presentFragment(fragment, false, false, true, true, buttons);
+    }
     public boolean presentFragmentAsPreview(BaseFragment fragment) {
-        return presentFragment(fragment, false, false, true, true);
+        return presentFragment(fragment, false, false, true, true, null);
     }
 
     public boolean presentFragment(BaseFragment fragment) {
-        return presentFragment(fragment, false, false, true, false);
+        return presentFragment(fragment, false, false, true, false, null);
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast) {
-        return presentFragment(fragment, removeLast, false, true, false);
+        return presentFragment(fragment, removeLast, false, true, false, null);
     }
 
     private void startLayoutAnimation(final boolean open, final boolean first, final boolean preview) {
@@ -1037,8 +1068,10 @@ public class ActionBarLayout extends FrameLayout {
     public boolean isInPreviewMode() {
         return inPreviewMode || transitionAnimationPreviewMode;
     }
-
     public boolean presentFragment(final BaseFragment fragment, final boolean removeLast, boolean forceWithoutAnimation, boolean check, final boolean preview) {
+        return this.presentFragment(fragment, removeLast, forceWithoutAnimation, check, preview, null);
+    }
+    public boolean presentFragment(final BaseFragment fragment, final boolean removeLast, boolean forceWithoutAnimation, boolean check, final boolean preview, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
         if (fragment == null || checkTransitionAnimation() || delegate != null && check && !delegate.needPresentFragment(fragment, removeLast, forceWithoutAnimation, this) || !fragment.onFragmentCreate()) {
             return false;
         }
@@ -1062,6 +1095,28 @@ public class ActionBarLayout extends FrameLayout {
             }
         }
         containerViewBack.addView(fragmentView);
+
+        if (fragment.fragmentButtons != null) {
+            ViewGroup parent = (ViewGroup) fragment.fragmentButtons.getParent();
+            if (parent != null) {
+                parent.removeView(fragment.fragmentButtons);
+            }
+            fragment.fragmentButtons = null;
+        }
+        if (preview && buttons != null) {
+            fragment.fragmentButtons = buttons;
+        } else
+            fragment.fragmentButtons = null;
+//        if (buttons != null && preview) {
+//            LinearLayout linearLayout = new LinearLayout(getContext());
+//            linearLayout.setOrientation(LinearLayout.VERTICAL);
+//
+//            linearLayout.addView(fragmentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, 1, Gravity.TOP | Gravity.LEFT | Gravity.RIGHT, 0, 0, 0, 0));
+//            linearLayout.addView(buttons, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, 0,Gravity.LEFT | Gravity.BOTTOM, 0, 8, 0, 0));
+//
+//            fragmentView = linearLayout;
+//        }
+
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) fragmentView.getLayoutParams();
         layoutParams.width = LayoutHelper.MATCH_PARENT;
         layoutParams.height = LayoutHelper.MATCH_PARENT;
@@ -1072,8 +1127,13 @@ public class ActionBarLayout extends FrameLayout {
                 layoutParams.height = height;
                 layoutParams.topMargin = statusBarHeight + (getMeasuredHeight() - statusBarHeight - height) / 2;
             } else {
-                layoutParams.topMargin = layoutParams.bottomMargin = AndroidUtilities.dp(46);
-                layoutParams.topMargin += AndroidUtilities.statusBarHeight;
+                if (buttons != null) {
+                    layoutParams.topMargin = AndroidUtilities.statusBarHeight + AndroidUtilities.dp(8);
+                    layoutParams.bottomMargin = buttons.getMeasuredHeight() + AndroidUtilities.dp(46);
+                } else {
+                    layoutParams.topMargin = layoutParams.bottomMargin = AndroidUtilities.dp(46);
+                    layoutParams.topMargin += AndroidUtilities.statusBarHeight;
+                }
             }
             layoutParams.rightMargin = layoutParams.leftMargin = AndroidUtilities.dp(8);
         } else {
@@ -1091,6 +1151,14 @@ public class ActionBarLayout extends FrameLayout {
             containerViewBack.addView(fragment.actionBar);
             fragment.actionBar.setTitleOverlayText(titleOverlayText, titleOverlayTextId, overlayAction);
         }
+        if (fragment.fragmentButtons != null) {
+            ViewGroup parent = (ViewGroup) fragment.fragmentButtons.getParent();
+            if (parent != null) {
+                parent.removeView(fragment.fragmentButtons);
+            }
+            containerViewBack.addView(fragment.fragmentButtons);
+        }
+
         fragmentsStack.add(fragment);
         fragment.onResume();
         currentActionBar = fragment.actionBar;
@@ -1320,6 +1388,12 @@ public class ActionBarLayout extends FrameLayout {
                         parent.removeView(previousFragment.actionBar);
                     }
                 }
+                if (previousFragment.fragmentButtons != null) {
+                    ViewGroup parent = (ViewGroup) previousFragment.fragmentButtons.getParent();
+                    if (parent != null) {
+                        parent.removeView(previousFragment.fragmentButtons);
+                    }
+                }
                 if (previousFragment.fragmentView != null) {
                     ViewGroup parent = (ViewGroup) previousFragment.fragmentView.getParent();
                     if (parent != null) {
@@ -1461,6 +1535,13 @@ public class ActionBarLayout extends FrameLayout {
                     containerView.addView(previousFragment.actionBar);
                     previousFragment.actionBar.setTitleOverlayText(titleOverlayText, titleOverlayTextId, overlayAction);
                 }
+                if (previousFragment.fragmentButtons != null) {
+                    parent = (ViewGroup) previousFragment.fragmentButtons.getParent();
+                    if (parent != null) {
+                        parent.removeView(previousFragment.fragmentButtons);
+                    }
+                    containerView.addView(previousFragment.fragmentButtons);
+                }
             }
 
             newFragment = previousFragment;
@@ -1591,6 +1672,12 @@ public class ActionBarLayout extends FrameLayout {
                     parent.removeView(previousFragment.actionBar);
                 }
             }
+            if (previousFragment.fragmentButtons != null) {
+                ViewGroup parent = (ViewGroup) previousFragment.fragmentButtons.getParent();
+                if (parent != null) {
+                    parent.removeView(previousFragment.fragmentButtons);
+                }
+            }
             if (previousFragment.fragmentView != null) {
                 ViewGroup parent = (ViewGroup) previousFragment.fragmentView.getParent();
                 if (parent != null) {
@@ -1623,6 +1710,13 @@ public class ActionBarLayout extends FrameLayout {
             }
             containerView.addView(previousFragment.actionBar);
             previousFragment.actionBar.setTitleOverlayText(titleOverlayText, titleOverlayTextId, overlayAction);
+        }
+        if (previousFragment.fragmentButtons != null) {
+            ViewGroup parent = (ViewGroup) previousFragment.fragmentButtons.getParent();
+            if (parent != null) {
+                parent.removeView(previousFragment.fragmentButtons);
+            }
+            containerView.addView(previousFragment.fragmentButtons);
         }
         previousFragment.onResume();
         currentActionBar = previousFragment.actionBar;

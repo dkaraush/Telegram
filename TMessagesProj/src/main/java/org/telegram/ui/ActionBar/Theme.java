@@ -5928,7 +5928,6 @@ public class Theme {
     }
 
     public static Drawable createRadSelectorDrawable(int color, int topRad, int bottomRad) {
-        Drawable drawable;
         if (Build.VERSION.SDK_INT >= 21) {
             maskPaint.setColor(0xffffffff);
             Drawable maskDrawable = new RippleRadMaskDrawable(topRad, bottomRad);

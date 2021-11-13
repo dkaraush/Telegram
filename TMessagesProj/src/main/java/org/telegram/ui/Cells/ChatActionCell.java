@@ -67,6 +67,9 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
         default void didPressReplyMessage(ChatActionCell cell, int id) {
         }
 
+        default void didTap(ChatActionCell cell, MessageObject messageObject) {
+        }
+
         default void needOpenInviteLink(TLRPC.TL_chatInviteExported invite) {
 
         }
@@ -297,7 +300,9 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
         boolean result = false;
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             if (delegate != null) {
-                if (currentMessageObject.type == 11 && imageReceiver.isInsideImage(x, y)) {
+                if (currentMessageObject.type == 10) {
+                    result = true;
+                } else if (currentMessageObject.type == 11 && imageReceiver.isInsideImage(x, y)) {
                     imagePressed = true;
                     result = true;
                 }
@@ -322,6 +327,10 @@ public class ChatActionCell extends BaseCell implements DownloadController.FileD
                     if (!imageReceiver.isInsideImage(x, y)) {
                         imagePressed = false;
                     }
+                }
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                if (delegate != null) {
+                    delegate.didTap(this, currentMessageObject);
                 }
             }
         }

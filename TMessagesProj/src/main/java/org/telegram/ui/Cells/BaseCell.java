@@ -22,6 +22,7 @@ public abstract class BaseCell extends ViewGroup {
             if (pendingCheckForLongPress == null) {
                 pendingCheckForLongPress = new CheckForLongPress();
             }
+
             pendingCheckForLongPress.currentPressCount = ++pressCount;
             postDelayed(pendingCheckForLongPress, ViewConfiguration.getLongPressTimeout() - ViewConfiguration.getTapTimeout());
         }
