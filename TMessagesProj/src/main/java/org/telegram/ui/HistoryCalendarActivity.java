@@ -6,9 +6,10 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.RippleDrawable;
@@ -24,9 +25,7 @@ import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import androidx.annotation.ContentView;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
@@ -36,7 +35,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.FileLoader;
-import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
@@ -46,23 +44,22 @@ import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
-import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
-import org.telegram.ui.ActionBar.DrawerLayoutContainer;
 import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
-import org.telegram.ui.Components.SharedMediaLayout;
-import org.telegram.ui.Components.SizeNotifierFrameLayout;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 
 public class HistoryCalendarActivity extends BaseFragment {
 
@@ -71,21 +68,27 @@ public class HistoryCalendarActivity extends BaseFragment {
     RecyclerListView listView;
     LinearLayoutManager layoutManager;
     TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-    TextPaint activeTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    TextPaint boldBlackTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    TextPaint boldWhiteTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     TextPaint textPaint2 = new TextPaint(Paint.ANTI_ALIAS_FLAG);
 
     BackDrawable backButton;
+    View calendarSignatureView;
+    FrameLayout bottomButtonContainerBorder;
+    FrameLayout bottomButtonContainer;
     TextView selectDaysButton;
     TextView clearHistoryButton;
 
+    Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     Paint blackoutPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     Paint selectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    Paint selectedStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    Paint selectedStrokeBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private long dialogId;
     private boolean loading;
     private boolean checkEnterItems;
-
 
     int startFromYear;
     int startFromMonth;
@@ -141,9 +144,14 @@ public class HistoryCalendarActivity extends BaseFragment {
         textPaint2.setTextAlign(Paint.Align.CENTER);
         textPaint2.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
 
-        activeTextPaint.setTextSize(AndroidUtilities.dp(16));
-        activeTextPaint.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        activeTextPaint.setTextAlign(Paint.Align.CENTER);
+        boldWhiteTextPaint.setTextSize(AndroidUtilities.dp(16));
+        boldWhiteTextPaint.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        boldWhiteTextPaint.setTextAlign(Paint.Align.CENTER);
+        boldBlackTextPaint.setTextSize(AndroidUtilities.dp(16));
+        boldBlackTextPaint.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        boldBlackTextPaint.setTextAlign(Paint.Align.CENTER);
+
+        backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         fragmentView = contentView = new FrameLayout(context);
         contentView.setClipChildren(false);
@@ -160,9 +168,15 @@ public class HistoryCalendarActivity extends BaseFragment {
                 super.dispatchDraw(canvas);
                 checkEnterItems = false;
             }
+            @Override
+            public void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+                drawEndDayCircle(canvas, getScrollX(), computeVerticalScrollOffset());
+            }
         };
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context));
         layoutManager.setReverseLayout(true);
+        listView.setClipChildren(true);
         listView.setAdapter(adapter = new HistoryCalendarActivity.CalendarAdapter());
         listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -186,11 +200,13 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         Drawable headerShadowDrawable = ContextCompat.getDrawable(context, R.drawable.header_shadow).mutate();
 
-        View calendarSignatureView = new View(context) {
+        calendarSignatureView = new View(context) {
 
             @Override
             protected void onDraw(Canvas canvas) {
                 super.onDraw(canvas);
+                canvas.drawRect(0, 0, getMeasuredWidth(), getMeasuredHeight() - AndroidUtilities.dp(3), backgroundPaint);
+
                 float xStep = getMeasuredWidth() / 7f;
                 for (int i = 0; i < 7; i++) {
                     float cx = xStep * i + xStep / 2f;
@@ -228,11 +244,16 @@ public class HistoryCalendarActivity extends BaseFragment {
             monthCount = 3;
         }
 
+        bottomButtonContainer = new FrameLayout(context);
+        bottomButtonContainerBorder = new FrameLayout(context);
+        bottomButtonContainerBorder.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1.5f), Gravity.TOP | Gravity.FILL_HORIZONTAL));
+        bottomButtonContainer.addView(bottomButtonContainerBorder);
+
         selectDaysButton = new TextView(context);
         selectDaysButton.setText("SELECT DAYS"); // TODO(dkaraush): text!
-        selectDaysButton.setTextColor(0xff3a8cce); // TODO(dkaraush): color!
         selectDaysButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         selectDaysButton.setGravity(Gravity.CENTER);
+        selectDaysButton.setTextSize(15);
         selectDaysButton.setPadding(
                 AndroidUtilities.dp(18),
                 AndroidUtilities.dp(18),
@@ -244,13 +265,13 @@ public class HistoryCalendarActivity extends BaseFragment {
         selectDaysButton.setOnClickListener(view -> switchSelectingDays(true));
         selectDaysButton.setAlpha(1f);
         selectDaysButton.setClickable(true);
-        contentView.addView(selectDaysButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 54, Gravity.FILL_HORIZONTAL | Gravity.BOTTOM));
+        bottomButtonContainer.addView(selectDaysButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
 
         clearHistoryButton = new TextView(context);
         clearHistoryButton.setText("CLEAR HISTORY"); // TODO(dkaraush): text!
-        clearHistoryButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteRedText5)); // TODO(dkaraush): color!
         clearHistoryButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         clearHistoryButton.setGravity(Gravity.CENTER);
+        clearHistoryButton.setTextSize(15);
         clearHistoryButton.setPadding(
                 AndroidUtilities.dp(18),
                 AndroidUtilities.dp(18),
@@ -262,7 +283,9 @@ public class HistoryCalendarActivity extends BaseFragment {
 //        clearHistoryButton.setOnClickListener(view -> switchSelectingDays(false));
         clearHistoryButton.setAlpha(0);
         clearHistoryButton.setClickable(false);
-        contentView.addView(clearHistoryButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 54, Gravity.FILL_HORIZONTAL | Gravity.BOTTOM));
+        bottomButtonContainer.addView(clearHistoryButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
+
+        contentView.addView(bottomButtonContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 54, Gravity.FILL_HORIZONTAL | Gravity.BOTTOM));
 
         blurredView = new FrameLayout(context);
         blurredView.bringToFront();
@@ -270,7 +293,6 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         loadNext();
         updateColors();
-        activeTextPaint.setColor(Color.WHITE);
         actionBar.setBackButtonDrawable(backButton = new BackDrawable(false));
         return fragmentView;
     }
@@ -296,21 +318,41 @@ public class HistoryCalendarActivity extends BaseFragment {
             clearHistoryAnimator.cancel();
         selectDaysAnimator = selectDaysButton.animate().alpha(selectingDays ? 0f : 1f).setDuration(150);
         clearHistoryAnimator = clearHistoryButton.animate().alpha(selectingDays ? 1f : 0f).setDuration(150);
+
+        if (!selectingDays) {
+            begin.update(null);
+            end.update(null);
+            endPos.update(null);
+            endStrokePos.update(null);
+            endPosOpacity.update(new Alpha(0f));
+            updateMonthsFor(200);
+        }
     }
 
     private void updateColors() {
         actionBar.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-        activeTextPaint.setColor(Color.WHITE);
+        backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        calendarSignatureView.invalidate();
+        bottomButtonContainer.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        boldWhiteTextPaint.setColor(Theme.getColor(Theme.key_windowBackgroundCheckText));
+        boldBlackTextPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         textPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         textPaint2.setColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         actionBar.setTitleColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText));
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_listSelector), false);
+        selectDaysButton.setTextColor(0xff3a8cce); // TODO(dkaraush): color!
+        clearHistoryButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteRedText5));
         selectedPaint.setColor(0xff50A5E6); // TODO(dkaraush): color!
-        selectionPaint.setColor(0xff50A5E6); // TODO(dkaraush): color!
-        selectionPaint.setStyle(Paint.Style.STROKE);
-        selectionPaint.setStrokeWidth(AndroidUtilities.dp(2f));
+        selectedStrokePaint.setColor(0xff50A5E6); // TODO(dkaraush): color!
+        selectedStrokePaint.setStyle(Paint.Style.STROKE);
+        selectedStrokePaint.setStrokeWidth(AndroidUtilities.dp(2f));
+        selectedStrokeBackgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+        selectedStrokeBackgroundPaint.setStyle(Paint.Style.STROKE);
+        selectedStrokeBackgroundPaint.setStrokeWidth(AndroidUtilities.dp(2f));
+        selectionPaint.setColor(0x2950A5E6); // TODO(dkaraush): color!
+        bottomButtonContainerBorder.setBackgroundColor(0xffeaeaea); // TODO(dkaraush): color!
     }
 
     private void loadNext() {
@@ -319,7 +361,7 @@ public class HistoryCalendarActivity extends BaseFragment {
         }
         loading = true;
         TLRPC.TL_messages_getSearchResultsCalendar req = new TLRPC.TL_messages_getSearchResultsCalendar();
-        req.filter = new TLRPC.TL_inputMessagesFilterPhotoVideo();
+        req.filter = new TLRPC.TL_inputMessagesFilterPhotos();
 
         req.peer = MessagesController.getInstance(currentAccount).getInputPeer(dialogId);
         req.offset_id = lastId;
@@ -541,7 +583,7 @@ public class HistoryCalendarActivity extends BaseFragment {
             Calendar calendar = Calendar.getInstance();
             calendar.set(year, monthInYear, 0);
             startDayOfWeek = (calendar.get(Calendar.DAY_OF_WEEK) + 6) % 7;
-            startMonthTime= (int) (calendar.getTimeInMillis() / 1000L);
+            startMonthTime = (int) (calendar.getTimeInMillis() / 1000L);
 
             int totalColumns = daysInMonth + startDayOfWeek;
             cellCount = (int) (totalColumns / 7f) + (totalColumns % 7 == 0 ? 0 : 1);
@@ -554,13 +596,6 @@ public class HistoryCalendarActivity extends BaseFragment {
             super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(cellCount * (44 + 8) + 44), MeasureSpec.EXACTLY));
         }
 
-
-        boolean pressed;
-        long pressId = 0;
-        float pressedX;
-        float pressedY;
-        Runnable cancelHold;
-
         @Override
         public boolean onTouchEvent(MotionEvent event) {
             Day touchDay = null;
@@ -570,62 +605,21 @@ public class HistoryCalendarActivity extends BaseFragment {
             Rect bounds = new Rect();
             getDrawingRect(bounds);
 
-            float[] point = new float[] { event.getX(index) - bounds.left, event.getY(index) - bounds.top - AndroidUtilities.dp(44) };
             float xStep = getMeasuredWidth() / 7f;
             float yStep = AndroidUtilities.dp(44 + 8);
 
-            int x = (int) Math.round((point[0] / xStep) - .5f),
-                y = (int) Math.round((point[1] / yStep) - .5f);
+            int x = (int) Math.round(((event.getX(index) - bounds.left) / xStep) - .5f),
+                y = (int) Math.round(((event.getY(index) - bounds.top - AndroidUtilities.dp(44)) / yStep) - .5f);
 
             int day = (x + y * 7) - startDayOfWeek;
             if (day >= 0 && day < daysInMonth)
                 touchDay = new Day(currentYear, currentMonthInYear, day);
 
-//            if (touchDay != null) {
-//                if (toast != null)
-//                    toast.cancel();
-//                toast = Toast.makeText(getContext(), touchDay.year + " " + touchDay.month + " " + touchDay.day, Toast.LENGTH_SHORT);
-//                toast.show();
-//            }
+            float localDayX = (x + .5f) * xStep,
+                  localDayY = (y + .5f) * yStep + AndroidUtilities.dp(44);
 
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                long currentPressId = ++pressId;
-                pressed = true;
-                pressedX = event.getX();
-                pressedY = event.getY();
-                if (!selectingDays) {
-                    postDelayed(() -> {
-                        if (pressed && pressId == currentPressId) {
-                            listView.requestDisallowInterceptTouchEvent(true);
-                            cancelHold = showMessagesPreview();
-                        }
-                    }, ViewConfiguration.getTapTimeout());
-                } else if (touchDay != null) {
-                    if (begin.getValue() == null || end.getValue() != null) {
-                        begin.update(touchDay);
-                        end.update(null);
-                        listView.requestDisallowInterceptTouchEvent(true);
-                        updateMonthsFor(150);
-                    } else if (begin.getValue() != null && end.getValue() == null && !touchDay.equals(end.getValue())) {
-                        end.update(touchDay);
-                        listView.requestDisallowInterceptTouchEvent(true);
-                        updateMonthsFor(150);
-                    }
-                }
-            } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
-                if (selectingDays && touchDay != null) {
-                    if (!touchDay.equals(end.getValue())) {
-                        end.update(touchDay);
-                        listView.requestDisallowInterceptTouchEvent(true);
-                        updateMonthsFor(150);
-                    }
-                }
-            } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (cancelHold != null) {
-                    cancelHold.run();
-                    cancelHold = null;
-                }
-                listView.requestDisallowInterceptTouchEvent(false);
+            onTouch(this, touchDay, event, localDayX, localDayY);
+
 //
 //                long pressedDuration = System.currentTimeMillis() - ;
 //                if (pressedDuration >= ) {
@@ -642,48 +636,118 @@ public class HistoryCalendarActivity extends BaseFragment {
 //                                HistoryCalendarActivity.PeriodDay periodDay = messagesByDays.valueAt(i);
 //                                callback.onDateSelected(periodDay.messageObject.getId(), periodDay.startOffset);
 //                                finishFragment();
-                pressed = false;
-            } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-                pressed = false;
-            }
-            return pressed;
+//                pressed = false;
+//            } else if (event.getAction() == MotionEvent.ACTION_CANCEL) {
+//                pressed = false;
+//            }
+            return true;
         }
+
+        float[] getDayCoordinates(int day) {
+            float xStep = getMeasuredWidth() / 7f;
+            float yStep = AndroidUtilities.dp(44 + 8);
+
+            int column = (day + startDayOfWeek) % 7;
+            int cell = (day + startDayOfWeek) / 7;
+
+            return new float[] {
+                xStep * (column + .5f),
+                yStep * (cell + .5f) + AndroidUtilities.dp(44)
+            };
+        }
+
+        private final Path path = new Path();
+        private final RectF oval1 = new RectF(), oval2 = new RectF();
 
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
 
-            int currentCell = 0;
-            int currentColumn = startDayOfWeek;
-
             Day thisDay = new Day(currentYear, currentMonthInYear, 0);
-            float xStep = getMeasuredWidth() / 7f;
-            float yStep = AndroidUtilities.dp(44 + 8);
+
+            Day rangeFrom = Day.min(begin.getAnimatedValue(), end.getAnimatedValue());
+            Day rangeTo = Day.max(begin.getAnimatedValue(), end.getAnimatedValue());
+            if (rangeFrom != null && rangeTo != null && Day.inBetween(rangeFrom, rangeTo, currentYear, currentMonthInYear)) {
+                int dayStart = rangeFrom.year == currentYear && rangeFrom.month == currentMonthInYear ? rangeFrom.day : 0;
+                int dayEnd =   rangeTo.year == currentYear   && rangeTo.month == currentMonthInYear   ? rangeTo.day   : daysInMonth - 1;
+                for (int r = 0; r < cellCount; ++r) {
+                    int weekDayStart = Math.max(0, 7 * r - startDayOfWeek),
+                        weekDayEnd = Math.min(daysInMonth, 7 * (r) + (6 - startDayOfWeek));
+                    if (dayStart > weekDayEnd || dayEnd < weekDayStart)
+                        continue;
+                    float[] fromCoords = getDayCoordinates(Math.max(weekDayStart, dayStart));
+                    float[] toCoords = getDayCoordinates(Math.min(weekDayEnd, dayEnd));
+
+                    // float left, float top, float right, float bottom, float startAngle, float sweepAngle, boolean useCenter, @NonNull Paint paint
+                    float radius = AndroidUtilities.dp(44) / 2f;
+
+                    path.reset();
+                    oval1.set(fromCoords[0] - radius, fromCoords[1] - radius, fromCoords[0] + radius, fromCoords[1] + radius);
+                    path.arcTo(oval1, 0f + 90f, 180f, false);
+                    oval2.set(toCoords[0] - radius, toCoords[1] - radius, toCoords[0] + radius, toCoords[1] + radius);
+                    path.arcTo(oval2, 180f+ 90f, 180f, false);
+                    canvas.drawPath(path, selectionPaint);
+                }
+            }
+
+//            float xStep = getMeasuredWidth() / 7f;
+//            float yStep = AndroidUtilities.dp(44 + 8);
             for (int i = 0; i < daysInMonth; i++) {
-                float cx = xStep * (currentColumn + .5f);
-                float cy = yStep * (currentCell + .5f) + AndroidUtilities.dp(44);
+//                float cx = xStep * (currentColumn + .5f);
+//                float cy = yStep * (currentCell + .5f) + AndroidUtilities.dp(44);
+                float[] c = getDayCoordinates(i);
+                float cx = c[0], cy = c[1];
                 int nowTime = (int) (System.currentTimeMillis() / 1000L);
 
                 thisDay.day = i;
 
-                boolean selectedAnimation = false;
+                boolean isSelected = thisDay.isBetween(rangeFrom, rangeTo);
+                float selectedInsideT;
+                long l = 0, r = 0, x = thisDay.getTimestamp();
+                float maxDist = Day.DAY_LENGTH;
+                if ((rangeFrom == null || x >= (l = rangeFrom.getTimestamp())) && (rangeTo == null || x <= (r = rangeTo.getTimestamp())) && !(rangeFrom == null && rangeTo == null)) {
+                    selectedInsideT = 0f;
+                } else {
+                    if (rangeFrom != null && rangeTo != null) {
+                        selectedInsideT = (float) Math.min(Math.abs(l - x), Math.abs(x - r)) / maxDist;
+                    } else if (rangeFrom != null)
+                        selectedInsideT = (float) Math.abs(l - x) / maxDist;
+                    else if (rangeTo != null)
+                        selectedInsideT = (float) Math.abs(x - r) / maxDist;
+                    else
+                        selectedInsideT = 1f;
+                }
+                selectedInsideT = 1f - Math.min(1f, selectedInsideT);
+                Paint defaultTextPaint = isSelected ? boldBlackTextPaint : textPaint;
+
+                boolean selectedAnimation = false, isEndDay = false;
                 float selectedAnimationT = 0f;
-                if (thisDay.equals(begin.getValue())) {
-                    selectedAnimation = true;
-                    selectedAnimationT = Math.max(selectedAnimationT, begin.getAnimatedT());
-                }
-                if (thisDay.equals(begin.getOutValue())) {
-                    selectedAnimation = true;
-                    selectedAnimationT = Math.max(selectedAnimationT, begin.getOutAnimatedT());
-                }
                 if (thisDay.equals(end.getValue())) {
                     selectedAnimation = true;
-                    selectedAnimationT = Math.max(selectedAnimationT, end.getAnimatedT());
+                    selectedAnimationT = end.getAnimatedT();
+                    isEndDay = true;
+                } else if (thisDay.equals(end.getOutValue())) {
+                    selectedAnimation = true;
+                    selectedAnimationT = end.getOutAnimatedT();
+                    isEndDay = true;
+                }
+                if (thisDay.equals(begin.getValue())) {
+                    selectedAnimation = true;
+                    selectedAnimationT = begin.getAnimatedT();
+                    isEndDay = false;
+                } else if (thisDay.equals(begin.getOutValue())) {
+                    selectedAnimation = true;
+                    selectedAnimationT = begin.getOutAnimatedT();
+                    isEndDay = false;
                 }
                 if (selectedAnimation) {
-                    canvas.drawCircle(cx, cy, AndroidUtilities.dp(44 - 8) / 2f * selectedAnimationT, selectedPaint);
-                    selectionPaint.setAlpha((int) (selectedAnimationT * 255));
-                    canvas.drawCircle(cx, cy, (AndroidUtilities.dp(44 - 12) + AndroidUtilities.dp(12) * selectedAnimationT) / 2f, selectionPaint);
+                    if (!isEndDay) {
+                        canvas.drawCircle(cx, cy, AndroidUtilities.dp(44 - 8) / 2f * selectedAnimationT, selectedPaint);
+                        selectedStrokePaint.setAlpha((int) (selectedAnimationT * 255));
+                        canvas.drawCircle(cx, cy, (AndroidUtilities.dp(44 - 12) + AndroidUtilities.dp(12) * selectedAnimationT) / 2f, selectedStrokePaint);
+                    }
+                    selectedStrokeBackgroundPaint.setAlpha((int) (selectedAnimationT * 255));
+                    canvas.drawCircle(cx, cy, (AndroidUtilities.dp(44 - 12 - 4) + AndroidUtilities.dp(12) * selectedAnimationT) / 2f, selectedStrokeBackgroundPaint);
                 }
 
                 if (nowTime < startMonthTime + (i + 1) * 86400) {
@@ -721,7 +785,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                             canvas.scale(s, s,cx, cy);
                         }
                         imagesByDays.get(i).setAlpha(messagesByDays.get(i).enterAlpha);
-                        float imageSize = AndroidUtilities.dp(44 - 8 * selectedAnimationT);
+                        float imageSize = AndroidUtilities.dp(44 - (8 * Math.max(selectedInsideT, selectedAnimationT)));
                         imagesByDays.get(i).setImageCoords(cx - imageSize / 2f, cy - imageSize / 2f, imageSize, imageSize);
                         imagesByDays.get(i).draw(canvas);
                         blackoutPaint.setColor(ColorUtils.setAlphaComponent(Color.BLACK, (int) (messagesByDays.get(i).enterAlpha * 80)));
@@ -733,40 +797,40 @@ public class HistoryCalendarActivity extends BaseFragment {
                     }
 
                     if (alpha != 1f) {
-                        int oldAlpha = textPaint.getAlpha();
-                        textPaint.setAlpha((int) (oldAlpha * (1f - alpha)));
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), textPaint);
-                        textPaint.setAlpha(oldAlpha);
+                        int oldAlpha = defaultTextPaint.getAlpha();
+                        defaultTextPaint.setAlpha((int) (oldAlpha * (1f - alpha)));
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), defaultTextPaint);
+                        defaultTextPaint.setAlpha(oldAlpha);
 
-                        oldAlpha = textPaint.getAlpha();
-                        activeTextPaint.setAlpha((int) (oldAlpha * alpha));
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), activeTextPaint);
-                        activeTextPaint.setAlpha(oldAlpha);
+                        oldAlpha = boldWhiteTextPaint.getAlpha();
+                        boldWhiteTextPaint.setAlpha((int) (oldAlpha * alpha));
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), boldWhiteTextPaint);
+                        boldWhiteTextPaint.setAlpha(oldAlpha);
                     } else {
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), activeTextPaint);
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), boldWhiteTextPaint);
                     }
 
                 } else {
                     if (selectedAnimation) {
-                        int oldAlpha = textPaint.getAlpha();
-                        textPaint.setAlpha((int) (oldAlpha * (1f - selectedAnimationT)));
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), textPaint);
-                        textPaint.setAlpha(oldAlpha);
+                        int oldAlpha = defaultTextPaint.getAlpha();
+                        defaultTextPaint.setAlpha((int) (oldAlpha * (1f - selectedAnimationT)));
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), defaultTextPaint);
+                        defaultTextPaint.setAlpha(oldAlpha);
 
-                        oldAlpha = textPaint.getAlpha();
-                        activeTextPaint.setAlpha((int) (oldAlpha * selectedAnimationT));
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), activeTextPaint);
-                        activeTextPaint.setAlpha(oldAlpha);
+                        oldAlpha = boldWhiteTextPaint.getAlpha();
+                        boldWhiteTextPaint.setAlpha((int) (oldAlpha * selectedAnimationT));
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), boldWhiteTextPaint);
+                        boldWhiteTextPaint.setAlpha(oldAlpha);
                     } else {
-                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), textPaint);
+                        canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), defaultTextPaint);
                     }
                 }
-
-                currentColumn++;
-                if (currentColumn >= 7) {
-                    currentColumn = 0;
-                    currentCell++;
-                }
+//
+//                currentColumn++;
+//                if (currentColumn >= 7) {
+//                    currentColumn = 0;
+//                    currentCell++;
+//                }
             }
         }
 
@@ -794,7 +858,113 @@ public class HistoryCalendarActivity extends BaseFragment {
     }
 
     private AnimatedProperty<Day> begin = new AnimatedProperty<>(150);
-    private AnimatedProperty<Day> end = new AnimatedProperty<>(150);
+    private AnimatedProperty<Day> end = new AnimatedProperty<>(100);
+    private AnimatedProperty<Pos> endPos = new AnimatedProperty<Pos>(100, AnimatedProperty.AnimatedPropertyInterpolation.EASE_OUT_BACK);
+    private AnimatedProperty<Pos> endStrokePos = new AnimatedProperty<Pos>(175, AnimatedProperty.AnimatedPropertyInterpolation.EASE_OUT_BACK);
+    private AnimatedProperty<Alpha> endPosOpacity = new AnimatedProperty<Alpha>(150);
+
+    class Pos implements Lerping<Pos> {
+        float x, y;
+        Pos(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
+        public Pos lerp(Pos to, float t) {
+            return new Pos(x + (to.x - x) * t, y + (to.y - y) * t);
+        }
+    }
+    class Alpha implements Lerping<Alpha> {
+        float value;
+        Alpha(float alpha) { this.value = alpha; }
+        public Alpha lerp(Alpha to, float t) { return new Alpha(value + (to.value - value) * t); }
+    }
+
+    private void drawEndDayCircle(Canvas canvas, int scrollX, int scrollY) {
+        Alpha posAlpha = endPosOpacity.getAnimatedValue();
+        if (posAlpha != null) {
+            selectedStrokePaint.setAlpha((int) (posAlpha.value * 255));
+        }
+
+        Pos pos = endPos.getAnimatedValue();
+        if (pos != null) {
+            float scale = 1f - .8f * (float) Math.sin(endPos.getAnimatedT() * Math.PI);
+            canvas.drawCircle(pos.x + scrollX, pos.y - scrollY, AndroidUtilities.dp(44 - 8 ) / 2f * scale, selectedStrokeBackgroundPaint);
+            canvas.drawCircle(pos.x + scrollX, pos.y - scrollY, AndroidUtilities.dp(44 - 8) / 2f * scale, selectedPaint);
+        }
+
+        Pos strokePos = endStrokePos.getAnimatedValue();
+        if (strokePos != null) {
+            float scale = 1f - .1f * (float) Math.sin(endStrokePos.getAnimatedT() * Math.PI);
+            canvas.drawCircle(strokePos.x + scrollX, strokePos.y - scrollY, AndroidUtilities.dp(44) / 2f * scale, selectedStrokePaint);
+        }
+    }
+
+
+    boolean pressed;
+    long pressId = 0;
+    long movingEndDayPressId;
+    Runnable cancelHold;
+
+    public void onTouch(MonthView monthView, Day touchDay, MotionEvent event, float localDayX, float localDayY) {
+
+        float monthYOffset = 0;
+        if (monthView != null) {
+            monthYOffset = (monthCount - listView.getChildAdapterPosition(monthView) - 1) * AndroidUtilities.dp(304);
+        }
+
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            long currentPressId = ++pressId;
+            pressed = true;
+            if (!selectingDays) {
+                if (cancelHold == null) {
+                    contentView.postDelayed(() -> {
+                        if (pressed && pressId == currentPressId) {
+                            listView.requestDisallowInterceptTouchEvent(true);
+                            Runnable closeMessages = showMessagesPreview();
+                            cancelHold = () -> {
+                                closeMessages.run();
+                                cancelHold = null;
+                            };
+                        }
+                    }, ViewConfiguration.getTapTimeout());
+                }
+            } else if (touchDay != null) {
+                if (begin.getValue() == null) {
+                    begin.update(touchDay);
+                    end.update(null);
+                    endStrokePos.update(null);
+                    endPosOpacity.update(new Alpha(0f));
+                    listView.requestDisallowInterceptTouchEvent(true);
+                    updateMonthsFor(200);
+                } else if (begin.getValue() != null && end.getValue() == null && !touchDay.equals(end.getValue())) {
+                    end.update(touchDay);
+                    endPos.update(new Pos(localDayX, monthYOffset + localDayY));
+                    endStrokePos.update(new Pos(localDayX, monthYOffset + localDayY));
+                    endPosOpacity.update(new Alpha(1f));
+                    listView.requestDisallowInterceptTouchEvent(true);
+                    updateMonthsFor(200);
+                }
+                movingEndDayPressId = ++pressId;
+            }
+        } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
+            if (selectingDays && touchDay != null && movingEndDayPressId == pressId) {
+                if (!touchDay.equals(end.getValue())) {
+                    end.update(touchDay);
+                    endPos.update(new Pos(localDayX, monthYOffset + localDayY));
+                    endStrokePos.update(new Pos(localDayX, monthYOffset + localDayY));
+                    endPosOpacity.update(new Alpha(1f));
+                    listView.requestDisallowInterceptTouchEvent(true);
+                    updateMonthsFor(200);
+                }
+            }
+        } else if (event.getAction() == MotionEvent.ACTION_UP) {
+            if (cancelHold != null) {
+                cancelHold.run();
+                cancelHold = null;
+            }
+            listView.requestDisallowInterceptTouchEvent(false);
+        }
+    }
 
     private ValueAnimator updateMonthesAnimator = null;
     public void updateMonthsFor(int duration) {
@@ -802,6 +972,7 @@ public class HistoryCalendarActivity extends BaseFragment {
             updateMonthesAnimator.cancel();
         updateMonthesAnimator = ObjectAnimator.ofFloat(0f, 1f).setDuration(duration);
         updateMonthesAnimator.addUpdateListener((v) -> {
+            listView.invalidate();
             LinearLayoutManager listLayoutManager = (LinearLayoutManager) listView.getLayoutManager();
             for (
                     int i = listLayoutManager.findFirstVisibleItemPosition();
@@ -835,6 +1006,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                         monthView.invalidate();
                 }
             }
+            listView.invalidate();
         });
         updateMonthesAnimator.start();
     }
@@ -1045,16 +1217,22 @@ interface Lerping<T> {
     T lerp(T to, float t);
 }
 
-
 class Day implements Lerping<Day> {
     int year;
     int month;
     int day;
+    float offset = -2f; // offset to move to the next day
 
     public Day(int year, int month, int day) {
         this.year = year;
         this.month = month;
         this.day = day;
+    }
+    public Day(int year, int month, int day, float offset) {
+        this.year = year;
+        this.month = month;
+        this.day = day;
+        this.offset = offset;
     }
 
     public boolean equals(Day otherDay) {
@@ -1075,6 +1253,21 @@ class Day implements Lerping<Day> {
         );
     }
 
+    public static Day min(Day a, Day b) {
+        if (a == null) return b;
+        if (a.year != b.year) return (a.year < b.year ? a : b);
+        if (a.month != b.month) return (a.month < b.month ? a : b);
+        if (a.day != b.day) return (a.day < b.day ? a : b);
+        return a;
+    }
+    public static Day max(Day a, Day b) {
+        if (a == null) return b;
+        if (a.year != b.year) return (a.year > b.year ? a : b);
+        if (a.month != b.month) return (a.month > b.month ? a : b);
+        if (a.day != b.day) return (a.day > b.day ? a : b);
+        return a;
+    }
+
     public long getStartTimestamp() {
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.YEAR, year);
@@ -1085,6 +1278,11 @@ class Day implements Lerping<Day> {
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTime().getTime();
+    }
+    public static final long DAY_LENGTH = 1000 * 60 * 60 * 24; // approximately of course
+    public long getTimestamp() {
+        float myOffset = offset < -1f ? .5f : offset;
+        return getStartTimestamp() + (long) (myOffset * DAY_LENGTH);
     }
     public long getEndTimestamp() {
         Calendar calendar = Calendar.getInstance();
@@ -1097,11 +1295,41 @@ class Day implements Lerping<Day> {
         calendar.set(Calendar.MILLISECOND, 999);
         return calendar.getTime().getTime();
     }
+    public static Day fromTimestamp(long timestamp) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(timestamp);
+        return new Day(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH),
+                (
+                    calendar.get(Calendar.HOUR) +
+                    calendar.get(Calendar.MINUTE) / 60f +
+                    calendar.get(Calendar.SECOND) / 3600f
+                ) / 24f
+        );
+    }
+
+    public int daysInMonth() {
+        return YearMonth.of(year, month).lengthOfMonth();
+    }
 
     public Day lerp(Day to, float t) {
-        Day lerpedDay = new Day(this.year, this.month, this.day);
-//                int daysInBetween =
-        return lerpedDay;
+        long fromTimestamp = this.getStartTimestamp(),
+             toTimestamp =   to.getEndTimestamp();
+        return Day.fromTimestamp((fromTimestamp + (long) ((toTimestamp - fromTimestamp) * t)));
+    }
+
+    public boolean isBetween(Day from, Day to) {
+        if (from == null || to == null)
+            return false;
+        if (year < from.year || year > to.year)
+            return false;
+        if ((year == from.year && month < from.month) || (year == to.year && month > to.month))
+            return false;
+        if ((year == from.year && month == from.month && day < from.day) || (year == to.year && month == to.month && day > to.day))
+            return false;
+        return true;
     }
 }
 
@@ -1111,15 +1339,38 @@ class AnimatedProperty<T extends Lerping<T>> {
     private T oldValue = null;
     private long switchedAt = 0;
     private long duration = 0;
+    private AnimatedPropertyInterpolation interpolation;
+
+    enum AnimatedPropertyInterpolation {
+        NONE,
+        EASE_OUT_BACK
+    }
 
     public AnimatedProperty(int transitionDuration) {
         this.duration = transitionDuration;
+    }
+    public AnimatedProperty(int transitionDuration, AnimatedPropertyInterpolation interpolation) {
+        this.duration = transitionDuration;
+        this.interpolation = interpolation;
     }
 
     public void update(T newValue) {
         oldValue = getAnimatedValue();
         value = newValue;
         switchedAt = System.currentTimeMillis();
+    }
+
+    private float interpolate(float t) {
+        if (interpolation == null)
+            return t;
+        switch (interpolation) {
+            case NONE:
+                return t;
+            case EASE_OUT_BACK:
+                float G = 1.2f; // 1.70158f;
+                return 1f + (1f + G) * ((float) Math.pow(t - 1f, 3f)) + G * ((float) Math.pow(t - 1f, 2f));
+        }
+        return t;
     }
 
     public float getAnimatedT() {
@@ -1137,7 +1388,7 @@ class AnimatedProperty<T extends Lerping<T>> {
             return value;
         if (t <= 0f)
             return oldValue;
-        return oldValue.lerp(value, t);
+        return oldValue.lerp(value, this.interpolate(t));
     }
 
     public float getOutAnimatedT() {
