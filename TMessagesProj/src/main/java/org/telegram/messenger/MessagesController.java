@@ -4891,6 +4891,10 @@ public class MessagesController extends BaseController implements NotificationCe
         }
     }
 
+    protected void deleteDialogPeriod(long did, long from_date, long to_date, long taskId) {
+
+    }
+
     protected void deleteDialog(long did, int first, int onlyHistory, int max_id, boolean revoke, TLRPC.InputPeer peer, long taskId) {
         if (onlyHistory == 2) {
             getMessagesStorage().deleteDialog(did, onlyHistory);

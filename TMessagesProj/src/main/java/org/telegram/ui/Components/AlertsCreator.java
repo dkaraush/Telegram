@@ -115,6 +115,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import androidx.annotation.RequiresApi;
 
@@ -3986,6 +3987,59 @@ public class AlertsCreator {
 
     public interface PaymentAlertDelegate {
         void didPressedNewCard();
+    }
+    public static void createDeleteMessagesInRangeAlert(BaseFragment fragment, int days, TLRPC.User alsoDeleteForUser, MessagesStorage.BooleanCallback onConfirm) {
+        Activity activity = fragment.getParentActivity();
+        Theme.ResourcesProvider resourcesProvider = fragment.getResourceProvider();
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity, resourcesProvider);
+
+        builder.setTitle(LocaleController.getString("DeleteFewMessagesTitle", R.string.DeleteFewMessagesTitle));
+
+        LinearLayout linearLayout = new LinearLayout(activity);
+        linearLayout.setOrientation(LinearLayout.VERTICAL);
+
+        TextView messageTextView = new TextView(activity);
+        messageTextView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        messageTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        messageTextView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP);
+        if (days == 1) {
+            messageTextView.setText(AndroidUtilities.replaceTags(LocaleController.getString("AreYouSureDeleteMessagesInSingleDay", R.string.AreYouSureDeleteMessagesInSingleDay)));
+        } else {
+            messageTextView.setText(AndroidUtilities.replaceTags(LocaleController.formatString("AreYouSureDeleteMessagesInFewDays", R.string.AreYouSureDeleteMessagesInFewDays, days)));
+        }
+        linearLayout.addView(messageTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, 24, 0, 24, 9));
+
+        AtomicBoolean alsoDeleteForValue = new AtomicBoolean(false);
+        if (alsoDeleteForUser != null) {
+            final CheckBoxCell checkBox = new CheckBoxCell(activity, 1, resourcesProvider);
+            checkBox.setBackgroundDrawable(Theme.getSelectorDrawable(false));
+            checkBox.setText(LocaleController.formatString("DeleteMessagesOptionAlso", R.string.DeleteMessagesOptionAlso, ContactsController.formatName(alsoDeleteForUser.first_name, alsoDeleteForUser.last_name)), "", alsoDeleteForValue.get(), false);
+            checkBox.setPadding(LocaleController.isRTL ? AndroidUtilities.dp(16) : AndroidUtilities.dp(8), 0, LocaleController.isRTL ? AndroidUtilities.dp(8) : AndroidUtilities.dp(16), 0);
+            linearLayout.addView(checkBox, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            checkBox.setOnClickListener(c -> {
+                if (!checkBox.isEnabled()) {
+                    return;
+                }
+                alsoDeleteForValue.set(!alsoDeleteForValue.get());
+                checkBox.setChecked(alsoDeleteForValue.get(), true);
+            });
+        }
+
+        builder.setView(linearLayout);
+        builder.setCustomViewOffset(12);
+
+        builder.setPositiveButton(LocaleController.getString("Delete", R.string.Delete), (dialog, var) -> {
+            if (onConfirm != null)
+                onConfirm.run(alsoDeleteForValue.get());
+        });
+        builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
+
+        AlertDialog dialog = builder.create();
+        fragment.showDialog(dialog);
+        TextView button = (TextView) dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        if (button != null) {
+            button.setTextColor(Theme.getColor(Theme.key_dialogTextRed2));
+        }
     }
 
     public static void createDeleteMessagesAlert(BaseFragment fragment, TLRPC.User user, TLRPC.Chat chat, TLRPC.EncryptedChat encryptedChat, TLRPC.ChatFull chatInfo, long mergeDialogId, MessageObject selectedMessage, SparseArray<MessageObject>[] selectedMessages, MessageObject.GroupedMessages selectedGroup, boolean scheduled, int loadParticipant, Runnable onDelete, Theme.ResourcesProvider resourcesProvider) {

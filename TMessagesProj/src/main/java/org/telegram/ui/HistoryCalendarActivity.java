@@ -33,6 +33,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.FileLoader;
 import org.telegram.messenger.ImageLocation;
@@ -51,6 +52,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
+import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
 
@@ -246,7 +248,7 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         bottomButtonContainer = new FrameLayout(context);
         bottomButtonContainerBorder = new FrameLayout(context);
-        bottomButtonContainerBorder.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1.5f), Gravity.TOP | Gravity.FILL_HORIZONTAL));
+        bottomButtonContainerBorder.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1.25f), Gravity.TOP | Gravity.FILL_HORIZONTAL));
         bottomButtonContainer.addView(bottomButtonContainerBorder);
 
         selectDaysButton = new TextView(context);
@@ -280,7 +282,16 @@ public class HistoryCalendarActivity extends BaseFragment {
         );
         clearHistoryButton.setBackground(Theme.createSelectorDrawable(0x33ffffff & Theme.getColor(Theme.key_windowBackgroundWhiteRedText5), 3));
         clearHistoryButton.bringToFront();
-//        clearHistoryButton.setOnClickListener(view -> switchSelectingDays(false));
+        clearHistoryButton.setOnClickListener(view -> {
+            int days = end.getValue() == null ? 1 : (int) Math.round((end.getValue().getEndTimestamp() - begin.getValue().getStartTimestamp()) / (double) (Day.DAY_LENGTH));
+            TLRPC.User user = null;
+            try {
+                user = getMessagesController().getUser(DialogObject.isEncryptedDialog(dialogId) ? getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(dialogId)).user_id : dialogId);
+            } catch (Exception e) {}
+            AlertsCreator.createDeleteMessagesInRangeAlert(this, days, user, alsoDeleteFor -> {
+
+            });
+        });
         clearHistoryButton.setAlpha(0);
         clearHistoryButton.setClickable(false);
         bottomButtonContainer.addView(clearHistoryButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
@@ -310,14 +321,12 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         backButton.setRotation(value ? 1.0f : 0f, true);
         selectDaysButton.setClickable(!value);
-        clearHistoryButton.setClickable(value);
 
         if (selectDaysAnimator != null)
             selectDaysAnimator.cancel();
         if (clearHistoryAnimator != null)
             clearHistoryAnimator.cancel();
         selectDaysAnimator = selectDaysButton.animate().alpha(selectingDays ? 0f : 1f).setDuration(150);
-        clearHistoryAnimator = clearHistoryButton.animate().alpha(selectingDays ? 1f : 0f).setDuration(150);
 
         if (!selectingDays) {
             begin.update(null);
@@ -327,6 +336,8 @@ public class HistoryCalendarActivity extends BaseFragment {
             endPosOpacity.update(new Alpha(0f));
             updateMonthsFor(200);
         }
+
+        updateClearHistoryButton();
     }
 
     private void updateColors() {
@@ -964,6 +975,18 @@ public class HistoryCalendarActivity extends BaseFragment {
             }
             listView.requestDisallowInterceptTouchEvent(false);
         }
+
+        updateClearHistoryButton();
+    }
+
+    private void updateClearHistoryButton() {
+        clearHistoryButton.setEnabled(selectingDays && begin.getValue() != null);
+        clearHistoryButton.setClickable(selectingDays && begin.getValue() != null);
+        float alpha = !selectingDays ? 0f : (clearHistoryButton.isEnabled() ? 1f : 0.5f);
+
+        if (clearHistoryAnimator != null)
+            clearHistoryAnimator.cancel();
+        clearHistoryAnimator = clearHistoryButton.animate().alpha(alpha).setDuration(150).withEndAction(() -> clearHistoryAnimator = null);
     }
 
     private ValueAnimator updateMonthesAnimator = null;

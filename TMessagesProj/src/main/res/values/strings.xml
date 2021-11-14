@@ -3287,6 +3287,8 @@
     <string name="AreYouSureDeleteThisChatSavedMessages">Are you sure you want to delete **Saved Messages**?</string>
     <string name="AreYouSureDeleteThisChatWithSecretUser">Are you sure you want to delete the secret chat with **%1$s**?</string>
     <string name="AreYouSureDeleteThisChatWithGroup">Are you sure you want to delete the chat **%1$s**?</string>
+    <string name="AreYouSureDeleteMessagesInSingleDay">Are you sure you want to delete all messages for the **selected day**?</string>
+    <string name="AreYouSureDeleteMessagesInFewDays">Are you sure you want to delete all messages for the **%1$s selected days**?</string>
     <string name="AreYouSureClearDraftsTitle">Delete cloud drafts</string>
     <string name="AreYouSureClearDrafts">Are you sure you want to delete all cloud drafts?</string>
     <string name="ShareYouLocationTitle">Share your location?</string>
@@ -3314,6 +3316,7 @@
     <string name="AreYouSureClearHistoryGroup">Delete all cached text and media from this group?</string>
     <string name="DeleteMessagesTitle">Delete %1$s</string>
     <string name="DeleteSingleMessagesTitle">Delete message</string>
+    <string name="DeleteFewMessagesTitle">Delete messages</string>
     <string name="DeleteMessagesTextGroupPart">You can also delete the %1$s from the inboxes of other group members by checking \"Delete for all members\".</string>
     <string name="DeleteMessagesTextGroup">You can also delete the %1$s you sent from the inboxes of other group members by checking \"Unsend my messages\".</string>
     <string name="DeleteMessagesText">You can also delete the %1$s you sent from **%2$s**\'s inbox by checking \"Unsend my messages\".</string>
