@@ -10455,6 +10455,139 @@ public class MessagesStorage extends BaseController {
         return null;
     }
 
+    public HashMap<Long, ArrayList<Integer>> markMessagesAsDeletedInDateRange(long channelId, int min_date, int max_date, boolean useQueue, boolean deleteFiles) {
+        if (useQueue) {
+            storageQueue.postRunnable(() -> markMessagesAsDeletedInDateRangeInternal(channelId, min_date, max_date, deleteFiles));
+        } else {
+            return markMessagesAsDeletedInDateRangeInternal(channelId, min_date, max_date, deleteFiles);
+        }
+        return null;
+    }
+
+    private HashMap<Long, ArrayList<Integer>> markMessagesAsDeletedInDateRangeInternal(long dialogId, int min_date, int max_date, boolean deleteFiles) {
+        ArrayList<Long> dialogsIds = new ArrayList<>();
+
+        LongSparseArray<Integer[]> dialogsToUpdate = new LongSparseArray<>();
+        ArrayList<File> filesToDelete = new ArrayList<>();
+        ArrayList<String> namesToDelete = new ArrayList<>();
+        ArrayList<Pair<Long, Integer>> idsToDelete = new ArrayList<>();
+        long currentUser = getUserConfig().getClientUserId();
+
+        HashMap<Long, ArrayList<Integer>> messageIds = new HashMap<>();
+
+        try {
+            SQLiteCursor cursor = database.queryFinalized(String.format(Locale.US, "SELECT uid, data, read_state, out, mention, mid FROM messages_v2 WHERE uid = %d AND date > %d AND date < %d", dialogId, min_date, max_date));
+            try {
+                while (cursor.next()) {
+                    long did = cursor.longValue(0);
+                    Integer mid = (Integer) (int) cursor.longValue(5);
+                    if (did != currentUser) { // but why???
+                        int read_state = cursor.intValue(2);
+                        if (cursor.intValue(3) == 0) {
+                            Integer[] unread_count = dialogsToUpdate.get(did);
+                            if (unread_count == null) {
+                                unread_count = new Integer[]{0, 0};
+                                dialogsToUpdate.put(did, unread_count);
+                            }
+                            if (read_state < 2) {
+                                unread_count[1]++;
+                            }
+                            if (read_state == 0 || read_state == 2) {
+                                unread_count[0]++;
+                            }
+                        }
+                    }
+
+                    ArrayList<Integer> dialogMessageIds = messageIds.get(did);
+                    if (dialogMessageIds == null) {
+                        dialogMessageIds = new ArrayList<Integer>();
+                        dialogMessageIds.add(mid);
+                        messageIds.put(did, dialogMessageIds);
+                    } else {
+                        dialogMessageIds.add(mid);
+                    }
+
+                    if (!DialogObject.isEncryptedDialog(did) && !deleteFiles) {
+                        continue;
+                    }
+                    NativeByteBuffer data = cursor.byteBufferValue(1);
+                    if (data != null) {
+                        TLRPC.Message message = TLRPC.Message.TLdeserialize(data, data.readInt32(false), false);
+                        message.readAttachPath(data, getUserConfig().clientUserId);
+                        data.reuse();
+                        addFilesToDelete(message, filesToDelete, idsToDelete, namesToDelete, false);
+                    }
+                }
+            } catch (Exception e) {
+                FileLog.e(e);
+            }
+            cursor.dispose();
+
+            deleteFromDownloadQueue(idsToDelete, true);
+            AndroidUtilities.runOnUIThread(() -> getFileLoader().cancelLoadFiles(namesToDelete));
+            getFileLoader().deleteFiles(filesToDelete, 0);
+
+            for (int a = 0; a < dialogsToUpdate.size(); a++) {
+                long did = dialogsToUpdate.keyAt(a);
+                Integer[] counts = dialogsToUpdate.valueAt(a);
+
+                cursor = database.queryFinalized("SELECT unread_count, unread_count_i FROM dialogs WHERE did = " + did);
+                int old_unread_count = 0;
+                int old_mentions_count = 0;
+                if (cursor.next()) {
+                    old_unread_count = cursor.intValue(0);
+                    old_mentions_count = cursor.intValue(1);
+                }
+                cursor.dispose();
+
+                dialogsIds.add(did);
+                SQLitePreparedStatement state = database.executeFast("UPDATE dialogs SET unread_count = ?, unread_count_i = ? WHERE did = ?");
+                state.requery();
+                state.bindInteger(1, Math.max(0, old_unread_count - counts[0]));
+                state.bindInteger(2, Math.max(0, old_mentions_count - counts[1]));
+                state.bindLong(3, did);
+                state.step();
+                state.dispose();
+            }
+
+            if (dialogId < 0) {
+                database.executeFast(String.format(Locale.US, "UPDATE chat_settings_v2 SET pinned = 0 WHERE uid = %d", -dialogId)).stepThis().dispose();
+            } else {
+                database.executeFast(String.format(Locale.US, "UPDATE user_settings SET pinned = 0 WHERE uid = %d", dialogId)).stepThis().dispose();
+            }
+            database.executeFast(String.format(Locale.US, "DELETE FROM chat_pinned_v2 WHERE uid = %d", dialogId)).stepThis().dispose();
+            int updatedCount = 0;
+            cursor = database.queryFinalized("SELECT changes()");
+            if (cursor.next()) {
+                updatedCount = cursor.intValue(0);
+            }
+            cursor.dispose();
+            if (updatedCount > 0) {
+                cursor = database.queryFinalized(String.format(Locale.US, "SELECT count FROM chat_pinned_count WHERE uid = %d", dialogId));
+                if (cursor.next()) {
+                    int count = cursor.intValue(0);
+                    SQLitePreparedStatement state = database.executeFast("UPDATE chat_pinned_count SET count = ? WHERE uid = ?");
+                    state.requery();
+                    state.bindInteger(1, Math.max(0, count - updatedCount));
+                    state.bindLong(2, dialogId);
+                    state.step();
+                    state.dispose();
+                }
+                cursor.dispose();
+            }
+
+            database.executeFast(String.format(Locale.US, "DELETE FROM messages_v2 WHERE uid = %d AND date > %d AND date < %d", dialogId, min_date, max_date)).stepThis().dispose();
+            database.executeFast(String.format(Locale.US, "DELETE FROM media_v4 WHERE uid = %d AND date > %d AND date < %d", dialogId, min_date, max_date)).stepThis().dispose();
+            database.executeFast(String.format(Locale.US, "UPDATE media_counts_v2 SET old = 1 WHERE uid = %d", dialogId)).stepThis().dispose();
+
+            updateWidgets(dialogsIds);
+            return messageIds;
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+        return null;
+    }
+
     private void fixUnsupportedMedia(TLRPC.Message message) {
         if (message == null) {
             return;

@@ -25,6 +25,7 @@ import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -36,11 +37,13 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.DialogObject;
 import org.telegram.messenger.DownloadController;
 import org.telegram.messenger.FileLoader;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
+import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.TLRPC;
@@ -62,6 +65,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 
 public class HistoryCalendarActivity extends BaseFragment {
 
@@ -98,7 +102,6 @@ public class HistoryCalendarActivity extends BaseFragment {
 
     HistoryCalendarActivity.CalendarAdapter adapter;
     HistoryCalendarActivity.Callback callback;
-
 
     SparseArray<SparseArray<HistoryCalendarActivity.PeriodDay>> messagesByYearMounth = new SparseArray<>();
     boolean endReached;
@@ -283,13 +286,56 @@ public class HistoryCalendarActivity extends BaseFragment {
         clearHistoryButton.setBackground(Theme.createSelectorDrawable(0x33ffffff & Theme.getColor(Theme.key_windowBackgroundWhiteRedText5), 3));
         clearHistoryButton.bringToFront();
         clearHistoryButton.setOnClickListener(view -> {
-            int days = end.getValue() == null ? 1 : (int) Math.round((end.getValue().getEndTimestamp() - begin.getValue().getStartTimestamp()) / (double) (Day.DAY_LENGTH));
+            if (begin.getValue() == null)
+                return;
+
+            long timestampA = begin.getValue().getStartTimestamp(),
+                 timestampB = end.getValue() == null ? begin.getValue().getEndTimestamp() : end.getValue().getEndTimestamp(),
+                 startTimestamp = Math.min(timestampA, timestampB),
+                 endTimestamp =   Math.max(timestampA, timestampB);
+
+            int days = Math.round((endTimestamp - startTimestamp) / (float) Day.DAY_LENGTH);
             TLRPC.User user = null;
             try {
                 user = getMessagesController().getUser(DialogObject.isEncryptedDialog(dialogId) ? getMessagesController().getEncryptedChat(DialogObject.getEncryptedChatId(dialogId)).user_id : dialogId);
             } catch (Exception e) {}
             AlertsCreator.createDeleteMessagesInRangeAlert(this, days, user, alsoDeleteFor -> {
+                TLRPC.TL_messages_deleteHistory req = new TLRPC.TL_messages_deleteHistory();
+                req.revoke = alsoDeleteFor;
+                req.peer = getMessagesController().getInputPeer(dialogId);
 
+                int min_date = (int) (startTimestamp / 1000L),
+                    max_date = (int) (endTimestamp / 1000L);
+
+                req.min_date = min_date;
+                req.flags |= 4;
+
+                req.max_date = max_date;
+                req.flags |= 8;
+
+                getConnectionsManager().sendRequest(req, (response, error) -> {
+                   if (error == null) {
+                       if (response instanceof TLRPC.TL_messages_affectedHistory) {
+                           TLRPC.TL_messages_affectedHistory res = (TLRPC.TL_messages_affectedHistory) response;
+                           getMessagesController().processNewDifferenceParams(-1, res.pts, -1, res.pts_count);
+                           HashMap<Long, ArrayList<Integer>> deletedMessageIds = getMessagesStorage().markMessagesAsDeletedInDateRange(dialogId, min_date, max_date, false, false);
+                           if (deletedMessageIds != null) {
+                               for (HashMap.Entry<Long, ArrayList<Integer>> entry : deletedMessageIds.entrySet()) {
+                                   Long dialogId = entry.getKey();
+                                   ArrayList<Integer> messageIds = entry.getValue();
+                                   getMessagesStorage().updateDialogsWithDeletedMessages(dialogId, 0, messageIds, null, true);
+                                   AndroidUtilities.runOnUIThread(() -> {
+                                       getNotificationCenter().postNotificationName(NotificationCenter.messagesDeleted, messageIds, 0L, false, dialogId);
+                                   });
+                               }
+                           }
+                       }
+                   } else {
+                       FileLog.e(error.toString());
+                       Toast.makeText(context, "error deleting history", Toast.LENGTH_SHORT).show();
+                   }
+                   AndroidUtilities.runOnUIThread(() -> switchSelectingDays(false));
+                });
             });
         });
         clearHistoryButton.setAlpha(0);
@@ -939,7 +985,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                         }
                     }, ViewConfiguration.getTapTimeout());
                 }
-            } else if (touchDay != null) {
+            } else if (touchDay != null && !touchDay.isInFuture()) {
                 if (begin.getValue() == null) {
                     begin.update(touchDay);
                     end.update(null);
@@ -958,7 +1004,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                 movingEndDayPressId = ++pressId;
             }
         } else if (event.getAction() == MotionEvent.ACTION_MOVE) {
-            if (selectingDays && touchDay != null && movingEndDayPressId == pressId) {
+            if (selectingDays && touchDay != null && !touchDay.isInFuture() && movingEndDayPressId == pressId) {
                 if (!touchDay.equals(end.getValue())) {
                     end.update(touchDay);
                     endPos.update(new Pos(localDayX, monthYOffset + localDayY));
@@ -1295,8 +1341,8 @@ class Day implements Lerping<Day> {
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.YEAR, year);
         calendar.set(Calendar.MONTH, month);
-        calendar.set(Calendar.DAY_OF_MONTH, day);
-        calendar.set(Calendar.HOUR, 0);
+        calendar.set(Calendar.DAY_OF_MONTH, day + 1);
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
@@ -1311,8 +1357,8 @@ class Day implements Lerping<Day> {
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.YEAR, year);
         calendar.set(Calendar.MONTH, month);
-        calendar.set(Calendar.DAY_OF_MONTH, day);
-        calendar.set(Calendar.HOUR, 23);
+        calendar.set(Calendar.DAY_OF_MONTH, day + 1);
+        calendar.set(Calendar.HOUR_OF_DAY, 23);
         calendar.set(Calendar.MINUTE, 59);
         calendar.set(Calendar.SECOND, 59);
         calendar.set(Calendar.MILLISECOND, 999);
@@ -1324,7 +1370,7 @@ class Day implements Lerping<Day> {
         return new Day(
                 calendar.get(Calendar.YEAR),
                 calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH) - 1,
                 (
                     calendar.get(Calendar.HOUR) +
                     calendar.get(Calendar.MINUTE) / 60f +
@@ -1338,8 +1384,8 @@ class Day implements Lerping<Day> {
     }
 
     public Day lerp(Day to, float t) {
-        long fromTimestamp = this.getStartTimestamp(),
-             toTimestamp =   to.getEndTimestamp();
+        long fromTimestamp = this.getTimestamp(),
+             toTimestamp =   to.getTimestamp();
         return Day.fromTimestamp((fromTimestamp + (long) ((toTimestamp - fromTimestamp) * t)));
     }
 
@@ -1353,6 +1399,10 @@ class Day implements Lerping<Day> {
         if ((year == from.year && month == from.month && day < from.day) || (year == to.year && month == to.month && day > to.day))
             return false;
         return true;
+    }
+
+    public boolean isInFuture() {
+        return getStartTimestamp() > System.currentTimeMillis();
     }
 }
 
