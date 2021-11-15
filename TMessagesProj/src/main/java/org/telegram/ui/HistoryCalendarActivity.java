@@ -77,7 +77,7 @@ public class HistoryCalendarActivity extends BaseFragment {
 
     public final boolean BLEEP_SELECTED_DAY_AFTER_OPENING_CALENDAR = false;
 
-    SizeNotifierFrameLayout contentView;
+    FrameLayout contentView;
     FrameLayout touchListener;
 
     RecyclerListView listView;
@@ -183,133 +183,7 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         backgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
-        fragmentView = contentView = new SizeNotifierFrameLayout(context) {
-
-            @Override
-            protected void dispatchDraw(Canvas canvas) {
-//                int actionBarHeight = getActionBarFullHeight();
-//                int top;
-//                if (inPreviewMode) {
-//                    top = AndroidUtilities.statusBarHeight;
-//                } else {
-//                    top = (int) (-getY() + actionBar.getY());
-//                }
-//                if (whiteActionBar) {
-//                    if (searchAnimationProgress == 1f) {
-//                        actionBarSearchPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-//                        if (searchTabsView != null) {
-//                            searchTabsView.setTranslationY(0);
-//                            searchTabsView.setAlpha(1f);
-//                            if (filtersView != null) {
-//                                filtersView.setTranslationY(0);
-//                                filtersView.setAlpha(1f);
-//                            }
-//                        }
-//                    } else if (searchAnimationProgress == 0) {
-//                        if (filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE) {
-//                            filterTabsView.setTranslationY(actionBar.getTranslationY());
-//                        }
-//                    }
-//                    canvas.drawRect(0, top, getMeasuredWidth(), top + actionBarHeight, searchAnimationProgress == 1f ? actionBarSearchPaint : actionBarDefaultPaint);
-//                    if (searchAnimationProgress > 0 && searchAnimationProgress < 1f) {
-//                        actionBarSearchPaint.setColor(ColorUtils.blendARGB(Theme.getColor(folderId == 0 ? Theme.key_actionBarDefault : Theme.key_actionBarDefaultArchived), Theme.getColor(Theme.key_windowBackgroundWhite), searchAnimationProgress));
-//                        if (searchIsShowed || !searchWasFullyShowed) {
-//                            canvas.save();
-//                            canvas.clipRect(0, top, getMeasuredWidth(), top + actionBarHeight);
-//                            float cX = getMeasuredWidth() - AndroidUtilities.dp(24);
-//                            int statusBarH = actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0;
-//                            float cY = statusBarH + (actionBar.getMeasuredHeight() - statusBarH) / 2f;
-//                            canvas.drawCircle(cX, cY, getMeasuredWidth() * 1.3f * searchAnimationProgress, actionBarSearchPaint);
-//                            canvas.restore();
-//                        } else {
-//                            canvas.drawRect(0, top, getMeasuredWidth(), top + actionBarHeight, actionBarSearchPaint);
-//                        }
-//                        if (filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE) {
-//                            filterTabsView.setTranslationY(actionBarHeight - (actionBar.getHeight() + filterTabsView.getMeasuredHeight()));
-//                        }
-//                        if (searchTabsView != null) {
-//                            float y = actionBarHeight - (actionBar.getHeight() + searchTabsView.getMeasuredHeight());
-//                            float alpha;
-//                            if (searchAnimationTabsDelayedCrossfade) {
-//                                alpha = searchAnimationProgress < 0.5f ? 0 : (searchAnimationProgress - 0.5f) / 0.5f;
-//                            } else {
-//                                alpha = searchAnimationProgress;
-//                            }
-//
-//                            searchTabsView.setTranslationY(y);
-//                            searchTabsView.setAlpha(alpha);
-//                            if (filtersView != null) {
-//                                filtersView.setTranslationY(y);
-//                                filtersView.setAlpha(alpha);
-//                            }
-//                        }
-//                    }
-//                } else if (!inPreviewMode) {
-//                    if (progressToActionMode > 0) {
-//                        actionBarSearchPaint.setColor(ColorUtils.blendARGB(Theme.getColor(folderId == 0 ? Theme.key_actionBarDefault : Theme.key_actionBarDefaultArchived), Theme.getColor(Theme.key_windowBackgroundWhite), progressToActionMode));
-//                        canvas.drawRect(0, top, getMeasuredWidth(), top + actionBarHeight, actionBarSearchPaint);
-//                    } else {
-//                        canvas.drawRect(0, top, getMeasuredWidth(), top + actionBarHeight, actionBarDefaultPaint);
-//                    }
-//                }
-//                tabsYOffset = 0;
-//                if (filtersTabAnimator != null && filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE) {
-//                    tabsYOffset = - (1f - filterTabsProgress) * filterTabsView.getMeasuredHeight();
-//                    filterTabsView.setTranslationY(actionBar.getTranslationY() + tabsYOffset);
-//                    filterTabsView.setAlpha(filterTabsProgress);
-//                    viewPages[0].setTranslationY(-(1f - filterTabsProgress) * filterTabsMoveFrom);
-//                } else if (filterTabsView != null && filterTabsView.getVisibility() == View.VISIBLE) {
-//                    filterTabsView.setTranslationY(actionBar.getTranslationY());
-//                    filterTabsView.setAlpha(1f);
-//                }
-//                updateContextViewPosition();
-//                super.dispatchDraw(canvas);
-//                if (whiteActionBar && searchAnimationProgress > 0 && searchAnimationProgress < 1f && searchTabsView != null) {
-//                    windowBackgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-//                    windowBackgroundPaint.setAlpha((int) (windowBackgroundPaint.getAlpha() * searchAnimationProgress));
-//                    canvas.drawRect(0, top + actionBarHeight, getMeasuredWidth(), top + actionBar.getMeasuredHeight() + searchTabsView.getMeasuredHeight(), windowBackgroundPaint);
-//                }
-//                if (fragmentContextView != null && fragmentContextView.isCallStyle()) {
-//                    canvas.save();
-//                    canvas.translate(fragmentContextView.getX(), fragmentContextView.getY());
-//                    if (slideFragmentProgress != 1f) {
-//                        float s = 1f - 0.05f * (1f - slideFragmentProgress);
-//                        canvas.translate((isDrawerTransition ? AndroidUtilities.dp(4) : -AndroidUtilities.dp(4)) * (1f - slideFragmentProgress), 0);
-//                        canvas.scale(s, 1f, isDrawerTransition ? getMeasuredWidth() : 0, fragmentContextView.getY());
-//                    }
-//                    fragmentContextView.setDrawOverlay(true);
-//                    fragmentContextView.draw(canvas);
-//                    fragmentContextView.setDrawOverlay(false);
-//                    canvas.restore();
-//                }
-                if (blurredView != null && blurredView.getVisibility() == View.VISIBLE) {
-                    if (blurredView.getAlpha() != 1f) {
-                        if (blurredView.getAlpha() != 0) {
-                            canvas.saveLayerAlpha(blurredView.getLeft(), 0, blurredView.getRight(), blurredView.getBottom(), (int) (255 * blurredView.getAlpha()), Canvas.ALL_SAVE_FLAG);
-                            canvas.translate(blurredView.getLeft(), 0);
-                            blurredView.draw(canvas);
-                            canvas.restore();
-                        }
-                    } else {
-                        blurredView.draw(canvas);
-                    }
-                }
-                super.dispatchDraw(canvas);
-//                if (scrimView != null) {
-//                    canvas.drawRect(0, 0, getMeasuredWidth(), getMeasuredHeight(), scrimPaint);
-//                    canvas.save();
-//                    getLocationInWindow(pos);
-//                    canvas.translate(scrimViewLocation[0] - pos[0], scrimViewLocation[1] - (Build.VERSION.SDK_INT < 21 ? AndroidUtilities.statusBarHeight : 0));
-//                    scrimView.draw(canvas);
-//                    if (scrimViewSelected) {
-//                        Drawable drawable = filterTabsView.getSelectorDrawable();
-//                        canvas.translate(-scrimViewLocation[0], -drawable.getIntrinsicHeight() - 1);
-//                        drawable.draw(canvas);
-//                    }
-//                    canvas.restore();
-//                }
-            }
-        };
+        fragmentView = contentView = new FrameLayout(context);
 
         createActionBar(context);
         contentView.addView(actionBar);
@@ -406,7 +280,7 @@ public class HistoryCalendarActivity extends BaseFragment {
         bottomButtonContainer.addView(bottomButtonContainerBorder);
 
         selectDaysButton = new TextView(context);
-        selectDaysButton.setText("SELECT DAYS"); // TODO(dkaraush): text!
+        selectDaysButton.setText(LocaleController.getString("SelectDays", R.string.SelectDays).toUpperCase());
         selectDaysButton.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         selectDaysButton.setGravity(Gravity.CENTER);
         selectDaysButton.setTextSize(15);
@@ -416,7 +290,6 @@ public class HistoryCalendarActivity extends BaseFragment {
                 AndroidUtilities.dp(16),
                 AndroidUtilities.dp(18)
         );
-        selectDaysButton.setBackground(Theme.createSelectorDrawable(0x333a8cce, 3)); // TODO(dkaraush): text!
         selectDaysButton.bringToFront();
         selectDaysButton.setOnClickListener(view -> switchSelectingDays(true));
         selectDaysButton.setAlpha(1f);
@@ -434,7 +307,6 @@ public class HistoryCalendarActivity extends BaseFragment {
                 AndroidUtilities.dp(16),
                 AndroidUtilities.dp(18)
         );
-        clearHistoryButton.setBackground(Theme.createSelectorDrawable(0x33ffffff & Theme.getColor(Theme.key_windowBackgroundWhiteRedText5), 3));
         clearHistoryButton.bringToFront();
         clearHistoryButton.setOnClickListener(view -> {
             if (begin.getValue() == null)
@@ -561,7 +433,7 @@ public class HistoryCalendarActivity extends BaseFragment {
             return;
 
         selectingDays = value;
-        String actionBarTitle = selectingDays ? "Select days" : LocaleController.getString("Calendar", R.string.Calendar); // TODO(dkaraush): text!
+        String actionBarTitle = selectingDays ? LocaleController.getString("SelectDays", R.string.SelectDays) : LocaleController.getString("Calendar", R.string.Calendar);
         actionBar.setTitleAnimated(actionBarTitle, !value, 150);
 
         backButton.setRotation(value ? 1.0f : 0f, true);
@@ -598,17 +470,19 @@ public class HistoryCalendarActivity extends BaseFragment {
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setItemsColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlackText), false);
         actionBar.setItemsBackgroundColor(Theme.getColor(Theme.key_listSelector), false);
-        selectDaysButton.setTextColor(0xff3a8cce); // TODO(dkaraush): color!
-        clearHistoryButton.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteRedText5));
-        selectedPaint.setColor(0xff50A5E6); // TODO(dkaraush): color!
-        selectedStrokePaint.setColor(0xff50A5E6); // TODO(dkaraush): color!
+        selectDaysButton.setTextColor(Theme.getColor(Theme.key_calendar_selectButton));
+        selectDaysButton.setBackground(Theme.createSelectorDrawable(0x33ffffff & Theme.getColor(Theme.key_calendar_selectButton), 3));
+        clearHistoryButton.setTextColor(Theme.getColor(Theme.key_calendar_clearHistoryButton));
+        clearHistoryButton.setBackground(Theme.createSelectorDrawable(0x33ffffff & Theme.getColor(Theme.key_calendar_clearHistoryButton), 3));
+        selectedPaint.setColor(Theme.getColor(Theme.key_calendar_daySelected));
+        selectedStrokePaint.setColor(Theme.getColor(Theme.key_calendar_daySelected));
         selectedStrokePaint.setStyle(Paint.Style.STROKE);
         selectedStrokePaint.setStrokeWidth(AndroidUtilities.dp(2f));
         selectedStrokeBackgroundPaint.setColor(Theme.getColor(Theme.key_windowBackgroundWhite));
         selectedStrokeBackgroundPaint.setStyle(Paint.Style.STROKE);
         selectedStrokeBackgroundPaint.setStrokeWidth(AndroidUtilities.dp(2f));
-        selectionPaint.setColor(0x2950A5E6); // TODO(dkaraush): color!
-        bottomButtonContainerBorder.setBackgroundColor(0xffeaeaea); // TODO(dkaraush): color!
+        selectionPaint.setColor(Theme.getColor(Theme.key_calendar_daysSelected));
+        bottomButtonContainerBorder.setBackgroundColor(Theme.getColor(Theme.key_calendar_selectButtonBorder));
     }
 
     private void loadNext() {
@@ -617,7 +491,7 @@ public class HistoryCalendarActivity extends BaseFragment {
         }
         loading = true;
         TLRPC.TL_messages_getSearchResultsCalendar req = new TLRPC.TL_messages_getSearchResultsCalendar();
-        req.filter = new TLRPC.TL_inputMessagesFilterPhotos();
+        req.filter = new TLRPC.TL_inputMessagesFilterPhotoVideo();
 
         req.peer = MessagesController.getInstance(currentAccount).getInputPeer(dialogId);
         req.offset_id = lastId;
@@ -650,7 +524,6 @@ public class HistoryCalendarActivity extends BaseFragment {
                         if (month < minMontYear || minMontYear == 0) {
                             minMontYear = month;
                         }
-
                     }
 
                     loading = false;
@@ -940,12 +813,12 @@ public class HistoryCalendarActivity extends BaseFragment {
                 boolean selectedAnimation = false, isEndDay = false;
                 float selectedAnimationT = 0f;
                 boolean thisDaySelected = false;
-                if (thisDay.equals(end.getValue())) {
+                if (thisDay.equals(begin.getOutValue())) {
                     selectedAnimation = true;
-                    selectedAnimationT = end.getAnimatedT();
-                    thisDaySelected = true;
-                    isEndDay = true;
-                } else if (thisDay.equals(end.getOutValue())) {
+                    selectedAnimationT = begin.getOutAnimatedT();
+                    isEndDay = false;
+                }
+                if (thisDay.equals(end.getOutValue())) {
                     selectedAnimation = true;
                     selectedAnimationT = end.getOutAnimatedT();
                     isEndDay = true;
@@ -955,10 +828,12 @@ public class HistoryCalendarActivity extends BaseFragment {
                     selectedAnimationT = begin.getAnimatedT();
                     thisDaySelected = true;
                     isEndDay = false;
-                } else if (thisDay.equals(begin.getOutValue())) {
+                }
+                if (thisDay.equals(end.getValue())) {
                     selectedAnimation = true;
-                    selectedAnimationT = begin.getOutAnimatedT();
-                    isEndDay = false;
+                    selectedAnimationT = end.getAnimatedT();
+                    thisDaySelected = true;
+                    isEndDay = true;
                 }
                 boolean isSelected = thisDay.isBetween(rangeFrom, rangeTo) || (thisDaySelected && selectedAnimationT > 0.9f);
                 Paint defaultTextPaint = isSelected ? boldBlackTextPaint : textPaint;
@@ -1551,6 +1426,10 @@ public class HistoryCalendarActivity extends BaseFragment {
             previewIsShown = false;
             hideBlurBitmap();
             finishPreviewFragment();
+
+            if (previewMenuAnimator != null)
+                previewMenuAnimator.cancel();
+            previewMenuAnimator = previewMenu.animate().alpha(0).translationY(24).setDuration(150);
         }
     }
 
@@ -1599,6 +1478,12 @@ public class HistoryCalendarActivity extends BaseFragment {
             }, 150);
         });
 
+        if (previewMenuAnimator != null)
+            previewMenuAnimator.cancel();
+        previewMenu.setAlpha(0f);
+        previewMenu.setTranslationY(24);
+        previewMenuAnimator = previewMenu.animate().alpha(1f).translationY(0).setDuration(150);
+
         prepareBlurBitmap();
         presentFragmentAsPreviewWithButtons(chatActivity, previewMenu);
 
@@ -1643,27 +1528,30 @@ public class HistoryCalendarActivity extends BaseFragment {
         previewMenu.setBackgroundColor(getThemedColor(Theme.key_actionBarDefaultSubmenuBackground));
 
         ActionBarMenuSubItem cell1 = new ActionBarMenuSubItem(getParentActivity(), true, false, getResourceProvider());
-        cell1.setTextAndIcon("Jump to date", R.drawable.msg_message); // TODO(dkaraush): text!
+        cell1.setTextAndIcon(LocaleController.getString("JumpToDate", R.string.JumpToDate), R.drawable.msg_message);
         cell1.setItemHeight(46);
         cell1.setTag(R.id.width_tag, 240);
         cell1.setClickable(true);
         previewMenu.addView(cell1);
 
         ActionBarMenuSubItem cell2 = new ActionBarMenuSubItem(getParentActivity(), false, false, getResourceProvider());
-        cell2.setTextAndIcon("Select this day", R.drawable.msg_select);
+        cell2.setTextAndIcon(LocaleController.getString("SelectThisDay", R.string.SelectThisDay), R.drawable.msg_select);
         cell2.setItemHeight(46);
         cell2.setTag(R.id.width_tag, 240);
         cell2.setClickable(true);
         previewMenu.addView(cell2);
 
         ActionBarMenuSubItem cell3 = new ActionBarMenuSubItem(getParentActivity(), false, true, getResourceProvider());
-        cell3.setTextAndIcon("Clear history", R.drawable.msg_delete); // TODO(dkaraush): text!
+        cell3.setTextAndIcon(LocaleController.getString("ClearHistory", R.string.ClearHistory), R.drawable.msg_delete);
         cell3.setItemHeight(46);
         cell3.setTag(R.id.width_tag, 240);
         cell3.setClickable(true);
         previewMenu.addView(cell3);
 
-        previewMenu.measure(View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST));
+        previewMenu.measure(
+                View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST)
+        );
 
         return previewMenu;
     }

@@ -1,41 +1,37 @@
 package org.telegram.ui.Components;
 
 import android.content.Context;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
-import android.graphics.drawable.shapes.Shape;
 import android.view.Gravity;
 import android.view.ViewPropertyAnimator;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import org.telegram.messenger.AndroidUtilities;
-import org.telegram.messenger.ContactsController;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 
-public class CloseableAvatar extends FrameLayout {
+public class SendAsAvatarButton extends FrameLayout {
+
+    public float avatarRadius = 10f;
 
     public boolean showClose = false;
     private RelativeLayout layout;
     private FrameLayout background;
     private ShapeDrawable backgroundShape;
-    private BackupImageView avatar;
+    public BackupImageView avatar;
     private AvatarDrawable avatarDrawable = new AvatarDrawable();
     private ImageView closeIcon;
 
-    public CloseableAvatar(Context context) {
+    public SendAsAvatarButton(Context context) {
         this(context, 0);
     }
-    public CloseableAvatar(Context context, float padding) {
+    public SendAsAvatarButton(Context context, float padding) {
         super(context);
 
         layout = new RelativeLayout(context);
@@ -49,7 +45,7 @@ public class CloseableAvatar extends FrameLayout {
         layout.addView(background, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
 
         avatar = new BackupImageView(context);
-        avatar.setRoundRadius(AndroidUtilities.dp(20));
+        avatar.setRoundRadius(AndroidUtilities.dp(avatarRadius * 2));
         avatar.setAlpha(showClose ? 0f : 1f);
         layout.addView(avatar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER));
 
@@ -59,6 +55,10 @@ public class CloseableAvatar extends FrameLayout {
         closeIcon.setRotation(90f);
         closeIcon.setAlpha(0f);
         layout.addView(closeIcon, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.CENTER, 4f, 4f, 4f, 4f));
+    }
+
+    public float getAvatarRadius() {
+        return Math.max(avatar.getWidth(), avatar.getHeight()) / 2f;
     }
 
     public void updateColors() {

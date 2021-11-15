@@ -67,7 +67,6 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.view.animation.Animation;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -346,7 +345,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
     private ActionBarPopupWindow sendPopupWindow;
     private ActionBarPopupWindow.ActionBarPopupWindowLayout sendPopupLayout;
     private ImageView cancelBotButton;
-    private CloseableAvatar sendAsButton;
+    public SendAsAvatarButton sendAsButton;
     private ImageView[] emojiButton = new ImageView[2];
     @SuppressWarnings("FieldCanBeLocal")
     private ImageView emojiButton1;
@@ -1749,7 +1748,7 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
         frameLayout.setClipChildren(false);
         textFieldContainer.addView(frameLayout, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM, 0, 0, 48, 0));
 
-        sendAsButton = new CloseableAvatar(context, AndroidUtilities.dp(3));
+        sendAsButton = new SendAsAvatarButton(context, AndroidUtilities.dp(3));
         sendAsButton.setVisibility(View.GONE);
         sendAsButton.setScaleX(0f);
         sendAsButton.setScaleY(0f);

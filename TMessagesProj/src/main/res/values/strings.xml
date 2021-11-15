@@ -146,6 +146,7 @@
     <string name="EncryptionProcessing">Exchanging encryption keys...</string>
     <string name="EncryptedChatStartedOutgoing">%s joined your secret chat.</string>
     <string name="EncryptedChatStartedIncoming">You joined the secret chat.</string>
+    <string name="SelectDays">Select days</string>
     <string name="ClearHistory">Clear history</string>
     <string name="ClearRecentHistory">Clear history</string>
     <string name="AlertClearHistory">Clear History</string>
@@ -1092,6 +1093,7 @@
     <string name="ChatYourSelfDescription4">Use search to quickly find things</string>
     <string name="ChatYourSelfTitle">Your cloud storage</string>
     <string name="JumpToDate">Jump to Date</string>
+    <string name="SelectThisDay">Select this day</string>
     <string name="DeleteForUser">Delete for %1$s</string>
     <string name="DeleteForAll">Delete for all members</string>
     <string name="TextCopied">Text copied to clipboard</string>

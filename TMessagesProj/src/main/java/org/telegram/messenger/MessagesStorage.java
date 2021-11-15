@@ -7007,12 +7007,12 @@ public class MessagesStorage extends BaseController {
                             cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date >= %d AND m.mid > %d ORDER BY m.date ASC, m.mid ASC LIMIT %d", dialogId, minDate, messageMaxId, count_query));
                         }
                     } else if (load_type == 5) {
-                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT COUNT(1) FROM messages_v2 WHERE m.uid = %d AND m.date <= %d AND m.date >= %d", dialogId, minDate, maxDate));
+                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT COUNT(1) FROM messages_v2 WHERE uid = %d AND date <= %d AND date >= %d", dialogId, minDate, maxDate));
                         if (cursor.next()) {
-                            totalCount = cursor.intValue(0);
+                            totalCount = (int) cursor.longValue(0);
                         }
                         cursor.dispose();
-                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT * FROM (" + messageSelect + ") WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d", dialogId, minDate, maxDate, count_query));
+                        cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d", dialogId, minDate, maxDate, count_query));
                     } else if (minDate != 0) {
                         if (messageMaxId != 0) {
                             int holeMessageId = 0;
@@ -7100,7 +7100,7 @@ public class MessagesStorage extends BaseController {
                             totalCount = cursor.intValue(0);
                         }
                         cursor.dispose();
-                        cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
+                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT * FROM (" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
                     } else if (minDate != 0) {
                         if (max_id != 0) {
                             cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.mid > %d ORDER BY m.mid ASC LIMIT %d", dialogId, max_id, count_query));
@@ -10607,6 +10607,8 @@ public class MessagesStorage extends BaseController {
             database.executeFast(String.format(Locale.US, "DELETE FROM messages_v2 WHERE uid = %d AND date > %d AND date < %d", dialogId, min_date, max_date)).stepThis().dispose();
             database.executeFast(String.format(Locale.US, "DELETE FROM media_v4 WHERE uid = %d AND date > %d AND date < %d", dialogId, min_date, max_date)).stepThis().dispose();
             database.executeFast(String.format(Locale.US, "UPDATE media_counts_v2 SET old = 1 WHERE uid = %d", dialogId)).stepThis().dispose();
+
+            AndroidUtilities.runOnUIThread(() -> getNotificationCenter().postNotificationName(NotificationCenter.dialogsNeedReload, true));
 
             updateWidgets(dialogsIds);
             return messageIds;

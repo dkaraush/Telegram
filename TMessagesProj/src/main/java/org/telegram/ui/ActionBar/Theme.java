@@ -3546,6 +3546,12 @@ public class Theme {
     public static final String key_featuredStickers_buttonText = "featuredStickers_buttonText";
     public static final String key_featuredStickers_unread = "featuredStickers_unread";
 
+    public static final String key_calendar_daySelected = "calendar_daySelected";
+    public static final String key_calendar_daysSelected = "calendar_daysSelected";
+    public static final String key_calendar_selectButton = "calendar_selectButton";
+    public static final String key_calendar_clearHistoryButton = "calendar_clearHistoryButton";
+    public static final String key_calendar_selectButtonBorder = "calendar_selectButtonBorder";
+
     public static final String key_stickers_menu = "stickers_menu";
     public static final String key_stickers_menuSelector = "stickers_menuSelector";
 
@@ -4356,6 +4362,12 @@ public class Theme {
         defaultColors.put(key_featuredStickers_buttonText, 0xffffffff);
         defaultColors.put(key_featuredStickers_unread, 0xff4da6ea);
 
+        defaultColors.put(key_calendar_daySelected, 0xff50A5E6);
+        defaultColors.put(key_calendar_daysSelected, 0x2950A5E6);
+        defaultColors.put(key_calendar_selectButton, 0xff3a8cce);
+        defaultColors.put(key_calendar_clearHistoryButton, 0xffed3939);
+        defaultColors.put(key_calendar_selectButtonBorder, 0xffeaeaea);
+
         defaultColors.put(key_inappPlayerPerformer, 0xff2f3438);
         defaultColors.put(key_inappPlayerTitle, 0xff2f3438);
         defaultColors.put(key_inappPlayerBackground, 0xffffffff);
@@ -4668,6 +4680,8 @@ public class Theme {
 
         fallbackKeys.put(key_returnToCallMutedBackground, key_windowBackgroundWhite);
         fallbackKeys.put(key_dialogSwipeRemove, key_avatar_backgroundRed);
+
+        fallbackKeys.put(key_calendar_clearHistoryButton, key_windowBackgroundWhiteRedText5);
 
         themeAccentExclusionKeys.addAll(Arrays.asList(keys_avatar_background));
         themeAccentExclusionKeys.addAll(Arrays.asList(keys_avatar_nameInMessage));

@@ -2165,7 +2165,7 @@ public class SharedMediaLayout extends FrameLayout implements NotificationCenter
         }
         if (forwardButtonHint == null) {
             ViewGroup parent = (ViewGroup) profileActivity.getFragmentView();
-            forwardButtonHint = new HintView(getContext(), 9/* TODO(dkaraush): theme delegate */);
+            forwardButtonHint = new HintView(getContext(), 9);
             boolean isChannel;
             if (DialogObject.isEncryptedDialog(dialog_id) || DialogObject.isUserDialog(dialog_id)) {
                 isChannel = false;

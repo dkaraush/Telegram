@@ -2,10 +2,14 @@ package org.telegram.ui.Components;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Point;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
@@ -13,12 +17,11 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -37,10 +40,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
-import org.telegram.ui.ActionBar.SimpleTextView;
 import org.telegram.ui.ActionBar.Theme;
-import org.telegram.ui.Cells.GroupCreateUserCell;
-import org.telegram.ui.Cells.ShareDialogCell;
 
 import java.util.ArrayList;
 
@@ -49,14 +49,42 @@ public class SendAsPopupView extends FrameLayout {
     private class SendAsPeerView extends LinearLayout {
 
         private BackupImageView avatar;
+        private BackupImageView newAvatar;
+        private FrameLayout avatarContainer;
         private LinearLayout container;
         private AvatarDrawable avatarDrawable = new AvatarDrawable();
-        private float checkProgress;
+        private float checkProgress = 0f;
         private ValueAnimator animator;
         private Paint paint;
         private LinearLayout infoLayout;
         private TextView title;
         private TextView subtitle;
+
+        public BackupImageView takeAvatar() {
+            BackupImageView oldAvatar = avatar;
+            this.avatar = makeAvatar(getContext(), true);
+            return oldAvatar;
+        }
+
+        private BackupImageView makeAvatar(Context context, boolean animated) {
+            return makeAvatar(context, animated, 350);
+        }
+        private BackupImageView makeAvatar(Context context, boolean animated, int startDelay) {
+            BackupImageView avatar = new BackupImageView(context);
+            avatar.setRoundRadius(AndroidUtilities.dp(20));
+            if (animated) {
+                avatar.setScaleX(0f);
+                avatar.setScaleY(0f);
+                avatar.setAlpha(0f);
+                avatar.animate().alpha(1f).scaleX(isChecked ? disabledAvatarScale : 1.0f).scaleY(isChecked ? disabledAvatarScale : 1.0f).setStartDelay(startDelay).setDuration(250).start();
+            }
+            if (this.avatarContainer != null)
+                this.avatarContainer.addView(avatar, LayoutHelper.createFrame((int) avatarSize, (int) avatarSize));
+
+            avatarDrawable.setInfo(lastChat != null ? lastChat : lastUser);
+            avatar.setForUserOrChat(lastChat != null ? lastChat : lastUser, avatarDrawable);
+            return avatar;
+        }
 
         public SendAsPeerView(Context context) {
             super(context);
@@ -70,8 +98,9 @@ public class SendAsPopupView extends FrameLayout {
 
                     if (paint != null) {
                         paint.setColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileSelection));
-                        float cx = avatar.getLeft() + avatar.getMeasuredWidth() / 2;
-                        float cy = avatar.getTop() + avatar.getMeasuredHeight() / 2;
+                        float cx = avatarContainer.getLeft() + avatarContainer.getMeasuredWidth() / 2f;
+                        float cy = avatarContainer.getTop() + avatarContainer.getMeasuredHeight() / 2f;
+                        paint.setAlpha((int) (checkProgress * 255));
                         canvas.drawCircle(cx, cy, AndroidUtilities.dp(avatarSize / 2f - 5f) + AndroidUtilities.dp(4) * checkProgress, paint);
                     }
                 }
@@ -81,9 +110,9 @@ public class SendAsPopupView extends FrameLayout {
                 container.setBackgroundDrawable(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector), 3));
             }
 
-            avatar = new BackupImageView(context);
-            avatar.setRoundRadius(AndroidUtilities.dp(20));
-            container.addView(avatar, LayoutHelper.createLinear((int) avatarSize, (int) avatarSize, Gravity.CENTER_VERTICAL | Gravity.LEFT, 13, 0, 13, 0));
+            avatarContainer = new FrameLayout(getContext());
+            avatar = makeAvatar(context,false);
+            container.addView(avatarContainer, LayoutHelper.createLinear((int) avatarSize, (int) avatarSize, Gravity.CENTER_VERTICAL | Gravity.LEFT, 14, 0, 13, 0));
 
             paint = new Paint(Paint.ANTI_ALIAS_FLAG);
             paint.setStyle(Paint.Style.STROKE);
@@ -106,9 +135,9 @@ public class SendAsPopupView extends FrameLayout {
             subtitle.setTextColor(Theme.getColor(Theme.key_chat_sendAsPanelProfileSubtitle));
             subtitle.setLines(1);
             subtitle.setEllipsize(TextUtils.TruncateAt.END);
-            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, 0    , 0, 0));
+            infoLayout.addView(subtitle, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM | Gravity.RIGHT, 0, 1, 0, 0));
 
-            container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1,Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 13, 9));
+            container.addView(infoLayout, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1,Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 9, 18, 9));
 
             addView(container, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         }
@@ -122,18 +151,21 @@ public class SendAsPopupView extends FrameLayout {
 
         private final float avatarSize = 38f;
         private final float disabledAvatarScale = (avatarSize - 8f) / avatarSize;
-        private boolean isChecked = false;
+        public boolean isChecked = false;
         public void setChecked(boolean checked, boolean animated) {
             if (!animated) {
                 isChecked = checked;
                 checkProgress = checked ? 1f : 0f;
-                avatar.setScaleX(isChecked ? disabledAvatarScale : 1.0f);
-                avatar.setScaleY(isChecked ? disabledAvatarScale : 1.0f);
+                if (avatar != null) {
+                    avatar.setScaleX(isChecked ? disabledAvatarScale : 1.0f);
+                    avatar.setScaleY(isChecked ? disabledAvatarScale : 1.0f);
+                }
             } else  {
                 if (isChecked == checked) {
                     return;
                 }
                 isChecked = checked;
+
                 if (animator != null) {
                     animator.cancel();
                 }
@@ -141,8 +173,6 @@ public class SendAsPopupView extends FrameLayout {
                 animator.addUpdateListener(animation -> {
                     float t = (float) animation.getAnimatedValue();
                     checkProgress = isChecked ? t : 1f - t;
-                    avatar.setScaleX(disabledAvatarScale + (1f - checkProgress) * (1.0f - disabledAvatarScale));
-                    avatar.setScaleY(disabledAvatarScale + (1f - checkProgress) * (1.0f - disabledAvatarScale));
                     container.invalidate();
                 });
                 animator.addListener(new AnimatorListenerAdapter() {
@@ -151,15 +181,27 @@ public class SendAsPopupView extends FrameLayout {
                         animator = null;
                     }
                 });
-                animator.setDuration(100);
+                animator.setDuration(180);
                 animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
                 animator.start();
+
+                if (avatar != null) {
+                    if (avatar.getAnimation() != null)
+                        avatar.getAnimation().cancel();
+                    avatar.animate()
+                        .scaleX(isChecked ? disabledAvatarScale : 1f)
+                        .scaleY(isChecked ? disabledAvatarScale : 1f)
+                        .alpha(1f)
+                        .setDuration(180)
+                        .start();
+                }
             }
         }
 
+        private TLRPC.User lastUser = null;
+        private TLRPC.Chat lastChat = null;
         private TLRPC.Peer currentPeer = null;
-        public void setFromPeer(TLRPC.Peer peer, boolean checked) {
-            setChecked(checked, false);
+        public void setFromPeer(TLRPC.Peer peer) {
             if (MessageObject.getPeerId(peer) != MessageObject.getPeerId(currentPeer)) {
                 currentPeer = peer;
                 if (peer instanceof TLRPC.TL_peerUser) {
@@ -169,6 +211,9 @@ public class SendAsPopupView extends FrameLayout {
                         subtitle.setText(LocaleController.getString("MessageSendAsPersonalAccount", R.string.MessageSendAsPersonalAccount));
                         avatarDrawable.setInfo(user);
                         avatar.setForUserOrChat(user, avatarDrawable);
+
+                        lastUser = user;
+                        lastChat = null;
                     }
                 } else {
                     long id = (
@@ -185,6 +230,9 @@ public class SendAsPopupView extends FrameLayout {
                         }
                         avatarDrawable.setInfo(chat);
                         avatar.setForUserOrChat(chat, avatarDrawable);
+
+                        lastUser = null;
+                        lastChat = chat;
                     }
                 }
                 invalidate();
@@ -200,32 +248,23 @@ public class SendAsPopupView extends FrameLayout {
         }
 
         public void setPeers(ArrayList<TLRPC.Peer> peers) {
+            if (this.peers == peers)
+                return;
             this.peers = peers;
             this.notifyDataSetChanged();
         }
 
         private long selectedPeerId = 0;
         public void selectPeer(TLRPC.Peer peer) {
-            int oldSelectedPeerPosition = -1,
-                newSelectedPeerPosition = -1;
+            if (peers == null)
+                return;
             for (int i = 0; i < peers.size(); ++i) {
-                if (MessageObject.getPeerId(peer) == selectedPeerId) {
-                    oldSelectedPeerPosition = i;
-                    break;
-                }
-                if (MessageObject.getPeerId(peer) == MessageObject.getPeerId(peer)) {
-                    newSelectedPeerPosition = i;
-                    break;
-                }
-                if (oldSelectedPeerPosition != -1 && newSelectedPeerPosition != -1)
-                    break;
+                boolean shouldHaveBeenSelected = MessageObject.getPeerId(peers.get(i)) == selectedPeerId,
+                        shouldBeSelectedNow = MessageObject.getPeerId(peers.get(i)) == MessageObject.getPeerId(peer);
+                if (shouldBeSelectedNow != shouldHaveBeenSelected)
+                    notifyItemChanged(i);
             }
             selectedPeerId = MessageObject.getPeerId(peer);
-
-            if (oldSelectedPeerPosition != -1)
-                notifyItemChanged(oldSelectedPeerPosition);
-            if (newSelectedPeerPosition != -1)
-                notifyItemChanged(newSelectedPeerPosition);
         }
 
         @NonNull
@@ -238,9 +277,10 @@ public class SendAsPopupView extends FrameLayout {
         public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
             SendAsPeerView view = (SendAsPeerView) holder.itemView;
             TLRPC.Peer peer = this.peers.get(position);
-            view.setFromPeer(peer, MessageObject.getPeerId(peer) == selectedPeerId);
+            view.setFromPeer(peer);
+            view.setChecked(MessageObject.getPeerId(peer) == selectedPeerId, true);
 
-            ((MarginLayoutParams) view.getLayoutParams()).topMargin = position == 0 ? AndroidUtilities.dp(2) : 0;
+            ((MarginLayoutParams) view.getLayoutParams()).topMargin = position == 0 ? AndroidUtilities.dp(-2) : 0;
             ((MarginLayoutParams) view.getLayoutParams()).bottomMargin = position == getItemCount() - 1 ? AndroidUtilities.dp(10) : 0;
         }
 
@@ -256,19 +296,45 @@ public class SendAsPopupView extends FrameLayout {
     }
 
     public LinearLayout popup;
-    public LinearLayout popupContainer;
+    public FrameLayout popupContainer;
     public TextView header;
     public ScrollView scrollView;
     public RecyclerListView listView;
     public PeersAdapter adapter;
     public LinearLayoutManager layoutManager;
 
+    float popupBackgroundScaleX = 1f,
+          popupBackgroundScaleY = 1f,
+          popupBackgroundOffset = 0f;
+
     public interface SendAsPopupViewDelegate {
         default void onClose() {}
         default void onSelect(TLRPC.Peer peer) {}
     }
-    public SendAsPopupView(Context context, SendAsPopupViewDelegate delegate) {
+    Rect boxPadding = new Rect(
+            AndroidUtilities.dp(6),
+            AndroidUtilities.dp(6),
+            AndroidUtilities.dp(6),
+            AndroidUtilities.dp(6)
+    );
+    Rect boxClipPadding = new Rect(
+            AndroidUtilities.dp(8),
+            AndroidUtilities.dp(8),
+            AndroidUtilities.dp(8),
+            AndroidUtilities.dp(8)
+    );
+    Point boxOffset = new Point(
+            AndroidUtilities.dp(-2f),
+            AndroidUtilities.dp(0)
+    );
+
+    FrameLayout globalAnimationContainer;
+    SendAsAvatarButton sendAsButton;
+    public SendAsPopupView(Context context, FrameLayout sendAsPopupAnimationContainer, SendAsAvatarButton sendAsButton, SendAsPopupViewDelegate delegate) {
         super(context);
+
+        this.sendAsButton = sendAsButton;
+        this.globalAnimationContainer = sendAsPopupAnimationContainer;
 
         setVisibility(View.GONE);
         setBackgroundColor(0x33000000);
@@ -283,13 +349,7 @@ public class SendAsPopupView extends FrameLayout {
         Drawable shadowDrawable2 = ContextCompat.getDrawable(context, R.drawable.popup_fixed_alert).mutate();
         shadowDrawable2.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground), PorterDuff.Mode.MULTIPLY));
 
-        popup = new LinearLayout(context);
-        popup.setOrientation(LinearLayout.VERTICAL);
-        popup.setBackground(shadowDrawable2);
-        popup.setTranslationY(8);
-        popup.setClickable(true);
-
-        popupContainer = new LinearLayout(context)
+        popupContainer = new FrameLayout(context)
         {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -301,8 +361,51 @@ public class SendAsPopupView extends FrameLayout {
                     heightMeasureSpec = MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(420), MeasureSpec.AT_MOST);
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             }
+
+            @Override
+            protected void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+
+                int w = this.getMeasuredWidth(),
+                    h = this.getMeasuredHeight(),
+                    sw = (int) (w * popupBackgroundScaleX),
+                    sh = (int) (h * popupBackgroundScaleY);
+
+                shadowDrawable2.setBounds(
+                        (int) (0 + boxOffset.x - popupBackgroundOffset),
+                        (int) ((h - sh) + boxOffset.y + popupBackgroundOffset),
+                        (int) (sw + boxOffset.x - popupBackgroundOffset),
+                        (int) (h + boxOffset.y + popupBackgroundOffset)
+                );
+                shadowDrawable2.draw(canvas);
+
+                canvas.clipRect(
+                        0 + boxClipPadding.left + boxOffset.x - popupBackgroundOffset,
+                        (h - sh) + boxClipPadding.top + boxOffset.y + popupBackgroundOffset,
+                        sw - boxClipPadding.right + boxOffset.x - popupBackgroundOffset,
+                        h - boxClipPadding.bottom + boxOffset.y + popupBackgroundOffset
+                );
+            }
+//
+//            @Override
+//            protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+//                int w = this.getMeasuredWidth(),
+//                        h = this.getMeasuredHeight(),
+//                        sw = (int) (w * popupBackgroundScaleX),
+//                        sh = (int) (h * popupBackgroundScaleY);
+//                return super.drawChild(canvas, child, drawingTime);
+//            }
         };
-        popupContainer.addView(popup, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,Gravity.LEFT | Gravity.BOTTOM, -1, 0, 0, -1));
+        popupContainer.setWillNotDraw(false);
+        popupContainer.setClipChildren(true);
+
+        popup = new LinearLayout(context);
+        popup.setOrientation(LinearLayout.VERTICAL);
+        popup.setPadding(boxPadding.left, boxPadding.top, boxPadding.right, boxPadding.bottom);
+//        popup.setBackground(shadowDrawable2);
+//        popup.setTranslationY(24);
+        popup.setClickable(true);
+        popupContainer.addView(popup, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT,Gravity.LEFT | Gravity.BOTTOM, 0, 0, 0, 0));
 
         header = new TextView(context);
         header.setGravity(Gravity.LEFT);
@@ -311,7 +414,12 @@ public class SendAsPopupView extends FrameLayout {
         header.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         header.setText(LocaleController.getString("MessageSendAs", R.string.MessageSendAs));
         header.setMaxLines(1);
-        popup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 8));
+        popup.addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16 - 2, 16, 16 - 2, 8));
+
+        headerShadowContainer = new FrameLayout(context);
+        headerShadowContainer.setAlpha(0f);
+        headerShadowContainer.setBackground(getResources().getDrawable(R.drawable.header_shadow));
+        popup.addView(headerShadowContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 4, Gravity.TOP | Gravity.FILL_HORIZONTAL, 0, 0, 0, 0));
 
         listView = new RecyclerListView(context) {
             @Override
@@ -325,31 +433,140 @@ public class SendAsPopupView extends FrameLayout {
                 listView.setOverScrollMode(allVisible ? View.OVER_SCROLL_NEVER : View.OVER_SCROLL_IF_CONTENT_SCROLLS);
             }
         };
+        listView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                updateHeaderShadowShow(recyclerView.computeVerticalScrollOffset() > 10f);
+            }
+        });
         listView.setAdapter(adapter = new PeersAdapter(context));
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.VERTICAL, false));
         listView.setVerticalScrollBarEnabled(false);
         listView.setClipToPadding(false);
         listView.setEnabled(true);
         listView.setOnItemClickListener((view, position) -> {
+            SendAsPeerView item = (SendAsPeerView) view;
             TLRPC.Peer peer = adapter.peers.get(position);
             if (peer != null) {
+//                if (item != null)
+//                    item.setChecked(true, true);
+//                for (int a = 0, N = listView.getChildCount(); a < N; a++) {
+//                    View child = listView.getChildAt(a);
+//                    if (child != view) {
+//                        ((SendAsPeerView) child).setChecked(false, true);
+//                    }
+//                }
+
+                this.setSelected(peer, item);
                 if (delegate != null) {
                     delegate.onSelect(peer);
                 }
-                this.setSelected(peer);
-
-                ((SendAsPeerView) view).setChecked(true, true);
-                for (int a = 0, N = listView.getChildCount(); a < N; a++) {
-                    View child = listView.getChildAt(a);
-                    if (child != view) {
-                        ((SendAsPeerView) child).setChecked(false, true);
-                    }
-                }
             }
         });
-        popup.addView(listView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 0));
+        popup.addView(listView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, -4, 0, 0));
 
-        addView(popupContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.BOTTOM));
+        addView(popupContainer, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
+    }
+
+    private ValueAnimator avatarAnimator = null;
+    private float avatarT = -1f;
+    private Bitmap avatar = null;
+    private float avatarFromX = 0f, avatarFromY = 0f, avatarFromRadius = 0f;
+    private float avatarToX = 0f, avatarToY = 0f, avatarToRadius = 0f;
+    private Paint avatarPaint = new Paint();
+    public boolean onGlobalDraw(Canvas canvas) {
+
+        if (avatarT >= 0f && avatar != null) {
+            float x = avatarFromX + (avatarToX - avatarFromX) * avatarT,
+                  y = avatarFromY + (avatarToY - avatarFromY) * avatarT,
+                  r = avatarFromRadius + (avatarToRadius - avatarFromRadius) * avatarT;
+            canvas.drawBitmap(
+                    avatar,
+                    null,
+                    new Rect(
+                            (int) (x - globalAnimationContainer.getLeft()),
+                            (int) (y - globalAnimationContainer.getTop()),
+                            (int) (x - globalAnimationContainer.getLeft() + r * 2f),
+                            (int) (y - globalAnimationContainer.getTop() + r * 2f)
+                    ),
+                    avatarPaint
+            );
+        }
+
+        return false;
+    }
+    public void moveAvatar(BackupImageView avatar, SendAsAvatarButton sendAsAvatarButton) {
+        if (this.globalAnimationContainer == null)
+            return;
+
+        if (avatarAnimator != null)
+            avatarAnimator.cancel();
+
+        globalAnimationContainer.setVisibility(View.VISIBLE);
+
+        Rect avatarGlobalRect = new Rect();
+        Point avatarGlobalOffset = new Point();
+
+        avatar.getGlobalVisibleRect(avatarGlobalRect, avatarGlobalOffset);
+
+        avatarPaint.setColor(0xffffffff);
+        avatarFromRadius = Math.max(avatar.getWidth(), avatar.getHeight()) / 2f;
+        avatarFromX = avatarGlobalOffset.x + avatar.getWidth() / 2f;
+        avatarFromY = avatarGlobalOffset.y + avatar.getHeight() / 2f;
+
+        Bitmap bitmap = Bitmap.createBitmap((int) (avatarFromRadius * 2), (int) (avatarFromRadius * 2), Bitmap.Config.ARGB_8888);
+
+        Canvas canvas = new Canvas(bitmap);
+        avatar.draw(canvas);
+        this.avatar = bitmap;
+
+        try {
+            ((ViewGroup) avatar.getParent()).removeView(avatar);
+        } catch (Exception e) {}
+
+
+
+        sendAsAvatarButton.getGlobalVisibleRect(avatarGlobalRect, avatarGlobalOffset);
+        avatarToRadius = sendAsAvatarButton.getAvatarRadius();
+        avatarToX = avatarGlobalOffset.x + sendAsAvatarButton.getWidth() / 2f - avatarToRadius;
+        avatarToY = avatarGlobalOffset.y + sendAsAvatarButton.getHeight() / 2f - avatarToRadius;
+
+        avatarAnimator = ObjectAnimator.ofFloat(0f, 1f);
+        avatarAnimator.addUpdateListener(valueAnimator -> {
+            float t = (float) valueAnimator.getAnimatedValue();
+            avatarT = easeOutBack(t);
+            if (globalAnimationContainer != null)
+                globalAnimationContainer.invalidate();
+        });
+        sendAsAvatarButton.avatar.setVisibility(View.INVISIBLE);
+        avatarAnimator.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                sendAsAvatarButton.avatar.setVisibility(View.VISIBLE);
+                super.onAnimationEnd(animation);
+                globalAnimationContainer.setVisibility(View.GONE);
+                avatarT = -1f;
+            }
+        });
+        float dist = (float) Math.sqrt(Math.pow(avatarFromX - avatarToX, 2) + Math.pow(avatarFromY - avatarToY, 2));
+        avatarAnimator.setDuration((int) (75 + dist / AndroidUtilities.dp(16) * 20));
+        avatarAnimator.start();
+    }
+
+    private FrameLayout headerShadowContainer;
+    private ViewPropertyAnimator headerShadowAnimator;
+    private boolean headerShadowShow = false;
+    private void updateHeaderShadowShow(boolean show) {
+        if (headerShadowShow == show)
+            return;
+
+        headerShadowShow = show;
+
+        if (headerShadowAnimator != null)
+            headerShadowAnimator.cancel();
+
+        headerShadowAnimator = headerShadowContainer.animate().alpha(show ? 1f : 0f).setDuration(150);
     }
 
     public void updateColors() {
@@ -375,37 +592,113 @@ public class SendAsPopupView extends FrameLayout {
         invalidate();
     }
 
-    private ViewPropertyAnimator popupAnimation;
-    private ViewPropertyAnimator containerAnimation;
+    private ValueAnimator animator;
+
+    private float easeInOut(float t) {
+        float sqt = t * t;
+        return sqt / (2f * (sqt - t) + 1f);
+    }
+    private final float easeOutBack_G = 1.15f; // 1.70158f;
+    private float easeOutBack(float t) {
+        return 1f + (1f + easeOutBack_G) * ((float) Math.pow(t - 1f, 3f)) + easeOutBack_G * ((float) Math.pow(t - 1f, 2f));
+    }
+    private float easeOutBackInverse(float t) {
+        return 1f - easeOutBack(1f - t);
+    }
+    private float easeOutQuint(float t) {
+        return 1f - (float) Math.pow(1 - t, 5);
+    }
+    private float easeOutSine(float t) {
+        return (float) Math.sin((t * Math.PI) / 2f);
+    }
+    private float easeOutCirc(float t) {
+        return (float) Math.sqrt(1 - Math.pow(t - 1, 2));
+    }
+
     private boolean shown = false;
-    public void show(boolean enabled) {
-        if (shown != enabled) {
-            if (enabled && !hasPeers) {
+    public void show(boolean show) {
+        this.show(show, null);
+    }
+    public void show(boolean show, SendAsPeerView item) {
+        if (shown != show) {
+            if (show && !hasPeers) {
                 shouldHadBeenShown = true;
                 return;
             }
 
-            shown = enabled;
-            if (containerAnimation != null)
-                containerAnimation.cancel();
-            if (popupAnimation != null)
-                popupAnimation.cancel();
+            shown = show;
+            if (animator != null)
+                animator.cancel();
 
-            if (!enabled) {
-                containerAnimation = this.animate().alpha(0f).setDuration(150).withEndAction(() -> {
-                    this.setVisibility(View.GONE);
-                });
-                popupAnimation = popup.animate().translationY(8).setDuration(150);
+            animator = ObjectAnimator.ofFloat(0f, 1f);
+            if (!show) {
+                if (item != null) {
+                    this.moveAvatar(item.takeAvatar(), sendAsButton);
+                }
+                this.postDelayed(() -> {
+                    if (animator != null)
+                        animator.cancel();
+
+                    SendAsPopupView me = this;
+                    animator.setInterpolator(new DecelerateInterpolator(2f));
+                    animator.addUpdateListener(valueAnimator -> {
+                        float traw = (float) valueAnimator.getAnimatedValue();
+                        float t = easeOutSine(traw);
+
+                        popupBackgroundScaleX = 0.4f + 0.6f * (1f - t);
+                        popupBackgroundScaleY = 0.2f + 0.8f * (1f - t);
+//                        popupBackgroundOffset = easeOutBack(t) * AndroidUtilities.dp(4);
+
+                        int outerHeight = popupContainer.getMeasuredHeight(),
+                            innerHeight = outerHeight - popup.getPaddingTop();
+
+                        this.setAlpha(1f - traw);
+    //                    popup.setTranslationY(24f * t);
+                        popup.setTranslationY(popupContainer.getMeasuredHeight() - (popupContainer.getMeasuredHeight() * popupBackgroundScaleY));
+                        popupContainer.invalidate();
+                    });
+                    animator.addListener(new AnimatorListenerAdapter() {
+                        @Override
+                        public void onAnimationEnd(Animator animation) {
+                            super.onAnimationEnd(animation);
+                            me.setVisibility(View.GONE);
+                        }
+                    });
+                    animator.setDuration(250);
+                    animator.start();
+                }, avatar == null ? 0 : 95);
             } else {
                 this.setVisibility(View.VISIBLE);
-                containerAnimation = this.animate().alpha(1f).setDuration(150);
-                popupAnimation = popup.animate().translationY(0).setDuration(150);
+                animator.setInterpolator(new DecelerateInterpolator(2f));
+                animator.addUpdateListener(valueAnimator -> {
+                    float traw = (float) valueAnimator.getAnimatedValue();
+                    float t = easeOutSine(traw);
+
+                    popupBackgroundScaleX = 0.4f + 0.6f * t;
+                    popupBackgroundScaleY = 0.2f + 0.8f * t;
+//                    popupBackgroundOffset = easeOutBack(t) * AndroidUtilities.dp(4);
+
+                    this.setAlpha(traw);
+//                    popup.setTranslationY(24f * (1f - t));
+                    popup.setTranslationY(popupContainer.getMeasuredHeight() - (popupContainer.getMeasuredHeight() * popupBackgroundScaleY));
+                    popupContainer.invalidate();
+                });
+                animator.setDuration(300);
+                animator.start();
             }
         }
     }
 
     public void setSelected(TLRPC.Peer peer) {
+        setSelected(peer, null);
+    }
+    public void setSelected(TLRPC.Peer peer, SendAsPeerView item) {
         adapter.selectPeer(peer);
+
+        if (item != null) {
+            this.postDelayed(() -> this.show(false, item), 45);
+        } else if (peer == null)
+            this.show(false);
     }
 
     private boolean shouldHadBeenShown = false;

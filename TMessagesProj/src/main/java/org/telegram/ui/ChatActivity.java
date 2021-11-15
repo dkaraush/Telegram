@@ -1,3 +1,4 @@
+
 /*
  * This is the source code of Telegram for Android v. 5.x.x.
  * It is licensed under GNU GPL v. 2 or later.
@@ -679,6 +680,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
     };
     private SendAsPopupView sendAsPopup;
+    private FrameLayout sendAsPopupAnimationContainer;
 
     private ChatActivityDelegate chatActivityDelegate;
     private RecyclerAnimationScrollHelper chatScrollHelper;
@@ -763,6 +765,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             ArrayList<MessageObject> filteredMessages = new ArrayList<>();
             for (MessageObject msg : messages)
                 if (msg.messageOwner.date >= messagesDateStart && msg.messageOwner.date <= messagesDateEnd && !msg.hadAnimationNotReadyLoading)
+//                    filteredMessages.add(0, msg);
                     filteredMessages.add(msg);
             return filteredMessages;
         }
@@ -1717,7 +1720,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
         if (chatMode == MODE_DAY) {
             waitingForLoad.add(lastLoadIndex);
-            getMessagesStorage().getMessages(dialog_id, mergeDialogId, false, 30, 0, messagesDateStart, messagesDateEnd, messagesDateStart, classGuid, 1, false, 0, lastLoadIndex++, true);
+            getMessagesStorage().getMessages(dialog_id, mergeDialogId, false, 30, 0, messagesDateEnd, messagesDateEnd, messagesDateStart, classGuid, 5, false, 0, lastLoadIndex++, true);
         }
 
         return true;
@@ -5120,6 +5123,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 return 1000;
             }
         });
+        if (chatMode == MODE_DAY) {
+            chatLayoutManager.setReverseLayout(true);
+        }
         chatListView.setLayoutManager(chatLayoutManager);
         chatListView.addItemDecoration(new RecyclerView.ItemDecoration() {
             @Override
@@ -5154,6 +5160,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
             }
         });
+        chatLayoutManager.setReverseLayout(true);
         contentView.addView(chatListView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         chatListView.setOnItemLongClickListener(onItemLongClickListener);
         chatListView.setOnItemClickListener(onItemClickListener);
@@ -5364,6 +5371,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             calendar.clear();
             calendar.set(year, monthOfYear, dayOfMonth);
             jumpToDate((int) (calendar.getTime().getTime() / 1000));
+
+            if (chatListView.computeVerticalScrollOffset() <= 8f) {
+                tappedOnDate(floatingDateView.getCustomDate());
+            }
         });
 
         if (currentChat != null) {
@@ -7164,7 +7175,17 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
         contentView.addView(chatActivityEnterView, contentView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
 
-        sendAsPopup = new SendAsPopupView(contentView.getContext(), new SendAsPopupView.SendAsPopupViewDelegate() {
+        sendAsPopupAnimationContainer = new FrameLayout(contentView.getContext()) {
+            @Override
+            protected void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+                if (sendAsPopup != null)
+                    sendAsPopup.onGlobalDraw(canvas);
+            }
+        };
+        sendAsPopupAnimationContainer.setWillNotDraw(false);
+        contentView.addView(sendAsPopupAnimationContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        sendAsPopup = new SendAsPopupView(contentView.getContext(), sendAsPopupAnimationContainer, chatActivityEnterView.sendAsButton, new SendAsPopupView.SendAsPopupViewDelegate() {
             @Override
             public void onClose() {
                 if (chatActivityEnterView != null) {
@@ -7175,14 +7196,14 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             @Override
             public void onSelect(TLRPC.Peer peer) {
                 setDefaultSendAs(peer);
-//                sendAsPopup.show(false);
-//                if (chatActivityEnterView != null) {
-//                    chatActivityEnterView.setSendAsShowClose(false);
-//                }
+                if (chatActivityEnterView != null) {
+                    chatActivityEnterView.setSendAsShowClose(false);
+                }
             }
         });
         sendAsPopup.setPeers(sendAsPeers);
         contentView.addView(sendAsPopup, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.TOP));
+        sendAsPopupAnimationContainer.bringToFront();
 
         updateSendAs(false);
 
@@ -7924,11 +7945,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             topBottom[0] = chatListView.getTop() + chatListViewPaddingTop - AndroidUtilities.dp(4);
         });
 
-        if (chatMode == MODE_DAY) {
-//            chatLayoutManager.setReverseLayout(true);
-//            chatLayoutManager.g
-        }
-
         emojiAnimationsOverlay = new EmojiAnimationsOverlay(ChatActivity.this, contentView, chatListView, currentAccount, dialog_id, threadMessageId);
         return fragmentView;
     }
@@ -7945,8 +7961,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         TLRPC.Peer defaultSendAs = defaultSendAsValue;
         if (defaultSendAs == null && chatInfo != null && chatInfo instanceof TLRPC.TL_channelFull)
             defaultSendAs = ((TLRPC.TL_channelFull) chatInfo).default_send_as;
-        if (defaultSendAs == null)
-            defaultSendAs = toPeer(getSendMessagesHelper().getSendAs(dialog_id));
+//        if (defaultSendAs == null)
+//            defaultSendAs = toPeer(getSendMessagesHelper().getSendAs(dialog_id));
 //        if (defaultSendAs == null && sendAsPeers != null && sendAsPeers.size() > 0)
 //            defaultSendAs = sendAsPeers.get(0);
         return defaultSendAs;
@@ -7992,7 +8008,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
                 if (sendAsPopup != null) {
                     sendAsPopup.setSelected(null);
-                    sendAsPopup.show(false);
                 }
             }
         } else {
@@ -12815,12 +12830,33 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
     }
 
+    public int totalCount = 0;
+    private String[] months = new String[] {
+            LocaleController.getString("January", R.string.January),
+            LocaleController.getString("February", R.string.February),
+            LocaleController.getString("March", R.string.March),
+            LocaleController.getString("April", R.string.April),
+            LocaleController.getString("May", R.string.May),
+            LocaleController.getString("June", R.string.June),
+            LocaleController.getString("July", R.string.July),
+            LocaleController.getString("August", R.string.August),
+            LocaleController.getString("September", R.string.September),
+            LocaleController.getString("October", R.string.October),
+            LocaleController.getString("November", R.string.November),
+            LocaleController.getString("December", R.string.December)
+    };
     private void updateTitle() {
         if (avatarContainer == null) {
             return;
         }
         if (chatMode == MODE_DAY && messagesDateStart > 0) {
-            avatarContainer.setTitle(LocaleController.formatDate(messagesDateStart));
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(messagesDateStart * 1000L);
+            avatarContainer.setTitle(months[calendar.get(Calendar.MONTH)] + " " + (calendar.get(Calendar.DATE)) +  ", " + calendar.get(Calendar.YEAR));
+            if (totalCount > 0) {
+                avatarContainer.setSubtitle(LocaleController.formatPluralString("messages", totalCount));
+                avatarContainer.updateSubtitle(true);
+            }
         } else if (isThreadChat()) {
             if (isComments) {
                 if (threadMessageObject.hasReplies()) {
@@ -13370,8 +13406,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             int total_count = (Integer) args[15];
 
             if (chatMode == MODE_DAY) {
-                if (avatarContainer != null)
-                    avatarContainer.setSubtitle(LocaleController.formatString("messages", R.string.messages_few, total_count));
+                if (this.totalCount != total_count) {
+                    this.totalCount = total_count;
+                    updateTitle();
+                }
             }
 
             if (loaded_mentions_count < 0) {
@@ -14880,6 +14918,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     pendingRequestsDelegate.setChatInfo(chatInfo, true);
                 }
 
+                if (DialogObject.getPeerDialogId(defaultSendAsValue) != DialogObject.getPeerDialogId(chatInfo.default_send_as)) {
+                    defaultSendAsValue = null;
+                    loadSendAsPeers();
+                }
                 updateSendAs();
             }
         } else if (id == NotificationCenter.chatInfoCantLoad) {
@@ -23616,8 +23658,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
                     @Override
                     public void didTap(ChatActionCell cell, MessageObject message) {
-                        if (message.isDateObject)
-                            tappedOnDate(cell, message);
+                        if (message != null && message.isDateObject && message.messageOwner != null)
+                            tappedOnDate(message.messageOwner.date);
                     }
 
                     @Override
@@ -26057,12 +26099,13 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
     }
 
-    private void tappedOnDate(ChatActionCell cell, MessageObject message) {
+    private void tappedOnDate(int date) {
+        if (dialog_id < 0)
+            return;
+
         Bundle bundle = new Bundle();
         bundle.putLong("dialog_id", dialog_id);
-        HistoryCalendarActivity calendarActivity = new HistoryCalendarActivity(bundle, message.messageOwner.date, date -> {
-            jumpToDate(date);
-        });
+        HistoryCalendarActivity calendarActivity = new HistoryCalendarActivity(bundle, date, this::jumpToDate);
         presentFragment(calendarActivity);
     }
 }
