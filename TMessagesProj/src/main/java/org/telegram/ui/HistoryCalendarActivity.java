@@ -518,7 +518,13 @@ public class HistoryCalendarActivity extends BaseFragment {
                         periodDay.messageObject = messageObject;
                         startOffset += res.periods.get(i).count;
                         periodDay.startOffset = startOffset;
+
                         int index = calendar.get(Calendar.DATE);
+//                        try {
+//                            Calendar dayCalendar = Calendar.getInstance();
+//                            dayCalendar.setTimeInMillis(messageObject.messageOwner.date);
+//                            index = dayCalendar.get(Calendar.DATE);
+//                        } catch (Exception e) {}
                         if (messagesByDays.get(index, null) == null) {
                             messagesByDays.put(index, periodDay);
                         }
@@ -867,45 +873,45 @@ public class HistoryCalendarActivity extends BaseFragment {
                     canvas.drawText(Integer.toString(i + 1), cx, cy + AndroidUtilities.dp(5), textPaint);
                     textPaint.setAlpha(oldAlpha);
                 } else {
-                    PeriodDay periodDay = messagesByDays == null ? null : messagesByDays.get(i, null);
+                    PeriodDay periodDay = messagesByDays == null ? null : messagesByDays.get(i + 1, null);
                     float imageDeletionAnimation = periodDay == null || periodDay.deletedAt <= 0 ? 0f : Math.max(0f, Math.min(1f, (now - periodDay.deletedAt) / 75f));
                     boolean deleted = periodDay != null && periodDay.deletedAt + 75 < now && periodDay.deletedAt > 0;
 
-                    if (imagesByDays != null && imagesByDays.get(i) != null && periodDay != null && !deleted) {
+                    if (imagesByDays != null && imagesByDays.get(i+ 1) != null && periodDay != null && !deleted) {
                         float alpha;
-                        if (checkEnterItems && !messagesByDays.get(i).wasDrawn) {
-                            messagesByDays.get(i).enterAlpha = 0f;
-                            messagesByDays.get(i).startEnterDelay = (cy + getY()) / listView.getMeasuredHeight() * 150;
+                        if (checkEnterItems && !messagesByDays.get(i+ 1).wasDrawn) {
+                            messagesByDays.get(i+ 1).enterAlpha = 0f;
+                            messagesByDays.get(i+ 1).startEnterDelay = (cy + getY()) / listView.getMeasuredHeight() * 150;
                         }
-                        if (messagesByDays.get(i).startEnterDelay > 0) {
-                            messagesByDays.get(i).startEnterDelay -= 16;
-                            if (messagesByDays.get(i).startEnterDelay < 0) {
-                                messagesByDays.get(i).startEnterDelay = 0;
+                        if (messagesByDays.get(i+ 1).startEnterDelay > 0) {
+                            messagesByDays.get(i+ 1).startEnterDelay -= 16;
+                            if (messagesByDays.get(i+ 1).startEnterDelay < 0) {
+                                messagesByDays.get(i+ 1).startEnterDelay = 0;
                             } else {
                                 invalidate();
                             }
                         }
-                        if (messagesByDays.get(i).startEnterDelay == 0 && messagesByDays.get(i).enterAlpha != 1f) {
-                            messagesByDays.get(i).enterAlpha += 16 / 220f;
-                            if (messagesByDays.get(i).enterAlpha > 1f) {
-                                messagesByDays.get(i).enterAlpha = 1f;
+                        if (messagesByDays.get(i+ 1).startEnterDelay == 0 && messagesByDays.get(i+ 1).enterAlpha != 1f) {
+                            messagesByDays.get(i+ 1).enterAlpha += 16 / 220f;
+                            if (messagesByDays.get(i+ 1).enterAlpha > 1f) {
+                                messagesByDays.get(i+ 1).enterAlpha = 1f;
                             } else {
                                 invalidate();
                             }
                         }
-                        alpha = messagesByDays.get(i).enterAlpha * (1f - imageDeletionAnimation);
+                        alpha = messagesByDays.get(i+ 1).enterAlpha * (1f - imageDeletionAnimation);
                         if (alpha != 1f) {
                             canvas.save();
                             float s = 0.8f + 0.2f * alpha;
                             canvas.scale(s, s,cx, cy);
                         }
-                        imagesByDays.get(i).setAlpha(messagesByDays.get(i).enterAlpha);
+                        imagesByDays.get(i+ 1).setAlpha(messagesByDays.get(i+ 1).enterAlpha);
                         float imageSize = AndroidUtilities.dp(44 - (8 * Math.max(selectedInsideT, selectedAnimationT))) * (1f - imageDeletionAnimation);
-                        imagesByDays.get(i).setImageCoords(cx - imageSize / 2f, cy - imageSize / 2f, imageSize, imageSize);
-                        imagesByDays.get(i).draw(canvas);
-                        blackoutPaint.setColor(ColorUtils.setAlphaComponent(Color.BLACK, (int) (messagesByDays.get(i).enterAlpha * 80)));
+                        imagesByDays.get(i+ 1).setImageCoords(cx - imageSize / 2f, cy - imageSize / 2f, imageSize, imageSize);
+                        imagesByDays.get(i+ 1).draw(canvas);
+                        blackoutPaint.setColor(ColorUtils.setAlphaComponent(Color.BLACK, (int) (messagesByDays.get(i+ 1).enterAlpha * 80)));
                         canvas.drawCircle(cx, cy, imageSize / 2f, blackoutPaint);
-                        messagesByDays.get(i).wasDrawn = true;
+                        messagesByDays.get(i+ 1).wasDrawn = true;
                         if (alpha != 1f) {
                             canvas.restore();
                         }

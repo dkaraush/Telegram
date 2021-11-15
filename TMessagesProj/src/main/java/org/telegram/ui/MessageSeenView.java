@@ -211,7 +211,7 @@ public class MessageSeenView extends FrameLayout {
         }
     }
 
-    private final boolean SHOULD_HIDE_WHEN_0_SEEN = false;
+    private final boolean SHOULD_HIDE_WHEN_0_SEEN = true;
     private boolean shown = true;
     private ViewPropertyAnimator hideAnimator = null;
     private void updateView() {

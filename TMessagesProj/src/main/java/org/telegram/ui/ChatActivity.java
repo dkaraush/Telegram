@@ -273,6 +273,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
     private HashMap<MessageObject, Boolean> alredyPlayedStickers = new HashMap<>();
 
+    private boolean modeDayIsLoaded = false;
     private Dialog closeChatDialog;
     private boolean showCloseChatDialogLater;
     private FrameLayout progressView;
@@ -432,6 +433,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     private int scheduledMessagesCount = -1;
 
     private int reportType = -1;
+    private ChatLoadingCell dayModeLoading;
 
     private MessageObject threadMessageObject;
     private boolean threadMessageVisible = true;
@@ -1720,9 +1722,21 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         if (chatMode == MODE_DAY) {
             waitingForLoad.add(lastLoadIndex);
             getMessagesStorage().getMessages(dialog_id, mergeDialogId, false, 30, 0, messagesDateEnd, messagesDateEnd, messagesDateStart, classGuid, 5, false, 0, lastLoadIndex++, false);
+            setDayModeLoading(modeDayIsLoaded = false);
         }
 
         return true;
+    }
+
+    private void setDayModeLoading(boolean status) {
+        if (dayModeLoading == null)
+            return;
+        if (dayModeLoading.getAnimation() != null)
+            dayModeLoading.getAnimation().cancel();
+        dayModeLoading.animate().alpha(status ? 0f : 1f).setDuration(150).start();
+        if (status && totalCount == 0) {
+            updateTitle();
+        }
     }
 
     private void fillInviterId(boolean load) {
@@ -3559,6 +3573,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         contentView = (SizeNotifierFrameLayout) fragmentView;
         if (inBubbleMode) {
             contentView.setOccupyStatusBar(false);
+
         }
 
         contentView.setBackgroundImage(Theme.getCachedWallpaper(), Theme.isWallpaperMotion());
@@ -3596,27 +3611,29 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     emptyMessage = LocaleController.getString("NoScheduledMessages", R.string.NoScheduledMessages);
                 } else if (currentUser != null && currentUser.id != 777000 && currentUser.id != 429000 && currentUser.id != 4244000 && MessagesController.isSupportUser(currentUser)) {
                     emptyMessage = LocaleController.getString("GotAQuestion", R.string.GotAQuestion);
-                } else if (currentUser == null || currentUser.self || currentUser.deleted || userBlocked) {
+                } else if ((currentUser == null || currentUser.self || currentUser.deleted || userBlocked)) {
                     emptyMessage = LocaleController.getString("NoMessages", R.string.NoMessages);
                 }
-                if (emptyMessage == null) {
-                    greetingsViewContainer = new ChatGreetingsView(context, currentUser, distance, currentAccount, preloadedGreetingsSticker, themeDelegate);
-                    greetingsViewContainer.setListener((sticker) -> {
-                        animatingDocuments.put(sticker, 0);
-                        SendMessagesHelper.getInstance(currentAccount).sendSticker(sticker, null, dialog_id, null, null, null, null, true, 0);
-                    });
-                    greetingsViewContainer.setBackground(Theme.createServiceDrawable(AndroidUtilities.dp(10), greetingsViewContainer, contentView, getThemedPaint(Theme.key_paint_chatActionBackground)));
-                    emptyViewContainer.addView(greetingsViewContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 68, 0, 68, 0));
-                } else {
-                    emptyView = new TextView(context);
-                    emptyView.setText(emptyMessage);
-                    emptyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-                    emptyView.setGravity(Gravity.CENTER);
-                    emptyView.setTextColor(getThemedColor(Theme.key_chat_serviceText));
-                    emptyView.setBackground(Theme.createServiceDrawable(AndroidUtilities.dp(6), emptyView, contentView, getThemedPaint(Theme.key_paint_chatActionBackground)));
-                    emptyView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-                    emptyView.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(2), AndroidUtilities.dp(10), AndroidUtilities.dp(3));
-                    emptyViewContainer.addView(emptyView, new FrameLayout.LayoutParams(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+                if (chatMode != MODE_DAY) {
+                    if (emptyMessage == null) {
+                        greetingsViewContainer = new ChatGreetingsView(context, currentUser, distance, currentAccount, preloadedGreetingsSticker, themeDelegate);
+                        greetingsViewContainer.setListener((sticker) -> {
+                            animatingDocuments.put(sticker, 0);
+                            SendMessagesHelper.getInstance(currentAccount).sendSticker(sticker, null, dialog_id, null, null, null, null, true, 0);
+                        });
+                        greetingsViewContainer.setBackground(Theme.createServiceDrawable(AndroidUtilities.dp(10), greetingsViewContainer, contentView, getThemedPaint(Theme.key_paint_chatActionBackground)));
+                        emptyViewContainer.addView(greetingsViewContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, 68, 0, 68, 0));
+                    } else {
+                        emptyView = new TextView(context);
+                        emptyView.setText(emptyMessage);
+                        emptyView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
+                        emptyView.setGravity(Gravity.CENTER);
+                        emptyView.setTextColor(getThemedColor(Theme.key_chat_serviceText));
+                        emptyView.setBackground(Theme.createServiceDrawable(AndroidUtilities.dp(6), emptyView, contentView, getThemedPaint(Theme.key_paint_chatActionBackground)));
+                        emptyView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+                        emptyView.setPadding(AndroidUtilities.dp(10), AndroidUtilities.dp(2), AndroidUtilities.dp(10), AndroidUtilities.dp(3));
+                        emptyViewContainer.addView(emptyView, new FrameLayout.LayoutParams(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+                    }
                 }
             }
         } else {
@@ -7765,7 +7782,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         }
 
         chatAdapter.updateRowsSafe();
-        if (loading && messages.isEmpty()) {
+        if ((loading || (chatMode == MODE_DAY && !modeDayIsLoaded)) && messages.isEmpty()) {
             showProgressView(chatAdapter.botInfoRow < 0);
             chatListView.setEmptyView(null);
         } else {
@@ -7943,6 +7960,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             topBottom[1] = chatListView.getBottom();
             topBottom[0] = chatListView.getTop() + chatListViewPaddingTop - AndroidUtilities.dp(4);
         });
+
+        if (chatMode == MODE_DAY) {
+            dayModeLoading = new ChatLoadingCell(context, contentView, getResourceProvider());
+            contentView.addView(dayModeLoading, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER));
+
+        }
 
         emojiAnimationsOverlay = new EmojiAnimationsOverlay(ChatActivity.this, contentView, chatListView, currentAccount, dialog_id, threadMessageId);
         return fragmentView;
@@ -11183,6 +11206,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         first = true;
         firstLoading = true;
         loading = true;
+        modeDayIsLoaded = false;
         loadingForward = false;
         waitingForReplyMessageLoad = false;
         startLoadFromMessageId = 0;
@@ -12852,7 +12876,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(messagesDateStart * 1000L);
             avatarContainer.setTitle(months[calendar.get(Calendar.MONTH)] + " " + (calendar.get(Calendar.DATE)) +  ", " + calendar.get(Calendar.YEAR));
-            if (totalCount > 0) {
+            if (totalCount > 0 || modeDayIsLoaded) {
                 avatarContainer.setSubtitle(LocaleController.formatPluralString("messages", totalCount));
                 avatarContainer.updateSubtitle(true);
             }
@@ -13359,6 +13383,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 final int modeDayLimit = 30;
                 if (load_type == 5) {
                     // first request
+                    this.totalCount += messagesInRange.size();
 
                     waitingForLoad.add(lastLoadIndex);
                     getMessagesController().loadMessages(
@@ -13369,7 +13394,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
                     this.totalCount += messagesInRange.size();
                     updateTitle();
-                    if (messagesInRange.size() >= modeDayLimit && messagesInRange.size() > 0) {
+                    if (messagesInRange.size() >= modeDayLimit && messagesInRange.size() > 0 && offset_id_offset != -1) {
                         // we still don't know the true total_count value! need a second request.
 
                         TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
@@ -13389,11 +13414,17 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                 this.totalCount = new_total_count;
                                 updateTitle();
 
+                                setDayModeLoading(modeDayIsLoaded = true);
                             } else {
                                 FileLog.e(error.toString());
                             }
                         });
+                    } else {
+                        setDayModeLoading(modeDayIsLoaded = true);
                     }
+                } else {
+                    // wtf just happened, but we are done.
+                    setDayModeLoading(modeDayIsLoaded = true);
                 }
 
                 messArr = messagesInRange;
