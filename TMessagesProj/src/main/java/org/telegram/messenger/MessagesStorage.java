@@ -6700,7 +6700,7 @@ public class MessagesStorage extends BaseController {
         });
     }
 
-    public Runnable getMessagesInternal(long dialogId, long mergeDialogId, int count, int max_id, int offset_date, int minDate, int classGuid, int load_type, boolean scheduled, int replyMessageId, int loadIndex, boolean processMessages) {
+    public Runnable getMessagesInternal(long dialogId, long mergeDialogId, int count, int max_id, int offset_date, int minDate, int maxDate, int classGuid, int load_type, boolean scheduled, int replyMessageId, int loadIndex, boolean processMessages) {
         TLRPC.TL_messages_messages res = new TLRPC.TL_messages_messages();
         long currentUserId = getUserConfig().clientUserId;
         int count_unread = 0;
@@ -6718,6 +6718,7 @@ public class MessagesStorage extends BaseController {
         boolean isEnd = false;
         int num = dialogId == 777000 ? 10 : 1;
         int messagesCount = 0;
+        int totalCount = 0;
         long startLoadTime = SystemClock.elapsedRealtime();
         try {
             ArrayList<Long> usersToLoad = new ArrayList<>();
@@ -7005,6 +7006,13 @@ public class MessagesStorage extends BaseController {
                         } else {
                             cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date >= %d AND m.mid > %d ORDER BY m.date ASC, m.mid ASC LIMIT %d", dialogId, minDate, messageMaxId, count_query));
                         }
+                    } else if (load_type == 5) {
+                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT COUNT(1) FROM messages_v2 WHERE m.uid = %d AND m.date <= %d AND m.date >= %d", dialogId, minDate, maxDate));
+                        if (cursor.next()) {
+                            totalCount = cursor.intValue(0);
+                        }
+                        cursor.dispose();
+                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT * FROM (" + messageSelect + ") WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d", dialogId, minDate, maxDate, count_query));
                     } else if (minDate != 0) {
                         if (messageMaxId != 0) {
                             int holeMessageId = 0;
@@ -7014,9 +7022,17 @@ public class MessagesStorage extends BaseController {
                             }
                             cursor.dispose();
                             if (holeMessageId != 0) {
-                                cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.mid < %d AND (m.mid >= %d OR m.mid < 0) ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, messageMaxId, holeMessageId, count_query));
+                                if (maxDate == 0) {
+                                    cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.mid < %d AND (m.mid >= %d OR m.mid < 0) ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, messageMaxId, holeMessageId, count_query));
+                                } else {
+                                    cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d AND m.mid < %d AND (m.mid >= %d OR m.mid < 0) ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, maxDate, messageMaxId, holeMessageId, count_query));
+                                }
                             } else {
-                                cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.mid < %d ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, messageMaxId, count_query));
+                                if (maxDate == 0) {
+                                    cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.mid < %d ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, messageMaxId, count_query));
+                                } else {
+                                    cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d AND m.mid < %d ORDER BY m.date DESC, m.mid DESC LIMIT %d", dialogId, minDate, maxDate, messageMaxId, count_query));
+                                }
                             }
                         } else {
                             cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d ORDER BY m.date DESC, m.mid DESC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
@@ -7078,11 +7094,22 @@ public class MessagesStorage extends BaseController {
                                 "SELECT * FROM (" + messageSelect + " WHERE m.uid = %d AND m.mid > %d ORDER BY m.mid ASC LIMIT %d)", dialogId, messageMaxId, count_query / 2, dialogId, messageMaxId, count_query / 2));
                     } else if (load_type == 1) {
                         cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.mid < %d ORDER BY m.mid DESC LIMIT %d", dialogId, max_id, count_query));
+                    } else if (load_type == 5) {
+                        cursor = database.queryFinalized(String.format(Locale.US, "SELECT COUNT(1) FROM messages_v2 WHERE uid = %d AND date <= %d AND date >= %d", dialogId, minDate, maxDate));
+                        if (cursor.next()) {
+                            totalCount = cursor.intValue(0);
+                        }
+                        cursor.dispose();
+                        cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.date ASC, m.mid ASC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
                     } else if (minDate != 0) {
                         if (max_id != 0) {
                             cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.mid > %d ORDER BY m.mid ASC LIMIT %d", dialogId, max_id, count_query));
                         } else {
-                            cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d ORDER BY m.mid ASC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
+                            if (maxDate == 0) {
+                                cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d ORDER BY m.mid ASC LIMIT %d,%d", dialogId, minDate, offset_query, count_query));
+                            } else {
+                                cursor = database.queryFinalized(String.format(Locale.US, "" + messageSelect + " WHERE m.uid = %d AND m.date <= %d AND m.date >= %d ORDER BY m.mid ASC LIMIT %d,%d", dialogId, minDate, maxDate, offset_query, count_query));
+                            }
                         }
                     } else {
                         if (load_type == 2) {
@@ -7353,11 +7380,12 @@ public class MessagesStorage extends BaseController {
             };
         } else {*/
         int finalMessagesCount = scheduled ? res.messages.size() : messagesCount;
-        return () -> getMessagesController().processLoadedMessages(res, finalMessagesCount, dialogId, mergeDialogId, countQueryFinal, maxIdOverrideFinal, offset_date, true, classGuid, minUnreadIdFinal, lastMessageIdFinal, countUnreadFinal, maxUnreadDateFinal, load_type, isEndFinal, scheduled ? 1 : 0, replyMessageId, loadIndex, queryFromServerFinal, mentionsUnreadFinal, processMessages);
+        final int finalTotalCount = totalCount;
+        return () -> getMessagesController().processLoadedMessages(res, finalMessagesCount, dialogId, mergeDialogId, countQueryFinal, maxIdOverrideFinal, offset_date, true, classGuid, minUnreadIdFinal, lastMessageIdFinal, countUnreadFinal, maxUnreadDateFinal, load_type, isEndFinal, scheduled ? 1 : 0, replyMessageId, loadIndex, queryFromServerFinal, mentionsUnreadFinal, processMessages, finalTotalCount);
         //}
     }
 
-    public void getMessages(long dialogId, long mergeDialogId, boolean loadInfo, int count, int max_id, int offset_date, int minDate, int classGuid, int load_type, boolean scheduled, int replyMessageId, int loadIndex, boolean processMessages) {
+    public void getMessages(long dialogId, long mergeDialogId, boolean loadInfo, int count, int max_id, int offset_date, int minDate, int maxDate, int classGuid, int load_type, boolean scheduled, int replyMessageId, int loadIndex, boolean processMessages) {
         storageQueue.postRunnable(() -> {
             /*if (loadInfo) {
                 if (lowerId < 0) {
@@ -7367,7 +7395,7 @@ public class MessagesStorage extends BaseController {
                     }
                 }
             }*/
-            Utilities.stageQueue.postRunnable(getMessagesInternal(dialogId, mergeDialogId, count, max_id, offset_date, minDate, classGuid, load_type, scheduled, replyMessageId, loadIndex, processMessages));
+            Utilities.stageQueue.postRunnable(getMessagesInternal(dialogId, mergeDialogId, count, max_id, offset_date, minDate, maxDate, classGuid, load_type, scheduled, replyMessageId, loadIndex, processMessages));
         });
     }
 

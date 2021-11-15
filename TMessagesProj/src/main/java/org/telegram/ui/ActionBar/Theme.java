@@ -7620,7 +7620,7 @@ public class Theme {
                         if (gradientRotation == null) {
                             gradientRotation = 45;
                         }
-                        final int[] gradientColors = {backColor, gradientToColor2};
+                        final int[] gradientColors = {backColor, gradientToColor2 == null ? 0 : gradientToColor2};
                         wallpaperDrawable = BackgroundGradientDrawable.createDitheredGradientBitmapDrawable(gradientRotation, gradientColors, bitmap.getWidth(), bitmap.getHeight() - 120);
                         quality = 90;
                     }
@@ -7639,7 +7639,7 @@ public class Theme {
                         BitmapFactory.decodeFile(pathToWallpaper.getAbsolutePath(), options);
                     } else {
                         stream = new FileInputStream(pathToFile);
-                        stream.getChannel().position(wallpaperFileOffset);
+                        stream.getChannel().position(wallpaperFileOffset == null ? 0 : wallpaperFileOffset);
                         BitmapFactory.decodeStream(stream, null, options);
                     }
                     if (options.outWidth > 0 && options.outHeight > 0) {

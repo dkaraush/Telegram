@@ -3992,6 +3992,7 @@ public class AlertsCreator {
         Activity activity = fragment.getParentActivity();
         Theme.ResourcesProvider resourcesProvider = fragment.getResourceProvider();
         AlertDialog.Builder builder = new AlertDialog.Builder(activity, resourcesProvider);
+        int currentAccount = fragment.getCurrentAccount();
 
         builder.setTitle(LocaleController.getString("DeleteFewMessagesTitle", R.string.DeleteFewMessagesTitle));
 

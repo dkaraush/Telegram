@@ -520,7 +520,7 @@ public class DrawerLayoutContainer extends FrameLayout {
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
-        return parentActionBarLayout.checkTransitionAnimation() || onTouchEvent(ev);
+        return (parentActionBarLayout != null && parentActionBarLayout.checkTransitionAnimation()) || onTouchEvent(ev);
     }
 
     @Override
