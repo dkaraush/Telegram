@@ -361,8 +361,11 @@ public abstract class BaseFragment {
         return null;
     }
 
+    public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons, boolean buttonsOnLeft) {
+        return parentLayout != null && parentLayout.presentFragmentAsPreviewWithButtons(fragment, buttons, buttonsOnLeft);
+    }
     public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
-        return parentLayout != null && parentLayout.presentFragmentAsPreviewWithButtons(fragment, buttons);
+        return presentFragmentAsPreviewWithButtons(fragment, buttons, true);
     }
 
     public boolean presentFragmentAsPreview(BaseFragment fragment) {
@@ -378,7 +381,7 @@ public abstract class BaseFragment {
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast, boolean forceWithoutAnimation) {
-        return parentLayout != null && parentLayout.presentFragment(fragment, removeLast, forceWithoutAnimation, true, false, null);
+        return parentLayout != null && parentLayout.presentFragment(fragment, removeLast, forceWithoutAnimation, true, false, null, true);
     }
 
     public Activity getParentActivity() {

@@ -765,7 +765,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             ArrayList<MessageObject> filteredMessages = new ArrayList<>();
             for (MessageObject msg : messages)
                 if (msg.messageOwner.date >= messagesDateStart && msg.messageOwner.date <= messagesDateEnd && !msg.hadAnimationNotReadyLoading)
-//                    filteredMessages.add(0, msg);
                     filteredMessages.add(msg);
             return filteredMessages;
         }
@@ -1720,7 +1719,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
         if (chatMode == MODE_DAY) {
             waitingForLoad.add(lastLoadIndex);
-            getMessagesStorage().getMessages(dialog_id, mergeDialogId, false, 30, 0, messagesDateEnd, messagesDateEnd, messagesDateStart, classGuid, 5, false, 0, lastLoadIndex++, true);
+            getMessagesStorage().getMessages(dialog_id, mergeDialogId, false, 30, 0, messagesDateEnd, messagesDateEnd, messagesDateStart, classGuid, 5, false, 0, lastLoadIndex++, false);
         }
 
         return true;
@@ -13326,7 +13325,80 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             } else if (!doNotRemoveLoadIndex) {
                 waitingForLoad.remove(index);
             }
+            long did = (Long) args[0];
+            int loadIndex = did == dialog_id ? 0 : 1;
+            int count = (Integer) args[1];
             ArrayList<MessageObject> messArr = (ArrayList<MessageObject>) args[2];
+            int fnid = (Integer) args[4];
+            int last_unread_date = (Integer) args[7];
+            int load_type = (Integer) args[8];
+            boolean isEnd = (Boolean) args[9];
+            int loaded_max_id = (Integer) args[12];
+            int loaded_mentions_count = chatWasReset ? 0 : (Integer) args[13];
+            int total_count = (Integer) args[15];
+            int offset_id_offset = (Integer) args[16];
+
+            if (chatMode == MODE_DAY) {
+                if (this.totalCount != total_count) {
+                    this.totalCount = total_count;
+                    updateTitle();
+                }
+                ArrayList<MessageObject> messagesInRange = new ArrayList<>();
+                for (int u = 0; u < (messArr == null ? 0 : messArr.size()); ++u) {
+                    MessageObject msg = messArr.get(u);
+                    if (msg == null)
+                        continue;
+                    try {
+                        if (msg.messageOwner.date >= messagesDateStart && msg.messageOwner.date <= messagesDateEnd)
+                            messagesInRange.add(msg);
+                    } catch (Exception e) {
+                        FileLog.e(e);
+                    }
+                }
+
+                final int modeDayLimit = 30;
+                if (load_type == 5) {
+                    // first request
+
+                    waitingForLoad.add(lastLoadIndex);
+                    getMessagesController().loadMessages(
+                            dialog_id, mergeDialogId, false, modeDayLimit, 0, messagesDateStart, false, 0, classGuid, 1, 0, chatMode, threadMessageId, 0, lastLoadIndex++
+                    );
+                } else if (load_type == 1) {
+                    // second request
+
+                    this.totalCount += messagesInRange.size();
+                    updateTitle();
+                    if (messagesInRange.size() >= modeDayLimit && messagesInRange.size() > 0) {
+                        // we still don't know the true total_count value! need a second request.
+
+                        TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
+                        req.offset_date = messagesDateEnd;
+                        req.limit = 1;
+                        req.peer = getMessagesController().getInputPeer(dialog_id);
+                        getConnectionsManager().sendRequest(req, (response, error) -> {
+                            if (error == null) {
+                                int new_offset_id_offset = -1;
+                                if (response instanceof TLRPC.TL_messages_messagesSlice) {
+                                    new_offset_id_offset = ((TLRPC.TL_messages_messagesSlice) response).offset_id_offset;
+                                } else if (response instanceof TLRPC.TL_messages_channelMessages) {
+                                    new_offset_id_offset = ((TLRPC.TL_messages_channelMessages) response).offset_id_offset;
+                                }
+
+                                int new_total_count = Math.abs(new_offset_id_offset - offset_id_offset);
+                                this.totalCount = new_total_count;
+                                updateTitle();
+
+                            } else {
+                                FileLog.e(error.toString());
+                            }
+                        });
+                    }
+                }
+
+                messArr = messagesInRange;
+            }
+
             if (messages.isEmpty() && messArr.size() == 1 && MessageObject.isSystemSignUp(messArr.get(0))) {
                 forceHistoryEmpty = true;
                 endReached[0] = endReached[1] = true;
@@ -13394,23 +13466,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             }
 
             loadsCount++;
-            long did = (Long) args[0];
-            int loadIndex = did == dialog_id ? 0 : 1;
-            int count = (Integer) args[1];
-            int fnid = (Integer) args[4];
-            int last_unread_date = (Integer) args[7];
-            int load_type = (Integer) args[8];
-            boolean isEnd = (Boolean) args[9];
-            int loaded_max_id = (Integer) args[12];
-            int loaded_mentions_count = chatWasReset ? 0 : (Integer) args[13];
-            int total_count = (Integer) args[15];
-
-            if (chatMode == MODE_DAY) {
-                if (this.totalCount != total_count) {
-                    this.totalCount = total_count;
-                    updateTitle();
-                }
-            }
 
             if (loaded_mentions_count < 0) {
                 loaded_mentions_count *= -1;
@@ -26100,7 +26155,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
     }
 
     private void tappedOnDate(int date) {
-        if (dialog_id < 0)
+        if (DialogObject.isEncryptedDialog(dialog_id) || dialog_id < 0)
             return;
 
         Bundle bundle = new Bundle();

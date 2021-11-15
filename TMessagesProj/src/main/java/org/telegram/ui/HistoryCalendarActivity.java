@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.text.TextPaint;
 import android.util.SparseArray;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -276,6 +277,7 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         bottomButtonContainer = new FrameLayout(context);
         bottomButtonContainerBorder = new FrameLayout(context);
+        bottomButtonContainerBorder.setBackground(fragmentView.getResources().getDrawable(R.drawable.header_shadow_reverse));
         bottomButtonContainerBorder.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(1.25f), Gravity.TOP | Gravity.FILL_HORIZONTAL));
         bottomButtonContainer.addView(bottomButtonContainerBorder);
 
@@ -482,7 +484,6 @@ public class HistoryCalendarActivity extends BaseFragment {
         selectedStrokeBackgroundPaint.setStyle(Paint.Style.STROKE);
         selectedStrokeBackgroundPaint.setStrokeWidth(AndroidUtilities.dp(2f));
         selectionPaint.setColor(Theme.getColor(Theme.key_calendar_daysSelected));
-        bottomButtonContainerBorder.setBackgroundColor(Theme.getColor(Theme.key_calendar_selectButtonBorder));
     }
 
     private void loadNext() {
@@ -1050,8 +1051,9 @@ public class HistoryCalendarActivity extends BaseFragment {
                         if (
                                 pressed &&
                                 pressId == currentPressId &&
-                                ((pressX - rx) * (pressX - rx) + (pressY - ry) * (pressY - ry)) < 8f
+                                ((pressX - rx) * (pressX - rx) + (pressY - ry) * (pressY - ry)) < AndroidUtilities.dp(12)
                         ) {
+                            tryHaptic(true);
                             listView.requestDisallowInterceptTouchEvent(true);
                             Runnable closeMessages = showMessagesPreview(finalDay);
                             cancelHold = () -> {
@@ -1069,13 +1071,15 @@ public class HistoryCalendarActivity extends BaseFragment {
             } else if (thisDay != null && !thisDay.isInFuture()) {
                 movingEndDayPressId = pressId;
                 if (begin.getValue() == null) {
+                    tryHaptic();
                     begin.update(thisDay);
-                    end.update(null);
-                    endStrokePos.update(null);
+                    end.set(null);
+                    endStrokePos.set(null);
                     endPosOpacity.update(new Alpha(0f));
                     listView.requestDisallowInterceptTouchEvent(true);
                     updateMonthsFor(216);
                 } else if (begin.getValue() != null && (end.getValue() == null || begin.getValue().equals(end.getValue())) && !thisDay.equals(end.getValue())) {
+                    tryHaptic();
                     end.set(begin.getValue());
                     end.update(thisDay);
                     endPos.update(new Pos(dayX, dayY));
@@ -1095,6 +1099,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                     }
 
                     if (draggingEnd) {
+                        tryHaptic();
                         end.update(thisDay);
                         if (draggingBegin) {
                             endPos.set(new Pos(dayX, dayY));
@@ -1109,7 +1114,8 @@ public class HistoryCalendarActivity extends BaseFragment {
                         updateMonthsFor(216);
                     }
                 } else if (begin.getValue() != null && end.getValue() != null && !begin.getValue().equals(end.getValue())) {
-                    begin.update(thisDay);
+                    tryHaptic();
+                    begin.set(thisDay);
                     end.update(null);
                     endPos.update(new Pos(dayX, dayY));
                     endStrokePos.update(new Pos(dayX, dayY));
@@ -1146,6 +1152,7 @@ public class HistoryCalendarActivity extends BaseFragment {
 
             if (selectingDays && thisDay != null && !thisDay.isInFuture() && movingEndDayPressId == pressId) {
                 if (draggingEnd) {
+                    tryHaptic();
                     if (!thisDay.equals(end.getValue())) {
                         end.update(thisDay);
                         endPos.update(new Pos(dayX, dayY));
@@ -1155,6 +1162,7 @@ public class HistoryCalendarActivity extends BaseFragment {
                         updateMonthsFor(216);
                     }
                 } else if (!thisDay.equals(end.getValue())) {
+                    tryHaptic();
                     end.update(thisDay);
                     endPos.update(new Pos(dayX, dayY));
                     endStrokePos.update(new Pos(dayX, dayY));
@@ -1196,6 +1204,7 @@ public class HistoryCalendarActivity extends BaseFragment {
             listView.requestDisallowInterceptTouchEvent(false);
             long pressDuration = System.currentTimeMillis() - pressedTime;
             if (!selectingDays && thisDay != null && !thisDay.isInFuture() && pressDuration < ViewConfiguration.getLongPressTimeout()) {
+                tryHaptic();
                 switchSelectingDays(true);
                 begin.update(thisDay);
                 end.update(null);
@@ -1208,6 +1217,15 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         updateClearHistoryButton();
         return false;
+    }
+
+    private void tryHaptic(boolean longer) {
+        try {
+            getParentActivity().getWindow().getDecorView().getRootView().performHapticFeedback(longer ? 0 : 4);
+        } catch (Exception e) {}
+    }
+    private void tryHaptic() {
+        tryHaptic(false);
     }
 
     private AnimatedProperty<Day> begin = new AnimatedProperty<>(150);
@@ -1442,12 +1460,11 @@ public class HistoryCalendarActivity extends BaseFragment {
 
         Bundle bundle = new Bundle();
         bundle.putInt("chatMode", ChatActivity.MODE_DAY);
-        bundle.putLong("dialog_id", dialogId);
         bundle.putLong("user_id", dialogId);
+//        bundle.putLong("chat_id", -dialogId);
         bundle.putInt("messages_date_start", (int) (day.getStartTimestamp() / 1000L));
         bundle.putInt("messages_date_end",   (int) (day.getEndTimestamp() / 1000L));
         bundle.putBoolean("show_pinned_messages", false);
-        bundle.putBoolean("preview_title", true);
 
         ChatActivity chatActivity = new ChatActivity(bundle);
         chatActivity.setInPreviewMode(true);
@@ -1485,7 +1502,7 @@ public class HistoryCalendarActivity extends BaseFragment {
         previewMenuAnimator = previewMenu.animate().alpha(1f).translationY(0).setDuration(150);
 
         prepareBlurBitmap();
-        presentFragmentAsPreviewWithButtons(chatActivity, previewMenu);
+        presentFragmentAsPreviewWithButtons(chatActivity, previewMenu, false);
 
         View chatFragment = chatActivity.getFragmentView();
         if (chatFragment == null) {

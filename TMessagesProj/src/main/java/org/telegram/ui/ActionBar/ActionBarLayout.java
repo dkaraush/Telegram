@@ -968,19 +968,19 @@ public class ActionBarLayout extends FrameLayout {
         containerViewBack.setVisibility(View.INVISIBLE);
     }
 
-    public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
-        return presentFragment(fragment, false, false, true, true, buttons);
+    public boolean presentFragmentAsPreviewWithButtons(BaseFragment fragment, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons, boolean buttonsOnLeft) {
+        return presentFragment(fragment, false, false, true, true, buttons, buttonsOnLeft);
     }
     public boolean presentFragmentAsPreview(BaseFragment fragment) {
-        return presentFragment(fragment, false, false, true, true, null);
+        return presentFragment(fragment, false, false, true, true, null, true);
     }
 
     public boolean presentFragment(BaseFragment fragment) {
-        return presentFragment(fragment, false, false, true, false, null);
+        return presentFragment(fragment, false, false, true, false, null, true);
     }
 
     public boolean presentFragment(BaseFragment fragment, boolean removeLast) {
-        return presentFragment(fragment, removeLast, false, true, false, null);
+        return presentFragment(fragment, removeLast, false, true, false, null, true);
     }
 
     private void startLayoutAnimation(final boolean open, final boolean first, final boolean preview) {
@@ -1069,9 +1069,9 @@ public class ActionBarLayout extends FrameLayout {
         return inPreviewMode || transitionAnimationPreviewMode;
     }
     public boolean presentFragment(final BaseFragment fragment, final boolean removeLast, boolean forceWithoutAnimation, boolean check, final boolean preview) {
-        return this.presentFragment(fragment, removeLast, forceWithoutAnimation, check, preview, null);
+        return this.presentFragment(fragment, removeLast, forceWithoutAnimation, check, preview, null, true);
     }
-    public boolean presentFragment(final BaseFragment fragment, final boolean removeLast, boolean forceWithoutAnimation, boolean check, final boolean preview, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons) {
+    public boolean presentFragment(final BaseFragment fragment, final boolean removeLast, boolean forceWithoutAnimation, boolean check, final boolean preview, ActionBarPopupWindow.ActionBarPopupWindowLayout buttons, boolean buttonsOnLeft) {
         if (fragment == null || checkTransitionAnimation() || delegate != null && check && !delegate.needPresentFragment(fragment, removeLast, forceWithoutAnimation, this) || !fragment.onFragmentCreate()) {
             return false;
         }
@@ -1104,18 +1104,13 @@ public class ActionBarLayout extends FrameLayout {
             fragment.fragmentButtons = null;
         }
         if (preview && buttons != null) {
+            ViewGroup.LayoutParams layoutParams = buttons.getLayoutParams();
+            if (layoutParams instanceof FrameLayout.LayoutParams) {
+                ((FrameLayout.LayoutParams) layoutParams).gravity |= (buttonsOnLeft ? Gravity.LEFT : Gravity.RIGHT);
+            }
             fragment.fragmentButtons = buttons;
         } else
             fragment.fragmentButtons = null;
-//        if (buttons != null && preview) {
-//            LinearLayout linearLayout = new LinearLayout(getContext());
-//            linearLayout.setOrientation(LinearLayout.VERTICAL);
-//
-//            linearLayout.addView(fragmentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, 1, Gravity.TOP | Gravity.LEFT | Gravity.RIGHT, 0, 0, 0, 0));
-//            linearLayout.addView(buttons, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, 0,Gravity.LEFT | Gravity.BOTTOM, 0, 8, 0, 0));
-//
-//            fragmentView = linearLayout;
-//        }
 
         FrameLayout.LayoutParams layoutParams = (FrameLayout.LayoutParams) fragmentView.getLayoutParams();
         layoutParams.width = LayoutHelper.MATCH_PARENT;

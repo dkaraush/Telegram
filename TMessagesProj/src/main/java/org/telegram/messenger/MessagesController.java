@@ -6194,7 +6194,9 @@ public class MessagesController extends BaseController implements NotificationCe
                 req.peer = getInputPeer(dialogId);
                 req.msg_id = threadMessageId;
                 req.offset_date = offset_date;
-                if (load_type == 4) {
+                if (mode == 4) {
+                    req.add_offset = -count;
+                } else if (load_type == 4) {
                     req.add_offset = -count + 5;
                 } else if (load_type == 3) {
                     req.add_offset = -count / 2;
@@ -6307,7 +6309,9 @@ public class MessagesController extends BaseController implements NotificationCe
                 }
                 TLRPC.TL_messages_getHistory req = new TLRPC.TL_messages_getHistory();
                 req.peer = getInputPeer(dialogId);
-                if (load_type == 4) {
+                if (mode == 4) {
+                    req.add_offset = -count;
+                } else if (load_type == 4) {
                     req.add_offset = -count + 5;
                 } else if (load_type == 3) {
                     req.add_offset = -count / 2;
@@ -6409,12 +6413,14 @@ public class MessagesController extends BaseController implements NotificationCe
     }
     public void processLoadedMessages(TLRPC.messages_Messages messagesRes, int resCount, long dialogId, long mergeDialogId, int count, int max_id, int offset_date, boolean isCache, int classGuid,
                                         int first_unread, int last_message_id, int unread_count, int last_date, int load_type, boolean isEnd, int mode, int threadMessageId, int loadIndex, boolean queryFromServer, int mentionsCount, boolean needProcess, int totalCount) {
+        int offset_id_offset = -1;
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("processLoadedMessages size " + messagesRes.messages.size() + " in chat " + dialogId + " count " + count + " max_id " + max_id + " cache " + isCache + " guid " + classGuid + " load_type " + load_type + " last_message_id " + last_message_id + " index " + loadIndex + " firstUnread " + first_unread + " unread_count " + unread_count + " last_date " + last_date + " queryFromServer " + queryFromServer);
         }
         long startProcessTime = SystemClock.elapsedRealtime();
         boolean createDialog = false;
         if (messagesRes instanceof TLRPC.TL_messages_channelMessages) {
+            offset_id_offset = messagesRes.offset_id_offset;
             long channelId = -dialogId;
             if (mode == 0 && threadMessageId == 0) {
                 int channelPts = channelsPts.get(channelId);
@@ -6431,7 +6437,10 @@ public class MessagesController extends BaseController implements NotificationCe
                     }
                 }
             }
+        } else if (messagesRes instanceof TLRPC.TL_messages_messagesSlice) {
+            offset_id_offset = messagesRes.offset_id_offset;
         }
+        final int final_offset_id_offset = offset_id_offset;
         if (!isCache) {
             ImageLoader.saveMessagesThumbs(messagesRes.messages);
         }
@@ -6442,7 +6451,7 @@ public class MessagesController extends BaseController implements NotificationCe
         } else {
             reload = resCount == 0 && (!isInitialLoading || (SystemClock.elapsedRealtime() - lastServerQueryTime.get(dialogId, 0L)) > 60 * 1000);
         }
-        if (!DialogObject.isEncryptedDialog(dialogId) && isCache && reload) {
+        if (!DialogObject.isEncryptedDialog(dialogId) && isCache && reload && load_type != 5) {
             int hash;
             if (mode == 2) {
                 hash = 0;
@@ -6588,14 +6597,14 @@ public class MessagesController extends BaseController implements NotificationCe
             if (!DialogObject.isEncryptedDialog(dialogId)) {
                 int finalFirst_unread_final = first_unread_final;
                 getMediaDataController().loadReplyMessagesForMessages(objects, dialogId, mode == 1, () -> {
-                    if (!needProcess) {
+                    if (!needProcess && load_type != 5) {
                         getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoadWithoutProcess, classGuid, resCount, isCache, isEnd, last_message_id);
                     } else {
-                        getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, finalFirst_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode, totalCount);
+                        getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, finalFirst_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode, totalCount, final_offset_id_offset);
                     }
                 });
             } else {
-                getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, first_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode, totalCount);
+                getNotificationCenter().postNotificationName(NotificationCenter.messagesDidLoad, dialogId, count, objects, isCache, first_unread_final, last_message_id, unread_count, last_date, load_type, isEnd, classGuid, loadIndex, max_id, mentionsCount, mode, totalCount, final_offset_id_offset);
             }
 
             if (!messagesToReload.isEmpty()) {
