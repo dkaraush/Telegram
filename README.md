@@ -1,3 +1,9 @@
+#### November contest (2021)
+
+My submission to [Telegram Contest for Android developers](https://t.me/contest/275). I made this section in ReadMe just to share my TODOs during participation: https://dkaraush.notion.site/telegram-android-b45cc8ae8c8a47849499cd51dbf46acd , it's quite huge!
+
+
+
 ## Telegram messenger for Android
 
 [Telegram](https://telegram.org) is a messaging app with a focus on speed and security. It’s superfast, simple and free.
