@@ -337,6 +337,7 @@ public class ChatEditReactionsActivity extends BaseFragment implements Notificat
         reactionsCheckText.setTextColor(Theme.getColor(Theme.key_windowBackgroundCheckText));
         reactionsCheckText.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         reactionsCheckText.setTextSize(16);
+        reactionsCheckText.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         reactionsCheck.addView(reactionsCheckText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, LocaleController.isRTL ? 81 : 21, 18, LocaleController.isRTL ? 21 : 81, 18));
 
         reactionsCheckSwitch = new Switch(context);

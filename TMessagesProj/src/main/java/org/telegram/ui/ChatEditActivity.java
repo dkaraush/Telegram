@@ -850,7 +850,7 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
 
         if (ChatObject.isChannel(currentChat) || currentChat.gigagroup) {
             logCell = new TextCell(context);
-            logCell.setTextAndIcon(LocaleController.getString("EventLog", R.string.EventLog), R.drawable.group_log, false);
+            logCell.setTextAndIcon(LocaleController.getString("EventLog", R.string.EventLog), R.drawable.group_log, reactionsCell != null);
             logCell.setBackgroundDrawable(Theme.getSelectorDrawable(false));
             logCell.setOnClickListener(v -> presentFragment(new ChannelAdminLogActivity(currentChat)));
         }
@@ -1464,7 +1464,7 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
         if (reactionsCell != null) {
             int chatReactions = info != null && info.available_reactions != null ? info.available_reactions.size() : 0,
                 allReactions  = Math.max(getMessagesController().getAvailableReactions().size(), chatReactions);
-            reactionsCell.setTextAndValueAndIcon("Reactions", chatReactions == 0 ? "Off" : chatReactions + "/" + allReactions, R.drawable.actions_reactions, true); // TODO(dkaraush): text!
+            reactionsCell.setTextAndValueAndIcon("Reactions", chatReactions == 0 ? "Off" : chatReactions + "/" + allReactions, R.drawable.actions_reactions, false); // TODO(dkaraush): text!
         }
 
         if (stickersCell != null && info != null) {
