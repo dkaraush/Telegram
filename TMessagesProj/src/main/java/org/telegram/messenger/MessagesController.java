@@ -3502,6 +3502,30 @@ public class MessagesController extends BaseController implements NotificationCe
         getConnectionsManager().bindRequestToGuid(reqId, classGuid);
     }
 
+    private int availableReactionsHash = 0;
+    private boolean availableReactionsLoading = false;
+    private long availableReactionsLastLoad = 0;
+    private ArrayList<TLRPC.TL_availableReaction> availableReactions = new ArrayList<>();
+    public ArrayList<TLRPC.TL_availableReaction> getAvailableReactions() {
+        if (!availableReactionsLoading && Math.abs(availableReactionsLastLoad - System.currentTimeMillis()) >= 1000 * 60 * 60) {
+            availableReactionsLoading = true;
+            TLRPC.TL_messages_getAvailableReactions request = new TLRPC.TL_messages_getAvailableReactions();
+            request.hash = availableReactionsHash;
+            getConnectionsManager().sendRequest(request, (response, error) -> {
+                availableReactionsLastLoad = System.currentTimeMillis();
+                if (error == null && response instanceof TLRPC.TL_messages_availableReactions) {
+                    availableReactionsHash = ((TLRPC.TL_messages_availableReactions) response).hash;
+                    availableReactions = ((TLRPC.TL_messages_availableReactions) response).reactions;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        getNotificationCenter().postNotificationName(NotificationCenter.availableReactionsUpdate, availableReactions);
+                    });
+                }
+                availableReactionsLoading = false;
+            });
+        }
+        return availableReactions;
+    }
+
     private void reloadMessages(ArrayList<Integer> mids, long dialogId, boolean scheduled) {
         if (mids.isEmpty()) {
             return;
