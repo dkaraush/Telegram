@@ -113,6 +113,8 @@ public class MessageObject {
     public boolean viewsReloaded;
     public boolean pollVisibleOnScreen;
     public long pollLastCheckTime;
+    public boolean messageReactionsVisibleOnScreen;
+    public long messageReactionsLastCheckTime;
     public int wantedBotKeyboardWidth;
     public boolean attachPathExists;
     public boolean mediaExists;

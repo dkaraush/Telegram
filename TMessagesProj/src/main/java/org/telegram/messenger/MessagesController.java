@@ -131,8 +131,11 @@ public class MessagesController extends BaseController implements NotificationCe
 
     private LongSparseArray<ArrayList<Integer>> channelViewsToSend = new LongSparseArray<>();
     private LongSparseArray<SparseArray<MessageObject>> pollsToCheck = new LongSparseArray<>();
+    private LongSparseArray<SparseArray<MessageObject>> messageReactionsToCheck = new LongSparseArray<>();
     private int pollsToCheckSize;
     private long lastViewsCheckTime;
+    private int messageReactionsToCheckSize;
+    private long lastReactionsCheckTime;
 
     public ArrayList<DialogFilter> dialogFilters = new ArrayList<>();
     public SparseArray<DialogFilter> dialogFiltersById = new SparseArray<>();
@@ -2570,6 +2573,8 @@ public class MessagesController extends BaseController implements NotificationCe
         channelViewsToSend.clear();
         pollsToCheck.clear();
         pollsToCheckSize = 0;
+        messageReactionsToCheck.clear();
+        messageReactionsToCheckSize = 0;
         dialogsServerOnly.clear();
         dialogsForward.clear();
         allDialogs.clear();
@@ -2781,6 +2786,14 @@ public class MessagesController extends BaseController implements NotificationCe
                 arrayList.remove(dialogId);
 
                 SparseArray<MessageObject> array = pollsToCheck.get(dialogId);
+                if (array != null) {
+                    for (int a = 0, N = array.size(); a < N; a++) {
+                        MessageObject object = array.valueAt(a);
+                        object.pollVisibleOnScreen = false;
+                    }
+                }
+
+                array = messageReactionsToCheck.get(dialogId);
                 if (array != null) {
                     for (int a = 0, N = array.size(); a < N; a++) {
                         MessageObject object = array.valueAt(a);
@@ -5472,6 +5485,63 @@ public class MessagesController extends BaseController implements NotificationCe
                         }
                     }
                     pollsToCheckSize = pollsToCheck.size();
+                });
+            }
+        }
+        if (Math.abs(System.currentTimeMillis() - lastReactionsCheckTime) >= 5000) {
+            lastReactionsCheckTime = System.currentTimeMillis();
+            if (messageReactionsToCheckSize > 0) {
+                AndroidUtilities.runOnUIThread(() -> {
+                    long time = SystemClock.elapsedRealtime();
+                    for (int a = 0, N = messageReactionsToCheck.size(); a < N; a++) {
+                        SparseArray<MessageObject> array = messageReactionsToCheck.valueAt(a);
+                        if (array == null) {
+                            continue;
+                        }
+                        long dialogId = 0;
+                        ArrayList<Integer> messageIds = new ArrayList<>();
+                        for (int b = 0, N2 = array.size(); b < N2; b++) {
+                            MessageObject messageObject = array.valueAt(b);
+                            int timeout = 15000;
+                            if (Math.abs(time - messageObject.messageReactionsLastCheckTime) < timeout) {
+                                if (!messageObject.messageReactionsVisibleOnScreen) {
+                                    array.remove(messageObject.getId());
+                                    N2--;
+                                    b--;
+                                }
+                            } else {
+                                messageObject.messageReactionsLastCheckTime = time;
+                                messageIds.add(messageObject.getId());
+                                dialogId = messageObject.getDialogId();
+                            }
+                        }
+                        if (array.size() == 0) {
+                            messageReactionsToCheck.remove(messageReactionsToCheck.keyAt(a));
+                            N--;
+                            a--;
+                        }
+
+                        if (messageIds.size() > 0) {
+                            TLRPC.TL_messages_getMessagesReactions req = new TLRPC.TL_messages_getMessagesReactions();
+                            req.peer = getInputPeer(dialogId);
+                            req.id = messageIds;
+                            getConnectionsManager().sendRequest(req, (response, error) -> {
+                                if (error == null && response instanceof TLRPC.Updates) {
+//                                    for (int i = 0; i < updates.updates.size(); i++) {
+//                                        TLRPC.Update update = updates.updates.get(i);
+//                                        if (update instanceof TLRPC.TL_updateMessagePoll) {
+//                                            TLRPC.TL_updateMessagePoll messagePoll = (TLRPC.TL_updateMessagePoll) update;
+//                                            if (messagePoll.poll != null && !messagePoll.poll.closed) {
+//                                                lastViewsCheckTime = System.currentTimeMillis() - 4000;
+//                                            }
+//                                        }
+//                                    }
+                                    processUpdates((TLRPC.Updates) response, false);
+                                }
+                            });
+                        }
+                    }
+                    messageReactionsToCheckSize = messageReactionsToCheck.size();
                 });
             }
         }
@@ -8548,6 +8618,32 @@ public class MessagesController extends BaseController implements NotificationCe
             lastViewsCheckTime = 0;
         } else if (minExpireTime < 5) {
             lastViewsCheckTime = Math.min(lastViewsCheckTime, System.currentTimeMillis() - (5 - minExpireTime) * 1000);
+        }
+    }
+
+    public void addToReactionsQueue(long dialogId, ArrayList<MessageObject> visibleObjects) {
+        SparseArray<MessageObject> array = messageReactionsToCheck.get(dialogId);
+        if (array == null) {
+            array = new SparseArray<>();
+            messageReactionsToCheck.put(dialogId, array);
+            messageReactionsToCheckSize++;
+        }
+        for (int a = 0, N = array.size(); a < N; a++) {
+            MessageObject object = array.valueAt(a);
+            object.messageReactionsVisibleOnScreen = false;
+        }
+        for (int a = 0, N = visibleObjects.size(); a < N; a++) {
+            MessageObject messageObject = visibleObjects.get(a);
+            if (messageObject == null || messageObject.messageOwner == null || messageObject.messageOwner.reactions == null) {
+                continue;
+            }
+            int id = messageObject.getId();
+            MessageObject object = array.get(id);
+            if (object != null) {
+                object.messageReactionsVisibleOnScreen = true;
+            } else {
+                array.put(id, messageObject);
+            }
         }
     }
 
@@ -12598,6 +12694,20 @@ public class MessagesController extends BaseController implements NotificationCe
                 if (!message.out && message.from_id instanceof TLRPC.TL_peerUser && message.from_id.user_id == clientUserId) {
                     message.out = true;
                 }
+
+                if (message.reactions != null) {
+                    TLRPC.TL_updateMessageReactions update = new TLRPC.TL_updateMessageReactions();
+                    update.peer = message.peer_id;
+                    update.msg_id = message.id;
+                    update.reactions = message.reactions;
+                    long dialogId = MessageObject.getPeerId(update.peer);
+                    getMessagesStorage().updateMessageReactions(dialogId, update.msg_id, update.reactions);
+                    if (updatesOnMainThread == null) {
+                        updatesOnMainThread = new ArrayList<>();
+                    }
+                    updatesOnMainThread.add(baseUpdate);
+                }
+
                 if (!fromGetDifference) {
                     for (int a = 0, count = message.entities.size(); a < count; a++) {
                         TLRPC.MessageEntity entity = message.entities.get(a);

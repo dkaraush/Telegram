@@ -11900,19 +11900,19 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     public boolean shouldDrawTinyReactionOnTime() {
-        return currentMessageObject != null && DialogObject.isUserDialog(currentMessageObject.getDialogId()) && lastReactions != null && lastReactions.recent_reactons != null && lastReactions.recent_reactons.size() > 0 && tinyReaction() != null;
+        return currentMessageObject != null && DialogObject.isUserDialog(currentMessageObject.getDialogId()) && tinyReaction() != null;
     }
     public TLRPC.TL_availableReaction tinyReaction() {
         if (lastReactions == null || lastReactions.recent_reactons == null || lastReactions.recent_reactons.size() == 0)
             return null;
         String thisReactionString = null;
-        for (TLRPC.TL_messageUserReaction recentReaction : lastReactions.recent_reactons) {
-            if ((currentMessageObject.isOutOwner() && recentReaction.user_id != UserConfig.getInstance(currentAccount).getClientUserId()) ||
-               (!currentMessageObject.isOutOwner() && recentReaction.user_id == UserConfig.getInstance(currentAccount).getClientUserId())) {
-                thisReactionString = recentReaction.reaction;
-                break;
-            }
-        }
+//        for (TLRPC.TL_messageUserReaction recentReaction : lastReactions.recent_reactons) {
+//            if ((currentMessageObject.isOutOwner() && recentReaction.user_id != UserConfig.getInstance(currentAccount).getClientUserId()) ||
+//               (!currentMessageObject.isOutOwner() && recentReaction.user_id == UserConfig.getInstance(currentAccount).getClientUserId())) {
+                thisReactionString = lastReactions.recent_reactons.get(0).reaction;
+//                break;
+//            }
+//        }
         if (thisReactionString == null || thisReactionString.length() == 0)
             return null;
         ArrayList<TLRPC.TL_availableReaction> allReactions = MessagesController.getInstance(currentAccount).getAvailableReactions();
