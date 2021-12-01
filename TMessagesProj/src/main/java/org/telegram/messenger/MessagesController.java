@@ -3319,6 +3319,24 @@ public class MessagesController extends BaseController implements NotificationCe
         });
     }
 
+    public void sendReaction(long dialogId, int msg_id, String reaction) {
+        TLRPC.TL_messages_sendReaction request = new TLRPC.TL_messages_sendReaction();
+        request.peer = getInputPeer(dialogId);
+        request.msg_id = msg_id;
+        if (reaction != null) {
+            request.reaction = reaction;
+            request.flags |= 1;
+        }
+        getConnectionsManager().sendRequest(request, (response, error) -> {
+            if (error == null) {
+                if (response instanceof TLRPC.Updates)
+                    processUpdates((TLRPC.Updates) response, false);
+            } else {
+                // TODO(dkaraush): handle error
+            }
+        });
+    }
+
     public void loadFullChat(long chatId, int classGuid, boolean force) {
         boolean loaded = loadedFullChats.contains(chatId);
         if (loadingFullChats.contains(chatId) || !force && loaded) {

@@ -215,6 +215,7 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
         signMessages = currentChat.signatures;
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.chatInfoDidLoad);
         NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.updateInterfaces);
+        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.availableReactionsUpdate);
 
         if (info != null) {
             loadLinksCount();
@@ -245,6 +246,7 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
         }
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.chatInfoDidLoad);
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.updateInterfaces);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.availableReactionsUpdate);
         if (nameTextView != null) {
             nameTextView.onDestroy();
         }
@@ -1024,6 +1026,8 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
             if ((mask & MessagesController.UPDATE_MASK_AVATAR) != 0) {
                 setAvatar();
             }
+        } else if (id == NotificationCenter.availableReactionsUpdate) {
+            updateFields(false);
         }
     }
 

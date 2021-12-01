@@ -203,7 +203,7 @@ public class ActionBarPopupWindow extends PopupWindow {
         }
 
         public void setBackgroundColor(int color) {
-            if (backgroundColor != color) {
+            if (backgroundColor != color && backgroundDrawable != null) {
                 backgroundDrawable.setColorFilter(new PorterDuffColorFilter(backgroundColor = color, PorterDuff.Mode.MULTIPLY));
             }
         }
@@ -398,6 +398,9 @@ public class ActionBarPopupWindow extends PopupWindow {
             }
         }
 
+        private boolean topButtonSelector = true;
+        public void setTopButtonSelector(boolean topButtonSelector) { this.topButtonSelector = topButtonSelector; };
+
         public void updateRadialSelectors() {
             int count = linearLayout.getChildCount();
             View firstVisible = null;
@@ -421,7 +424,7 @@ public class ActionBarPopupWindow extends PopupWindow {
                 }
                 Object tag = child.getTag(R.id.object_tag);
                 if (child instanceof ActionBarMenuSubItem) {
-                    ((ActionBarMenuSubItem) child).updateSelectorBackground(child == firstVisible || prevGap, child == lastVisible);
+                    ((ActionBarMenuSubItem) child).updateSelectorBackground(topButtonSelector && child == firstVisible || prevGap, child == lastVisible);
                 }
                 if (tag != null) {
                     prevGap = true;

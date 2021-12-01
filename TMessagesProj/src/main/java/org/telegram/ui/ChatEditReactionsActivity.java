@@ -366,7 +366,7 @@ public class ChatEditReactionsActivity extends BaseFragment implements Notificat
         reactionsList.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
 
         linearLayoutReactionsContainer.addView(reactionsList, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-        linearLayout.addView(linearLayoutReactionsContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        linearLayout.addView(linearLayoutReactionsContainer, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
 
         updateAvailableReactions();
         updateEnabled();
@@ -383,8 +383,8 @@ public class ChatEditReactionsActivity extends BaseFragment implements Notificat
             request.peer = MessagesController.getInputPeer(currentChat);
             request.available_reactions = reactionsEnabled ? selectedReactions : new ArrayList<>();
             getConnectionsManager().sendRequest(request, (response, error) -> {
-                if (error != null && error.text.equals("CHAT_NOT_MODIFIED")) {
-                    Toast.makeText(fragmentView.getContext(), "Error", Toast.LENGTH_SHORT).show();
+                if (error != null && !error.text.equals("CHAT_NOT_MODIFIED")) {
+//                    Toast.makeText(fragmentView.getContext(), "Error", Toast.LENGTH_SHORT).show();
                 } else if (response != null) {
                     info.available_reactions = request.available_reactions;
                     getMessagesController().putChatFull(info);
