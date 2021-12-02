@@ -3538,7 +3538,10 @@ public class MessagesController extends BaseController implements NotificationCe
     private long availableReactionsLastLoad = 0;
     private ArrayList<TLRPC.TL_availableReaction> availableReactions = new ArrayList<>();
     public ArrayList<TLRPC.TL_availableReaction> getAvailableReactions() {
-        if (!availableReactionsLoading && Math.abs(availableReactionsLastLoad - System.currentTimeMillis()) >= 1000 * 60 * 60) {
+        return this.getAvailableReactions(false);
+    }
+    public ArrayList<TLRPC.TL_availableReaction> getAvailableReactions(boolean force) {
+        if (!availableReactionsLoading && (force || Math.abs(availableReactionsLastLoad - System.currentTimeMillis()) >= 1000 * 60 * 60)) {
             availableReactionsLoading = true;
             TLRPC.TL_messages_getAvailableReactions request = new TLRPC.TL_messages_getAvailableReactions();
             request.hash = availableReactionsHash;

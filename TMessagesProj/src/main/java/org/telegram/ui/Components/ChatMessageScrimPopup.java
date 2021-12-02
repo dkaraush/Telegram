@@ -45,6 +45,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.SvgHelper;
+import org.telegram.messenger.UserConfig;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBarPopupWindow;
 import org.telegram.ui.ActionBar.Theme;
@@ -529,7 +530,7 @@ public class ChatMessageScrimPopup extends FrameLayout implements NotificationCe
         return true;
     }
     public boolean shouldShowReactionsSelect() {
-        return (message != null && DialogObject.isUserDialog(message.getDialogId()) && !message.isOutOwner()) || (chatInfo != null && chatInfo.available_reactions != null && chatInfo.available_reactions.size() > 0);
+        return (message != null && DialogObject.isUserDialog(message.getDialogId()) && UserConfig.getInstance(currentAccount).getClientUserId() != message.getDialogId() && !message.isOutOwner()) || (chatInfo != null && chatInfo.available_reactions != null && chatInfo.available_reactions.size() > 0);
     }
 
     public void updateReactionsButton() {

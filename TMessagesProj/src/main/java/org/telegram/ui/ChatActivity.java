@@ -770,7 +770,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             NotificationCenter.userInfoDidLoad,
             NotificationCenter.pinnedInfoDidLoad,
             NotificationCenter.didSetNewWallpapper,
-            NotificationCenter.didApplyNewTheme
+            NotificationCenter.didApplyNewTheme,
+            NotificationCenter.availableReactionsUpdate
     };
 
     private final DialogInterface.OnCancelListener postponedScrollCancelListener = dialog -> {
@@ -1532,6 +1533,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         getNotificationCenter().addObserver(this, NotificationCenter.scheduledMessagesUpdated);
         getNotificationCenter().addObserver(this, NotificationCenter.diceStickersDidLoad);
         getNotificationCenter().addObserver(this, NotificationCenter.dialogDeleted);
+        getNotificationCenter().addObserver(this, NotificationCenter.availableReactionsUpdate);
 
         super.onFragmentCreate();
 
@@ -1820,6 +1822,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         getNotificationCenter().removeObserver(this, NotificationCenter.diceStickersDidLoad);
         getNotificationCenter().removeObserver(this, NotificationCenter.dialogDeleted);
         getNotificationCenter().removeObserver(this, NotificationCenter.didLoadSponsoredMessages);
+        getNotificationCenter().removeObserver(this, NotificationCenter.availableReactionsUpdate);
         if (currentEncryptedChat != null) {
             getNotificationCenter().removeObserver(this, NotificationCenter.didVerifyMessagesStickers);
         }
@@ -15743,6 +15746,22 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     themeDelegate.setCurrentTheme(themeDelegate.chatTheme, true, theme.isDark());
                 }
             }
+        } else if (id == NotificationCenter.availableReactionsUpdate) {
+            Toast.makeText(fragmentView.getContext(), "AVAILABLE REACTIONS UPDATE", Toast.LENGTH_SHORT).show();
+            if (chatAdapter != null && chatLayoutManager != null) {
+                int first = chatLayoutManager.findFirstVisibleItemPosition(),
+                    last  = chatLayoutManager.findLastVisibleItemPosition();
+                for (int position = first; position < last; ++position) {
+                    View cell = chatLayoutManager.findViewByPosition(position);
+                    if (cell != null && cell instanceof ChatMessageCell) {
+                        ChatMessageCell messageCell = (ChatMessageCell) cell;
+                        MessageObject mo = messageCell.getMessageObject();
+                        if (mo != null && mo.messageOwner != null && mo.messageOwner.reactions != null) {
+                            messageCell.setMessageObject(messageCell.getMessageObject(), messageCell.getCurrentMessagesGroup(), messageCell.isPinnedBottom(), messageCell.isPinnedTop());
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -23243,8 +23262,13 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
 
                     @Override
-                    public void didPressTinyReaction(ChatMessageCell cell) {
+                    public void didPressTinyReaction(ChatMessageCell cell, String reactionString) {
                         getMessagesController().sendReaction(dialog_id, cell.getMessageObject().getId(), null);
+                    }
+
+                    @Override
+                    public void didPressReactionChip(ChatMessageCell cell, String reactionString) {
+                        getMessagesController().sendReaction(dialog_id, cell.getMessageObject().getId(), reactionString);
                     }
                 });
                 if (currentEncryptedChat == null) {
