@@ -4,13 +4,17 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.text.TextPaint;
 import android.util.Pair;
+import android.util.SparseArray;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
@@ -25,13 +29,19 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.ChatMessageScrimPopup;
 import org.telegram.ui.Components.LayoutHelper;
 
+import java.lang.reflect.Array;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ChatMessageCellReactions extends FrameLayout implements NotificationCenter.NotificationCenterDelegate {
 
@@ -39,8 +49,11 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
     public static final int INSIDE = 1;
     public static final int INSIDE_OWNER = 2;
 
+    private Paint RED = new Paint();
     private Paint chipBackground = new Paint();
     private Paint chipSelector = new Paint();
+    private Paint chipAvatarLoading = new Paint();
+    private Paint chipAvatarBorder = new Paint();
     private TextPaint countPaint = new TextPaint();
 
     private int currentAccount;
@@ -49,25 +62,40 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
         this.currentAccount = currentAccount;
 
         setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        setBackgroundColor(0x01ff0000);
+        setBackgroundColor(0x0000000);
 
+        RED.setColor(0xffff0000);
         chipBackground.setFlags(Paint.ANTI_ALIAS_FLAG);
+        chipBackground.setAntiAlias(true);
         countPaint.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         countPaint.setTextSize(dp(14));
         countPaint.setFlags(Paint.ANTI_ALIAS_FLAG);
+        countPaint.setAntiAlias(true);
         chipSelector.setStyle(Paint.Style.STROKE);
         chipSelector.setStrokeWidth(CHIP_BORDER());
         chipSelector.setFlags(Paint.ANTI_ALIAS_FLAG);
+        chipSelector.setAntiAlias(true);
+        chipAvatarLoading.setFlags(Paint.ANTI_ALIAS_FLAG);
+        chipAvatarBorder.setFlags(Paint.ANTI_ALIAS_FLAG);
+        chipAvatarBorder.setStyle(Paint.Style.STROKE);
+        chipAvatarBorder.setStrokeWidth(CHIP_AVATAR_BORDER());
+        chipAvatarBorder.setAntiAlias(true);
         setLook(OUTSIDE);
     }
+
+    public boolean rtl = false;
 
     public int look = OUTSIDE;
     public void setLook(int look) {
         this.look = look;
 
-        countPaint.setColor((new int[]{ 0xffffffff, 0xff378DD1, 0xff53AC50 })[look]); // TODO(dkaraush): color!
-        chipBackground.setColor((new int[]{ 0x42214119, 0x19378DD1, 0x1e5BA756 })[look]); // TODO(dkaraush): color!
-        chipSelector.setColor((new int[]{ 0xffffffff, 0xff378DD1, 0xff53AC50 })[look]); // TODO(dkaraush): color!
+        countPaint.setColor((new int[]{ 0xffffffff, 0xff378dd1, 0xff53ac50 })[look]); // TODO(dkaraush): color!
+        chipBackground.setColor((new int[]{ 0x42214119, 0x19378dd1, 0x1e5ba756 })[look]); // TODO(dkaraush): color!
+        chipSelector.setColor((new int[]{ 0xffffffff, 0xff378dd1, 0xff53AC50 })[look]); // TODO(dkaraush): color!
+        chipAvatarLoading.setColor((new int[] { 0x6b53ac50, 0x3d378dd1, 0x6b53ac50})[look]); // TODO(dkaraush): color!
+        chipAvatarBorder.setColor((new int[] { 0x00000000, 0xffebf4fa, 0xffddf4cd })[look]); // TODO(dkaraush): color!
+
+        invalidate();
     }
 
     private MessagesStorage.StringCallback onReactionClick = null;
@@ -94,9 +122,9 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
         if (id == NotificationCenter.availableReactionsUpdate) {
             for (Pair<ReactionChip, ReactionChip> pair : state) {
                 if (pair.first != null && pair.first.reaction != null)
-                    tryToMakeReactionImage(pair.first.reaction);
+                    makeReactionImage(pair.first.reaction);
                 if (pair.second != null && pair.second.reaction != null)
-                    tryToMakeReactionImage(pair.second.reaction);
+                    makeReactionImage(pair.second.reaction);
             }
             invalidate();
         }
@@ -107,33 +135,85 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
     private int CHIP_PADDING_HORIZONTAL() { return dp(7); }
     private int CHIP_INNER_MARGIN() { return dp(11f / 3f); }
     private int CHIP_REACTION_SIZE() { return dp(20); }
+    private int CHIP_AVATAR_SIZE() { return dp(21); }
+    private int CHIP_AVATAR_INDENT() { return dp(13); }
+    private int CHIP_AVATAR_BORDER() { return dp(1.5f); }
     private int CHIP_MARGIN() { return dp(6); }
     private int CHIP_TEXT_MOVE() { return dp(8); }
 
-    private TLRPC.TL_messageReactions scheduledUpdate = null;
+    private int lastLineIndent = 0;
 
     public int updateReactions(TLRPC.TL_messageReactions messageReactions, boolean animated) {
+        return updateReactions(messageReactions, animated, 0, lastLineIndent);
+    }
+    public int updateReactions(TLRPC.TL_messageReactions messageReactions, boolean animated, int width, int lastLineIndent) {
+        this.lastLineIndent = lastLineIndent;
+
         if (animated) {
-            if (System.currentTimeMillis() - lastUpdate < updateAnimationDuration) {
-                boolean wasPosted = scheduledUpdate != null;
-                scheduledUpdate = messageReactions;
-                if (!wasPosted) {
-                    postDelayed(() -> {
-                        applyUpdateAnimated(scheduledUpdate);
-                        scheduledUpdate = null;
-                    }, System.currentTimeMillis() - lastUpdate);
-                }
-            } else {
-                applyUpdateAnimated(messageReactions);
-            }
+            applyUpdateAnimatedScheduled(messageReactions, width);
         } else {
-            state = layout(messageReactions, null);
+            if (getWidth() == 0 && width == 0) {
+                waitForLayout = true;
+                scheduledUpdate = messageReactions;
+            } else {
+                state = layout(messageReactions, null, width == 0 ? getWidth() : width);
+            }
         }
         return height;
     }
 
-    private void applyUpdateAnimated(TLRPC.TL_messageReactions messageReactions) {
-        state = layout(messageReactions, state);
+    private int prevWidth = 0;
+    private boolean waitForLayout = false;
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        int width = right - left;
+        if (width > 0) {
+            if (waitForLayout && scheduledUpdate != null) {
+                state = layout(scheduledUpdate, null, width);
+                scheduledUpdate = null;
+            } else {
+                updateWidth(width);
+            }
+            waitForLayout = false;
+        }
+
+        super.onLayout(changed, left, top, right, top + height);
+    }
+
+    public int updateWidth(int width) {
+        if (prevWidth == width)
+            return height;
+        state = relayout(state, width);
+        lastUpdate = System.currentTimeMillis();
+        invalidate();
+        postDelayed(() -> invalidateForNextMs(updateAnimationDuration), 16);
+        prevWidth = width;
+        return height;
+    }
+
+    private TLRPC.TL_messageReactions scheduledUpdate = null;
+    private void applyUpdateAnimatedScheduled(TLRPC.TL_messageReactions messageReactions) {
+        applyUpdateAnimatedScheduled(messageReactions, 0);
+    }
+    private void applyUpdateAnimatedScheduled(TLRPC.TL_messageReactions messageReactions, int width) {
+        if (getWidth() == 0 && width == 0) {
+            waitForLayout = true;
+            scheduledUpdate = messageReactions;
+        } else if (System.currentTimeMillis() - lastUpdate < updateAnimationDuration) {
+            boolean wasPosted = scheduledUpdate != null;
+            scheduledUpdate = messageReactions;
+            if (!wasPosted) {
+                postDelayed(() -> {
+                    applyUpdateAnimated(scheduledUpdate, width);
+                    scheduledUpdate = null;
+                }, System.currentTimeMillis() - lastUpdate);
+            }
+        } else {
+            applyUpdateAnimated(messageReactions, width);
+        }
+    }
+    private void applyUpdateAnimated(TLRPC.TL_messageReactions messageReactions, int width) {
+        state = layout(messageReactions, state, width == 0 ? getWidth() : width);
         lastUpdate = System.currentTimeMillis();
         postDelayed(() -> invalidateForNextMs(updateAnimationDuration), 16);
     }
@@ -149,10 +229,12 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
     }
 
     private HashMap<String, ImageReceiver> reactionImages = new HashMap<>();
-    private ImageReceiver makeReactionImage(String reactionString) {
+    private void makeReactionImage(String reactionString) {
+        if (reactionImages.containsKey(reactionString))
+            return;
         ArrayList<TLRPC.TL_availableReaction> allReactions = MessagesController.getInstance(currentAccount).getAvailableReactions();
         if (allReactions == null)
-            return null;
+            return;
         TLRPC.TL_availableReaction reaction = null;
         for (TLRPC.TL_availableReaction r : allReactions) {
             if (r != null && r.reaction != null && r.reaction.equals(reactionString)) {
@@ -161,40 +243,62 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
             }
         }
         if (reaction == null)
-            return null;
+            return;
 
         TLRPC.Document reactionDocument = reaction.static_icon;
         ImageReceiver ig = new ImageReceiver();
         ig.setImage(ImageLocation.getForDocument(reactionDocument), null, null, "webp", null, CHIP_REACTION_SIZE());
-        return ig;
-    }
-    private void tryToMakeReactionImage(String reactionString) {
-        if (reactionImages.containsKey(reactionString))
-            return;
-        ImageReceiver ig = makeReactionImage(reactionString);
-        if (ig == null)
-            return;
+        ig.setDelegate(new ImageReceiver.ImageReceiverDelegate() {
+            @Override
+            public void didSetImage(ImageReceiver imageReceiver, boolean set, boolean thumb, boolean memCache) {
+                invalidate();
+            }
+        });
+
         reactionImages.put(reactionString, ig);
+    }
+    private HashMap<Long, ImageReceiver> avatarImages = new HashMap<>();
+    private void makeAvatarImage(long userId) {
+        if (avatarImages.containsKey(userId))
+            return;
+        TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(userId);
+        if (user == null)
+            return;
+
+        AvatarDrawable ad = new AvatarDrawable();
+        ad.setInfo(user);
+        ImageReceiver ig = new ImageReceiver();
+        ig.setForUserOrChat(user, ad);
+        ig.setRoundRadius(CHIP_AVATAR_SIZE() / 2);
+        ig.setDelegate(new ImageReceiver.ImageReceiverDelegate() {
+            @Override
+            public void didSetImage(ImageReceiver imageReceiver, boolean set, boolean thumb, boolean memCache) {
+                invalidate();
+            }
+        });
+
+        avatarImages.put(userId, ig);
     }
 
     class ReactionChip {
         String reaction;
         int x, y, width;
-        ImageReceiver[] avatars;
+        ArrayList<Long> userIds = null;
         String count;
         boolean chosen;
     }
-    private int height = 0;
+    public int height = 0;
     private ArrayList<Pair<ReactionChip, ReactionChip>> state = new ArrayList<>();
     private long lastUpdate = 0;
     private long updateAnimationDuration = 200;
 
     public boolean checkTouchEvent(MotionEvent event) {
 
-        int ex = (int) event.getX(),
-            ey = (int) event.getY();
+        int ex = (int) event.getX() - getLeft(),
+            ey = (int) event.getY() - getTop();
 
         ReactionChip chip = null;
+        int H = CHIP_MARGIN() / 2;
         float t = easeInOutQuad(Math.max(0, Math.min(1, (System.currentTimeMillis() - lastUpdate) / (float) updateAnimationDuration)));
         for (Pair<ReactionChip, ReactionChip> pair : state) {
             ReactionChip newChip = pair.first;
@@ -206,7 +310,7 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
                 y = lerp(oldChip == null ? null : oldChip.y, newChip == null ? null : newChip.y, t),
                 width = lerp(oldChip == null ? null : oldChip.width, newChip == null ? null : newChip.width, t);
 
-            if (ex >= x && ex <= x + width && ey >= y && ey <= y + CHIP_HEIGHT()) {
+            if (ex >= x - H && ex <= x + width + H && ey >= y - H && ey <= y + CHIP_HEIGHT() + H) {
                 chip = newChip == null ? oldChip : newChip;
             }
         }
@@ -223,9 +327,15 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
         return super.onTouchEvent(event);
     }
 
+    private Rect lastLineIndentRect = new Rect(),
+                 chipRect = new Rect();
     private ArrayList<Pair<ReactionChip, ReactionChip>> layout(TLRPC.TL_messageReactions reactions, ArrayList<Pair<ReactionChip, ReactionChip>> prevState) {
+        return this.layout(reactions, prevState, getWidth());
+    }
+    private ArrayList<Pair<ReactionChip, ReactionChip>> layout(TLRPC.TL_messageReactions reactions, ArrayList<Pair<ReactionChip, ReactionChip>> prevState, int width) {
         ArrayList<Pair<ReactionChip, ReactionChip>> newState = new ArrayList<>();
-        int x = 0, y = CHIP_MARGIN();
+        ArrayList<Long> userIds = new ArrayList<>();
+        int x = 0, y = CHIP_BORDER();// + (look == OUTSIDE ? 0 : CHIP_MARGIN());
         if (prevState != null) {
             for (Pair<ReactionChip, ReactionChip> pair : prevState) {
                 ReactionChip oldChip = pair.first;
@@ -248,11 +358,29 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
 
                     ReactionChip newChip = new ReactionChip();
                     newChip.reaction = reactionCount.reaction;
-                    tryToMakeReactionImage(newChip.reaction);
-                    newChip.count = countToString(reactionCount.count);
-                    newChip.width = CHIP_PADDING_HORIZONTAL() * 2 + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + (int) countPaint.measureText(newChip.count);
+                    makeReactionImage(newChip.reaction);
 
-                    if (x > 0 && x + newChip.width + CHIP_MARGIN() > getWidth() - CHIP_BORDER() / 2) {
+                    userIds.clear();
+                    if (reactions.recent_reactons != null && reactionCount.count <= 3) {
+                        for (TLRPC.TL_messageUserReaction userReaction : reactions.recent_reactons) {
+                            if (userReaction != null && userReaction.reaction != null && userReaction.reaction.equals(newChip.reaction)) {
+                                userIds.add(userReaction.user_id);
+                            }
+                        }
+                    }
+                    newChip.userIds = (ArrayList) userIds.clone();
+                    if (newChip.userIds.size() == 0 || reactionCount.count != newChip.userIds.size()) {
+                        newChip.userIds.clear();
+                        newChip.count = countToString(reactionCount.count);
+                        newChip.width = CHIP_PADDING_HORIZONTAL() * 2 + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + (int) countPaint.measureText(newChip.count);
+                    } else {
+                        newChip.count = "";
+                        for (long userId : userIds)
+                            makeAvatarImage(userId);
+                        newChip.width = CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + newChip.userIds.size() * CHIP_AVATAR_INDENT() + (newChip.userIds.size() > 0 ? CHIP_AVATAR_SIZE() - CHIP_AVATAR_INDENT() : 0) + (CHIP_HEIGHT() - CHIP_AVATAR_SIZE()) / 2;
+                    }
+
+                    if (x > 0 && x + newChip.width + CHIP_MARGIN() > width - 2 * CHIP_BORDER()) {
                         x = 0;
                         y += CHIP_HEIGHT() + CHIP_MARGIN();
                     }
@@ -284,11 +412,30 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
 
                 ReactionChip newChip = new ReactionChip();
                 newChip.reaction = reactionCount.reaction;
-                tryToMakeReactionImage(newChip.reaction);
-                newChip.count = countToString(reactionCount.count);
-                newChip.width = CHIP_PADDING_HORIZONTAL() * 2 + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + (int) countPaint.measureText(newChip.count);
+                makeReactionImage(newChip.reaction);
 
-                if (x > 0 && x + newChip.width + CHIP_MARGIN() > getWidth() - CHIP_BORDER() / 2) {
+                userIds.clear();
+                if (reactions.recent_reactons != null && reactionCount.count <= 3) {
+                    for (TLRPC.TL_messageUserReaction userReaction : reactions.recent_reactons) {
+                        if (userReaction != null && userReaction.reaction != null && userReaction.reaction.equals(newChip.reaction)) {
+                            userIds.add(userReaction.user_id);
+                        }
+                    }
+                }
+
+                newChip.userIds = (ArrayList) userIds.clone();
+                if (newChip.userIds.size() == 0 || reactionCount.count != newChip.userIds.size()) {
+                    newChip.userIds.clear();
+                    newChip.count = countToString(reactionCount.count);
+                    newChip.width = CHIP_PADDING_HORIZONTAL() * 2 + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + (int) countPaint.measureText(newChip.count);
+                } else {
+                    newChip.count = "";
+                    for (long userId : userIds)
+                        makeAvatarImage(userId);
+                    newChip.width = CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + newChip.userIds.size() * CHIP_AVATAR_INDENT() + (newChip.userIds.size() > 0 ? CHIP_AVATAR_SIZE() - CHIP_AVATAR_INDENT() : 0) + (CHIP_HEIGHT() - CHIP_AVATAR_SIZE()) / 2;
+                }
+
+                if (x > 0 && x + newChip.width + CHIP_MARGIN() > width - CHIP_BORDER() / 2) {
                     x = 0;
                     y += CHIP_HEIGHT() + CHIP_MARGIN();
                 }
@@ -296,10 +443,84 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
                 newChip.y = y;
                 x += newChip.width + CHIP_MARGIN();
 
+                newChip.chosen = reactionCount.chosen;
+
                 newState.add(new Pair<>(newChip, null));
             }
         }
-        height = y + CHIP_HEIGHT() + CHIP_MARGIN() + CHIP_BORDER();
+        height = y + CHIP_HEIGHT() + CHIP_BORDER();
+        if (look != OUTSIDE && lastLineIndent > 0) {
+            boolean touchesLastLineIndent = false;
+            lastLineIndentRect.set(width - (lastLineIndent + dp(4)), height - dp(12), width, height);
+            for (Pair<ReactionChip, ReactionChip> pair : newState) {
+                ReactionChip newChip = pair.first;
+                if (newChip == null) continue;
+                chipRect.set(newChip.x, newChip.y, newChip.x + newChip.width, newChip.y + CHIP_HEIGHT());
+                if (lastLineIndentRect.intersect(chipRect)) {
+                    touchesLastLineIndent = true;
+                    break;
+                }
+            }
+
+            if (touchesLastLineIndent)
+                height += dp(14);
+        }
+        return newState;
+    }
+    private ArrayList<Pair<ReactionChip, ReactionChip>> relayout(ArrayList<Pair<ReactionChip, ReactionChip>> prevState, int width) {
+        ArrayList<Pair<ReactionChip, ReactionChip>> newState = new ArrayList<>();
+        int x = 0, y = CHIP_BORDER();// + (look == OUTSIDE ? 0 : CHIP_MARGIN());
+        if (prevState != null) {
+            for (Pair<ReactionChip, ReactionChip> pair : prevState) {
+                ReactionChip oldChip = pair.first;
+                if (oldChip == null || oldChip.reaction == null)
+                    continue;
+
+                ReactionChip newChip = new ReactionChip();
+                newChip.reaction = oldChip.reaction;
+                newChip.chosen = oldChip.chosen;
+                makeReactionImage(newChip.reaction);
+
+                if (oldChip.userIds == null || oldChip.userIds.size() == 0) {
+                    newChip.userIds = new ArrayList<>();
+                    newChip.count = oldChip.count;
+                    newChip.width = CHIP_PADDING_HORIZONTAL() * 2 + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + (int) countPaint.measureText(newChip.count);
+                } else {
+                    newChip.userIds = (ArrayList) oldChip.userIds.clone();
+                    newChip.count = "";
+                    for (long userId : userIds)
+                        makeAvatarImage(userId);
+                    newChip.width = CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + newChip.userIds.size() * CHIP_AVATAR_INDENT() + (newChip.userIds.size() > 0 ? CHIP_AVATAR_SIZE() - CHIP_AVATAR_INDENT() : 0) + (CHIP_HEIGHT() - CHIP_AVATAR_SIZE()) / 2;
+                }
+
+                if (x > 0 && x + newChip.width + CHIP_MARGIN() > width - CHIP_BORDER() / 2) {
+                    x = 0;
+                    y += CHIP_HEIGHT() + CHIP_MARGIN();
+                }
+                newChip.x = x + CHIP_BORDER();
+                newChip.y = y;
+                x += newChip.width + CHIP_MARGIN();
+
+                newState.add(new Pair<>(newChip, oldChip));
+            }
+        }
+        height = y + CHIP_HEIGHT() + CHIP_BORDER();
+        if (look != OUTSIDE && lastLineIndent > 0) {
+            boolean touchesLastLineIndent = false;
+            lastLineIndentRect.set(width - (lastLineIndent + dp(4)), height - dp(12), width, height);
+            for (Pair<ReactionChip, ReactionChip> pair : newState) {
+                ReactionChip newChip = pair.first;
+                if (newChip == null) continue;
+                chipRect.set(newChip.x, newChip.y, newChip.x + newChip.width, newChip.y + CHIP_HEIGHT());
+                if (lastLineIndentRect.intersect(chipRect)) {
+                    touchesLastLineIndent = true;
+                    break;
+                }
+            }
+
+            if (touchesLastLineIndent)
+                height += dp(14);
+        }
         return newState;
     }
     private float easeInOutQuad(float x) {
@@ -310,6 +531,9 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
     private RectF r1 = new RectF(),
                   r2 = new RectF();
     private Rect tRect = new Rect();
+    private Set<Long> allUserIds = new HashSet<>();
+    private ArrayList<Long> userIds = new ArrayList<>();
+    private ArrayList<Long> userIds2 = new ArrayList<>();
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -342,8 +566,8 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
             canvas.drawPath(path, chipBackground);
             chipBackground.setAlpha(wasAlpha);
 
-            boolean oldChosen = oldChip != null ? oldChip.chosen : false,
-                    newChosen = newChip != null ? newChip.chosen : false;
+            boolean oldChosen = oldChip != null && oldChip.chosen,
+                    newChosen = newChip != null && newChip.chosen;
             if (newChosen || oldChosen) {
                 float s = newChosen && oldChosen ? 1f : (newChosen ? t : 1f - t);
                 if (s > 0f) {
@@ -352,7 +576,7 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
                 }
             }
 
-            ImageReceiver reactionImage = newChip == null ? (oldChip == null ? null : reactionImages.get(oldChip.reaction)) : reactionImages.get(newChip.reaction);
+            ImageReceiver reactionImage = newChip == null ? reactionImages.get(oldChip.reaction) : reactionImages.get(newChip.reaction);
             if (reactionImage != null) {
                 canvas.save();
                 canvas.translate(x + CHIP_PADDING_HORIZONTAL(), y + paddingVertical);
@@ -365,6 +589,66 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
             String oldCount = oldChip == null ? null : oldChip.count;
             String newCount = newChip == null ? null : newChip.count;
             drawTextSmartTransition(canvas, x + CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN(), y + CHIP_HEIGHT() / 2, oldCount, newCount, t);
+
+            int oldChipUsersCount = oldChip == null ? 0 : (oldChip.userIds == null ? 0 : oldChip.userIds.size()),
+                newChipUsersCount = newChip == null ? 0 : (newChip.userIds == null ? 0 : newChip.userIds.size());
+            int maxUsers = Math.max(oldChipUsersCount, newChipUsersCount);
+
+            userIds.clear();
+            if (newChip != null && newChip.userIds != null)
+                userIds.addAll(newChip.userIds);
+            for (int i = 0; i < oldChipUsersCount; ++i) {
+                if (!userIds.contains(oldChip.userIds.get(i)))
+                    userIds.add(oldChip.userIds.get(i));
+            }
+            Collections.sort(userIds, new Comparator<Long>() {
+                @Override
+                public int compare(Long a, Long b) {
+                    if (newChip != null && newChip.userIds != null) {
+                        return newChip.userIds.indexOf(b) - newChip.userIds.indexOf(a);
+                    }
+                    return 0;
+                }
+            });
+            for (long userId : userIds) {
+                int posInOldChip = -1, posInNewChip = -1;
+                if (oldChip != null && oldChip.userIds != null)
+                    posInOldChip = oldChip.userIds.indexOf(userId);
+                if (newChip != null && newChip.userIds != null)
+                    posInNewChip = newChip.userIds.indexOf(userId);
+                int pos = posInNewChip != -1 ? posInNewChip : posInOldChip;
+
+                ImageReceiver userAvatar = avatarImages.get(userId);
+
+                int iy = y + CHIP_HEIGHT() / 2 - CHIP_AVATAR_SIZE() / 2,
+                    ix = lerp(
+                            posInOldChip == -1 ? null : (x + CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + posInOldChip * CHIP_AVATAR_INDENT()),
+                            posInNewChip == -1 ? null : (x + CHIP_PADDING_HORIZONTAL() + CHIP_REACTION_SIZE() + CHIP_INNER_MARGIN() + posInNewChip * CHIP_AVATAR_INDENT()),
+                            t
+                    );
+                float sz = 1f;
+                if (posInOldChip == -1)
+                    sz = t;
+                else if (posInNewChip == -1)
+                    sz = 1f - t;
+
+                chipAvatarLoading.setAlpha((int) (255 * sz));
+                canvas.drawCircle(ix + CHIP_AVATAR_SIZE() / 2f, iy + CHIP_AVATAR_SIZE() / 2f, CHIP_AVATAR_SIZE() / 2f * sz, chipAvatarLoading);
+                if (userAvatar != null) {
+                    userAvatar.setImageCoords(ix + CHIP_AVATAR_SIZE() * (1f - sz) / 2, iy + CHIP_AVATAR_SIZE() * (1f - sz) / 2, CHIP_AVATAR_SIZE() * sz, CHIP_AVATAR_SIZE() * sz);
+                    userAvatar.setAlpha(sz);
+                    userAvatar.draw(canvas);
+                }
+
+                if (look != OUTSIDE) {
+                    float S = (CHIP_AVATAR_SIZE() + CHIP_AVATAR_BORDER());
+                    float sy = y + CHIP_HEIGHT() / 2f - S / 2f;
+                    r1.set(ix + S * (1f - sz) / 2f - CHIP_AVATAR_BORDER() * .75f, sy + S * (1f - sz) / 2f, ix + S * (1f - sz) / 2f + S * sz - CHIP_AVATAR_BORDER() * .75f, sy + S * (1f - sz) / 2f + S * sz);
+                    chipAvatarBorder.setAlpha((int) (255 * sz));
+                    canvas.drawArc(r1, 0, 360, false, chipAvatarBorder);
+                }
+            }
+
 //            if (oldCount != null && newCount != null && t < 1f) {
 //                if (oldCount.equals(newCount)) {
 //                    countPaint.getTextBounds(newCount, 0, newCount.length(), tRect);
@@ -439,7 +723,7 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
 
     private DecimalFormat df = new DecimalFormat("0.#");
     private String countToString(int count) {
-        count = (int) (Math.random() * 10000000);
+//        count = (int) (Math.random() * 10000000);
         if (count > 1000000)
             return df.format(count / 1000000f) + "M";
         if (count > 1000)

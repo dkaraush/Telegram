@@ -84,16 +84,11 @@ public class MessageSeenView extends FrameLayout {
 
         titleView.setTextColor(Theme.getColor(Theme.key_actionBarDefaultSubmenuItem));
 
-        TLRPC.TL_messages_getMessageReadParticipants req = new TLRPC.TL_messages_getMessageReadParticipants();
-        req.msg_id = messageObject.getId();
-        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(messageObject.getDialogId());
-
         iconView = new ImageView(context);
         addView(iconView, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 11, 0, 0, 0));
         Drawable drawable = ContextCompat.getDrawable(context, isVoice ? R.drawable.msg_played : R.drawable.msg_seen).mutate();
         drawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_actionBarDefaultSubmenuItemIcon), PorterDuff.Mode.MULTIPLY));
         iconView.setImageDrawable(drawable);
-
         avatarsImageView.setAlpha(0);
         titleView.setAlpha(0);
         long fromId = 0;
@@ -101,6 +96,10 @@ public class MessageSeenView extends FrameLayout {
             fromId = messageObject.messageOwner.from_id.user_id;
         }
         long finalFromId = fromId;
+
+        TLRPC.TL_messages_getMessageReadParticipants req = new TLRPC.TL_messages_getMessageReadParticipants();
+        req.msg_id = messageObject.getId();
+        req.peer = MessagesController.getInstance(currentAccount).getInputPeer(messageObject.getDialogId());
         ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
             FileLog.e("MessageSeenView request completed");
             if (error == null) {

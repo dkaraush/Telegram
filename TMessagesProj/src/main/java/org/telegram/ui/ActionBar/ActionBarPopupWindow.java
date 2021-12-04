@@ -98,8 +98,8 @@ public class ActionBarPopupWindow extends PopupWindow {
         private int gapEndY = -1000000;
         private Rect bgPaddings = new Rect();
 
-        private ScrollView scrollView;
-        protected LinearLayout linearLayout;
+        public ScrollView scrollView;
+        public LinearLayout linearLayout;
 
         private int backgroundColor = Color.WHITE;
         protected Drawable backgroundDrawable;

@@ -15747,7 +15747,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
             }
         } else if (id == NotificationCenter.availableReactionsUpdate) {
-            Toast.makeText(fragmentView.getContext(), "AVAILABLE REACTIONS UPDATE", Toast.LENGTH_SHORT).show();
             if (chatAdapter != null && chatLayoutManager != null) {
                 int first = chatLayoutManager.findFirstVisibleItemPosition(),
                     last  = chatLayoutManager.findLastVisibleItemPosition();
@@ -15758,6 +15757,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         MessageObject mo = messageCell.getMessageObject();
                         if (mo != null && mo.messageOwner != null && mo.messageOwner.reactions != null) {
                             messageCell.setMessageObject(messageCell.getMessageObject(), messageCell.getCurrentMessagesGroup(), messageCell.isPinnedBottom(), messageCell.isPinnedTop());
+                            if (scrimPopupContainer != null && scrimPopupContainer.message != null && scrimPopupContainer.message.messageOwner != null && scrimPopupContainer.message.getId() == messageCell.getMessageObject().getId())
+                                scrimPopupContainer.setMessage(messageCell.getMessageObject());
                         }
                     }
                 }
@@ -20057,12 +20058,17 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 //                }
 //            });
 //            scrimPopupContainerLayout.setOrientation(LinearLayout.VERTICAL);
-            scrimPopupContainer = new ChatMessageScrimPopup(contentView.getContext(), currentAccount, popupLayout, message, () -> {
+            scrimPopupContainer = new ChatMessageScrimPopup(contentView.getContext(), currentAccount, popupLayout, message, currentChat, chatInfo, () -> {
                 if (scrimPopupWindow != null && scrimPopupWindow.isShowing()) {
                     scrimPopupWindow.dismiss();
                 }
             }, reaction -> {
                 getMessagesController().sendReaction(dialog_id, message.messageOwner.id, reaction != null ? reaction.reaction : null);
+            }, user -> {
+                Bundle args = new Bundle();
+                args.putLong("user_id", user.id);
+                ProfileActivity fragment = new ProfileActivity(args);
+                presentFragment(fragment);
             });
             scrimPopupContainer.setChatInfo(chatInfo);
             boolean showMessageSeen = currentChat != null && message.isOutOwner() && message.isSent() && !message.isEditing() && !message.isSending() && !message.isSendError() && !message.isContentUnread() && !message.isUnread() && (ConnectionsManager.getInstance(currentAccount).getCurrentTime() - message.messageOwner.date < 7 * 86400)  && (ChatObject.isMegagroup(currentChat) || !ChatObject.isChannel(currentChat)) && chatInfo != null && chatInfo.participants_count < 50 && !(message.messageOwner.action instanceof TLRPC.TL_messageActionChatJoinedByRequest);
@@ -20313,7 +20319,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             }
 
             int totalHeight = contentView.getHeight();
-            int height = scrimPopupContainer.getMeasuredHeight();
+            int height = Math.max(scrimPopupContainer.menu.getMeasuredHeight() + AndroidUtilities.dp(16), scrimPopupContainer.containerHeight) + AndroidUtilities.dp(48);
             int keyboardHeight = contentView.measureKeyboardHeight();
             if (keyboardHeight > AndroidUtilities.dp(20)) {
                 totalHeight += keyboardHeight;
@@ -20332,6 +20338,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             } else {
                 popupY = inBubbleMode ? 0 : AndroidUtilities.statusBarHeight;
             }
+            scrimPopupContainer.maxPossibleHeight = Math.max(height, totalHeight - (popupY + AndroidUtilities.dp(48)));
             scrimPopupWindow.showAtLocation(chatListView, Gravity.LEFT | Gravity.TOP, scrimPopupX = popupX, scrimPopupY = popupY);
             chatListView.stopScroll();
             chatLayoutManager.setCanScrollVertically(false);
@@ -21459,6 +21466,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     cell.setIsUpdating(true);
                     cell.linkedChatId = chatInfo != null ? chatInfo.linked_chat_id : 0;
                     cell.setMessageObject(cell.getMessageObject(), cell.getCurrentMessagesGroup(), cell.isPinnedBottom(), cell.isPinnedTop());
+                    if (scrimPopupContainer != null && scrimPopupContainer.message != null && scrimPopupContainer.message.messageOwner != null && cell.getMessageObject() != null && scrimPopupContainer.message.getId() == cell.getMessageObject().getId())
+                        scrimPopupContainer.setMessage(cell.getMessageObject());
                     cell.setIsUpdating(false);
                 }
                 if (cell != scrimView) {
@@ -23268,7 +23277,17 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
                     @Override
                     public void didPressReactionChip(ChatMessageCell cell, String reactionString) {
-                        getMessagesController().sendReaction(dialog_id, cell.getMessageObject().getId(), reactionString);
+                        MessageObject messageObject = cell.getMessageObject();
+                        if (messageObject == null || messageObject.messageOwner == null || messageObject.messageOwner.reactions == null || messageObject.messageOwner.reactions.results == null)
+                            return;
+                        String currentReaction = null;
+                        for (TLRPC.TL_reactionCount rc : messageObject.messageOwner.reactions.results) {
+                            if (rc != null && rc.chosen) {
+                                currentReaction = rc.reaction;
+                                break;
+                            }
+                        }
+                        getMessagesController().sendReaction(dialog_id, messageObject.getId(), currentReaction != null && currentReaction.equals(reactionString) ? null : reactionString);
                     }
                 });
                 if (currentEncryptedChat == null) {
@@ -23516,6 +23535,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
 
                     messageCell.setMessageObject(message, groupedMessages, pinnedBottom, pinnedTop);
+                    if (scrimPopupContainer != null && scrimPopupContainer.message != null && scrimPopupContainer.message.messageOwner != null && message != null && scrimPopupContainer.message.getId() == message.getId())
+                        scrimPopupContainer.setMessage(message);
                     messageCell.setHighlighted(highlightMessageId != Integer.MAX_VALUE && message.getId() == highlightMessageId);
                     if (highlightMessageId != Integer.MAX_VALUE) {
                         startMessageUnselect();
@@ -23937,6 +23958,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         ChatMessageCell cell = (ChatMessageCell) child;
                         if (cell.getMessageObject() == messageObject && !cell.isAdminLayoutChanged()) {
                             cell.setMessageObject(messageObject, cell.getCurrentMessagesGroup(), cell.isPinnedBottom(), cell.isPinnedTop());
+                            if (scrimPopupContainer != null && scrimPopupContainer.message != null && scrimPopupContainer.message.messageOwner != null && messageObject != null && scrimPopupContainer.message.getId() == messageObject.getId())
+                                scrimPopupContainer.setMessage(messageObject);
                             return cell;
                         }
                     }

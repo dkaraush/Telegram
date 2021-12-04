@@ -3108,7 +3108,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     private ChatMessageCellReactions cellReactions = null;
-
     private void setMessageContent(MessageObject messageObject, MessageObject.GroupedMessages groupedMessages, boolean bottomNear, boolean topNear) {
         if (messageObject.checkLayout() || currentPosition != null && lastHeight != AndroidUtilities.displaySize.y) {
             currentMessageObject = null;
@@ -6031,29 +6030,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 keyboardHeight = 0;
             }
 
-            if (messageObject != null && messageObject.hasReactions()) {
-                if (cellReactions == null) {
-                    cellReactions = new ChatMessageCellReactions(getContext(), currentAccount);
-                    cellReactions.setOnReactionClick(reactionString -> {
-                        if (delegate != null)
-                            delegate.didPressReactionChip(this, reactionString);
-                    });
-                    this.addView(cellReactions);
-                }
-                cellReactions.on();
-
-                cellReactions.setLook(mediaBackground ? ChatMessageCellReactions.OUTSIDE : (messageObject.isOutOwner() ? ChatMessageCellReactions.INSIDE_OWNER : ChatMessageCellReactions.INSIDE));
-
-                reactionsHeight = cellReactions.updateReactions(messageObject.messageOwner.reactions, !messageIdChanged);
-                if (cellReactions.look == ChatMessageCellReactions.OUTSIDE)
-                    substractBackgroundHeight += reactionsHeight;
-            } else {
-                if (cellReactions != null) {
-                    cellReactions.off();
-                }
-                reactionsHeight = 0;
-            }
-
             if (drawCommentButton) {
                 totalHeight += dp(shouldDrawTimeOnMedia() ? 41.3f : 43);
                 createSelectorDrawable(1);
@@ -6153,6 +6129,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
             }
         }
         if (messageIdChanged) {
+            if (cellReactions != null) {
+                this.removeView(cellReactions);
+                cellReactions.off();
+                cellReactions = null;
+            }
             currentUrl = null;
             currentWebFile = null;
             lastWebFile = null;
@@ -6176,6 +6157,42 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
         updateWaveform();
         updateButtonState(false, dataChanged && !messageObject.cancelEditing, true);
+
+        if (messageObject != null && messageObject.hasReactions()) {
+            if (cellReactions == null) {
+                cellReactions = new ChatMessageCellReactions(getContext(), currentAccount);
+                cellReactions.setOnReactionClick(reactionString -> {
+                    if (delegate != null)
+                        delegate.didPressReactionChip(this, reactionString);
+                });
+                this.addView(cellReactions);
+            }
+            cellReactions.on();
+
+            cellReactions.setLook(mediaBackground ? ChatMessageCellReactions.OUTSIDE : (messageObject.isOutOwner() ? ChatMessageCellReactions.INSIDE_OWNER : ChatMessageCellReactions.INSIDE));
+            int cellReactionsWidth = backgroundWidth;
+            if (cellReactions.look != ChatMessageCellReactions.OUTSIDE) {
+                // TODO(dkaraush)
+                cellReactionsWidth -= currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(10) : dp(18);
+                cellReactionsWidth -= currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(16) : dp(8);
+            }
+
+            reactionsHeight = cellReactions.updateReactions(messageObject.messageOwner.reactions, !messageIdChanged, cellReactionsWidth, timeWidth);
+            if (cellReactions.look == ChatMessageCellReactions.OUTSIDE) {
+                substractBackgroundHeight += reactionsHeight;
+            } else {
+//                if (hasNewLineForTime) {
+//                    totalHeight -= dp(14);
+//                    if (drawInstantView)
+//                        totalHeight -= dp(16);
+//                }
+            }
+        } else {
+            if (cellReactions != null) {
+                cellReactions.off();
+            }
+            reactionsHeight = 0;
+        }
 
         if (!currentMessageObject.loadingCancelled && buttonState == 2 && documentAttachType == DOCUMENT_ATTACH_TYPE_AUDIO && DownloadController.getInstance(currentAccount).canDownloadMedia(messageObject)) {
             FileLoader.getInstance(currentAccount).loadFile(documentAttach, currentMessageObject, 1, 0);
@@ -6665,8 +6682,10 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
     private void calcBackgroundWidth(int maxWidth, int timeMore, int maxChildWidth) {
         if (hasLinkPreview || hasOldCaptionPreview || hasGamePreview || hasInvoicePreview || maxWidth - currentMessageObject.lastLineWidth < timeMore || currentMessageObject.hasRtl) {
-            totalHeight += dp(14);
-            hasNewLineForTime = true;
+            if (reactionsHeight <= 0) {
+                totalHeight += dp(14);
+                hasNewLineForTime = true;
+            }
             backgroundWidth = Math.max(maxChildWidth, currentMessageObject.lastLineWidth) + dp(31);
             backgroundWidth = Math.max(backgroundWidth, (currentMessageObject.isOutOwner() ? timeWidth + dp(17) : timeWidth) + dp(31));
         } else {
@@ -7041,7 +7060,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
     }
 
     int lastSize;
-    @SuppressLint("DrawAllocation")
+    @SuppressLint({"DrawAllocation", "WrongCall"})
     @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         if (currentMessageObject == null) {
@@ -7265,7 +7284,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
 
         if (cellReactions != null) {
-            // ASDF
             int L = getBackgroundDrawableLeft(),
                 R = getBackgroundDrawableRight(),
                 T, B;
@@ -7291,6 +7309,16 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 T = B - reactionsHeight;
             }
+
+//            int newReactionsHeight = cellReactions.updateWidth(R - L);
+//            if (newReactionsHeight != reactionsHeight) {
+//                substractBackgroundHeight -= reactionsHeight;
+//                reactionsHeight = newReactionsHeight;
+//                substractBackgroundHeight += reactionsHeight;
+//                setMessageContent(currentMessageObject, currentMessagesGroup, pinnedBottom, pinnedTop);
+//
+//                T = B - reactionsHeight;
+//            }
 
             cellReactions.layout(L, T, R, B);
             cellReactions.measure(
@@ -8314,7 +8342,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
         if (drawInstantView) {
             Drawable instantDrawable;
-            int instantY = startY + linkPreviewHeight + dp(10) - reactionsHeight;
+            int instantY = startY + linkPreviewHeight + dp(10);
             Paint backPaint = Theme.chat_instantViewRectPaint;
             if (currentMessageObject.isOutOwner()) {
                 instantDrawable = getThemedDrawable(Theme.key_drawable_msgOutInstant);
@@ -13567,7 +13595,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 
             if (drawInstantView) {
                 int textX = (int) (photoImage.getImageX() - dp(2));
-                int instantY = currentBackgroundDrawable.getBounds().bottom - dp(36 + 28);
+                int instantY = currentBackgroundDrawable.getBounds().bottom - dp(36 + 28) - reactionsHeight;
                 Paint backPaint = Theme.chat_instantViewRectPaint;
                 if (currentMessageObject.isOutOwner()) {
                     Theme.chat_instantViewPaint.setColor(getThemedColor(Theme.key_chat_outPreviewInstantText));
