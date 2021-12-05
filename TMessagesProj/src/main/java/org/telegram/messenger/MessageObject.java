@@ -395,6 +395,8 @@ public class MessageObject {
     }
 
     public static class GroupedMessages {
+        public float reactionsHeight = 0;
+
         public long groupId;
         public boolean hasSibling;
         public boolean hasCaption;

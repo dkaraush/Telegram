@@ -22,7 +22,8 @@ public abstract class BaseCell extends ViewGroup {
             if (pendingCheckForLongPress == null) {
                 pendingCheckForLongPress = new CheckForLongPress();
             }
-            pendingCheckForLongPress.currentPressCount = ++pressCount;
+            int currentPressCount = ++pressCount;
+            pendingCheckForLongPress.currentPressCount = currentPressCount;
             postDelayed(pendingCheckForLongPress, ViewConfiguration.getLongPressTimeout() - ViewConfiguration.getTapTimeout());
         }
     }
@@ -43,10 +44,10 @@ public abstract class BaseCell extends ViewGroup {
         }
     }
 
-    private boolean checkingForLongPress = false;
-    private CheckForLongPress pendingCheckForLongPress = null;
     private int pressCount = 0;
+    private boolean checkingForLongPress = false;
     private CheckForTap pendingCheckForTap = null;
+    private CheckForLongPress pendingCheckForLongPress = null;
 
     public BaseCell(Context context) {
         super(context);
@@ -101,6 +102,9 @@ public abstract class BaseCell extends ViewGroup {
     }
 
     protected boolean onLongPress() {
+        return true;
+    }
+    protected boolean onDoubleTap() {
         return true;
     }
 }
