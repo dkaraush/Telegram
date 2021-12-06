@@ -1357,6 +1357,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                         if (reactionAnimationWindow != this)
                                             return;
                                         reactionAnimationWindow = null;
+                                        rotateMotionBackgroundDrawable();
                                     }
                                 };
                                 reactionAnimation.setOnAbort(() -> {
@@ -20181,6 +20182,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             if (reactionAnimationWindow != this)
                                 return;
                             reactionAnimationWindow = null;
+                            rotateMotionBackgroundDrawable();
                         }
                     };
                     reactionAnimation.setOnAbort(() -> {
@@ -23547,6 +23549,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                     if (reactionAnimationWindow != this)
                                         return;
                                     reactionAnimationWindow = null;
+                                    rotateMotionBackgroundDrawable();
                                 }
                             };
                             reactionAnimation.setOnAbort(() -> {
