@@ -3535,18 +3535,23 @@ public class MessagesController extends BaseController implements NotificationCe
 
     private int availableReactionsHash = 0;
     private boolean availableReactionsLoading = false;
+    private long availableReactionsLoadingLastTry = 0;
     private long availableReactionsLastLoad = 0;
     private ArrayList<TLRPC.TL_availableReaction> availableReactions = new ArrayList<>();
     public ArrayList<TLRPC.TL_availableReaction> getAvailableReactions() {
         return this.getAvailableReactions(false);
     }
     public ArrayList<TLRPC.TL_availableReaction> getAvailableReactions(boolean force) {
+        if (availableReactionsLoading && Math.abs(availableReactionsLoadingLastTry - System.currentTimeMillis()) > 1500)
+            availableReactionsLoading = false;
         if (!availableReactionsLoading && (force || Math.abs(availableReactionsLastLoad - System.currentTimeMillis()) >= 1000 * 60 * 60)) {
-            availableReactionsLoading = true;
             TLRPC.TL_messages_getAvailableReactions request = new TLRPC.TL_messages_getAvailableReactions();
             request.hash = availableReactionsHash;
+            availableReactionsLoadingLastTry = System.currentTimeMillis();
+            availableReactionsLoading = true;
             getConnectionsManager().sendRequest(request, (response, error) -> {
                 availableReactionsLastLoad = System.currentTimeMillis();
+                availableReactionsLoading = false;
                 if (error == null && response instanceof TLRPC.TL_messages_availableReactions) {
                     availableReactionsHash = ((TLRPC.TL_messages_availableReactions) response).hash;
                     availableReactions = ((TLRPC.TL_messages_availableReactions) response).reactions;
@@ -3554,7 +3559,6 @@ public class MessagesController extends BaseController implements NotificationCe
                         getNotificationCenter().postNotificationName(NotificationCenter.availableReactionsUpdate, availableReactions);
                     });
                 }
-                availableReactionsLoading = false;
             });
         }
         return availableReactions;

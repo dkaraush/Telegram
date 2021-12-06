@@ -1468,7 +1468,7 @@ public class ChatEditActivity extends BaseFragment implements ImageUpdater.Image
         if (reactionsCell != null) {
             int chatReactions = info != null && info.available_reactions != null ? info.available_reactions.size() : 0,
                 allReactions  = Math.max(getMessagesController().getAvailableReactions().size(), chatReactions);
-            reactionsCell.setTextAndValueAndIcon("Reactions", chatReactions == 0 ? "Off" : chatReactions + "/" + allReactions, R.drawable.actions_reactions, false); // TODO(dkaraush): text!
+            reactionsCell.setTextAndValueAndIcon(LocaleController.getString("ChannelReactions", R.string.ChannelReactions), chatReactions == 0 ? LocaleController.getString("ChannelReactionsOff", R.string.ChannelReactionsOff) : chatReactions + "/" + allReactions, R.drawable.actions_reactions, false);
         }
 
         if (stickersCell != null && info != null) {

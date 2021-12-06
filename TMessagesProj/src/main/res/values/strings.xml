@@ -430,6 +430,8 @@
     <string name="ChannelOtherSubscriberJoined">joined %1$s</string>
     <string name="ChannelRestrictedUsers">Restricted users</string>
     <string name="ChannelAdministrators">Administrators</string>
+    <string name="ChannelReactions">Reactions</string>
+    <string name="ChannelReactionsOff">Off</string>
     <string name="ChannelDelete">Delete Channel</string>
     <string name="ChannelDeleteMenu">Delete channel</string>
     <string name="ChannelDeleteAlert">Wait! Deleting this channel will remove all members and all messages will be lost. Delete the channel anyway?</string>
@@ -4519,6 +4521,13 @@
     <string name="MessagePlayed_few">%1$d Played</string>
     <string name="MessagePlayed_many">%1$d Played</string>
     <string name="MessagePlayed_other">%1$d Played</string>
+
+    <string name="MessageReactions_zero">%1$d Reaction</string>
+    <string name="MessageReactions_one">Reacted</string>
+    <string name="MessageReactions_two">%1$d Reactions</string>
+    <string name="MessageReactions_few">%1$d Reactions</string>
+    <string name="MessageReactions_many">%1$d Reactions</string>
+    <string name="MessageReactions_other">%1$d Reactions</string>
     <!--accessibility descriptions-->
     <string name="AccDescrGroup">Group</string>
     <string name="AccDescrChannel">Channel</string>

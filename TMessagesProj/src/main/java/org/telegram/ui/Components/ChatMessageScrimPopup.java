@@ -266,6 +266,8 @@ public class ChatMessageScrimPopup extends FrameLayout {
             topButtonText = new TextView(context);
             topButtonText.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
             topButtonText.setTextSize(16);
+            topButtonText.setSingleLine();
+            topButtonText.setEllipsize(TextUtils.TruncateAt.END);
             topButton.addView(topButtonText, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 42, 11, 70, 12));
 
             topButtonContainer.addView(topButton, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 44, Gravity.FILL_HORIZONTAL | Gravity.TOP, 0, 0, 0, 8));
@@ -396,7 +398,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 ArrayList<TLRPC.User> users = new ArrayList<>();
                 if (!shouldShowMessageSeen()) {
                     topButtonIcon.setImageResource(R.drawable.msg_reactions);
-                    topButtonText.setText(reactionsCount + " Reactions"); // TODO(dkaraush): text!
+                    topButtonText.setText(LocaleController.formatPluralString("MessageReactions", reactionsCount));
                     users.addAll(reactionUsers);
                 } else {
                     if (shouldShowReactionsButton()) {
@@ -422,10 +424,10 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     } else {
                         if (message != null && (message.isRoundVideo() || message.isVoice())) {
                             topButtonIcon.setImageResource(R.drawable.msg_played);
-                            topButtonText.setText(messageSeenPeerIds.size() + " Played"); // TODO(dkaraush): text!
+                            topButtonText.setText(LocaleController.formatPluralString("MessagePlayed", messageSeenPeerIds.size()));
                         } else {
                             topButtonIcon.setImageResource(R.drawable.msg_seen);
-                            topButtonText.setText(messageSeenPeerIds.size() + " Seen"); // TODO(dkaraush): text!
+                            topButtonText.setText(LocaleController.formatPluralString("MessageSeen", messageSeenPeerIds.size()));
                         }
                         for (int i = 0; i < Math.min(messageSeenUsers.size(), 3); ++i)
                             users.add(messageSeenUsers.get(i));
@@ -564,7 +566,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 //            heightMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(maxPossibleHeight - dp(16), Math.max(estimateHeight(), MeasureSpec.getSize(heightMeasureSpec))), MeasureSpec.getMode(heightMeasureSpec));
-            widthMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(widthMeasureSpec), maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0) - dp(16)), MeasureSpec.getMode(widthMeasureSpec));
+            widthMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(widthMeasureSpec), maxPossibleWidth - dp(shouldShowReactionsSelect() ? 40 : 0) - dp(16)), MeasureSpec.getMode(widthMeasureSpec));
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         }
 
@@ -1004,28 +1006,28 @@ public class ChatMessageScrimPopup extends FrameLayout {
 
                 iconView = new ImageView(context);
                 iconView.setImageResource(R.drawable.msg_reactions_filled);
-                iconView.setColorFilter(new PorterDuffColorFilter(0xff378dd1, PorterDuff.Mode.MULTIPLY)); // TODO(dkaraush): color!
+                iconView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_chat_insideReactionCount), PorterDuff.Mode.MULTIPLY));
                 container.addView(iconView, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 5.33f, -1f, 0, 0));
 
                 reactionView = new ReactionImage(context, currentAccount, dp(20));
                 container.addView(reactionView, LayoutHelper.createFrame(20, 20, Gravity.LEFT | Gravity.CENTER_VERTICAL, 9, 0, 0, 0));
 
                 textView = new TextView(context);
-                textView.setTextColor(0xff378dd1); // TODO(dkaraush): color!
+                textView.setTextColor(Theme.getColor(Theme.key_chat_insideReactionCount));
                 textView.setTextSize(12);
                 textView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
                 container.addView(textView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 32, 0, 10, 0));
 
                 addView(container, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, Gravity.FILL));
-                container.setBackground(Theme.createRadSelectorDrawable(0x22378dd1, 0, 0)); // TODO(dkaraush): color!
+                container.setBackground(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_chat_insideReactionBackground), 0, 0));
 
                 backgroundPaint.setAntiAlias(true);
                 backgroundPaint.setFlags(Paint.ANTI_ALIAS_FLAG);
-                backgroundPaint.setColor(0x19378dd1); // TODO(dkaraush): color!
+                backgroundPaint.setColor(Theme.getColor(Theme.key_chat_insideReactionBackground));
                 borderPaint.setAntiAlias(true);
                 borderPaint.setFlags(Paint.ANTI_ALIAS_FLAG);
                 borderPaint.setStyle(Paint.Style.STROKE);
-                borderPaint.setColor(0xcc378dd1); // TODO(dkaraush): color!
+                borderPaint.setColor(Theme.getColor(Theme.key_chat_insideReactionBorder));
             }
 
             private float borderT = 0f;
@@ -1591,7 +1593,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 int h = containerHeight;
                 if (h == 0)
                     h = getHeight();
-                int w = containerWidth;
+                int w = containerWidth + ((reactionButtonList != null && (reactionButtonList.allReactions == null || reactionButtonList.allReactions.size() == 0)) ? dp(16) : 0);
                 if (w == 0)
                     w = getWidth();
 
@@ -1651,7 +1653,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         updateReactionsSelect();
 //        postDelayed(this::updateReactionsSelect, 100);
 
-        this.addView(container, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.NO_GRAVITY, shouldShowReactionsSelect() ? 8 : 0, shouldShowReactionsSelect() ? 48 : 0, shouldShowReactionsSelect() ? 40 : 0, 0));
+        this.addView(container, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.NO_GRAVITY, 0, shouldShowReactionsSelect() ? 48 : 0, shouldShowReactionsSelect() ? 40 : 0, 0));
         reactionButtonList.updateBackground();
 
         this.setClipChildren(false);
@@ -1676,7 +1678,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
             int maxWidth = this.getMeasuredWidth();
             int menuWidth = Math.min(maxWidth, menu.getMeasuredWidth());
             if (menuWidth != 0)
-                containerWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0), menuWidth + dp(16));
+                containerWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 40 : 0), menuWidth + dp(16));
         }
     }
 
@@ -1724,7 +1726,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         }
     }
     private void updateContainerWidth() {
-        int maxWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0), this.getMeasuredWidth());
+        int maxWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 40 : 0), this.getMeasuredWidth());
         int menuWidth = Math.min(maxWidth, menu.getWidth());
         int reactionsMenuWidth = Math.min(maxWidth, reactionsMenu.getWidth());
         if (maxWidth > 0 && menuWidth != 0 && reactionsMenuWidth != 0) {
@@ -2050,6 +2052,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         public void setAllReactions(ArrayList<TLRPC.TL_availableReaction> allReactions) {
             this.allReactions = allReactions;
             updateReactions();
+            show(shouldShowReactionsSelect(), true);
         }
 
         public void updateReactions() {
@@ -2111,6 +2114,9 @@ public class ChatMessageScrimPopup extends FrameLayout {
         private boolean shown = false;
         private ValueAnimator showAnimator;
         public void show(boolean value, boolean animated) {
+            if (allReactions == null || allReactions.size() <= 0)
+                value = false;
+
             if (!animated) {
                 if (showAnimator != null) {
                     showAnimator.cancel();
@@ -2152,7 +2158,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
             T = t;
             int minWidth = computeRange(1) + dp(8);
             int menuWidth = menu.getMeasuredWidth();
-            int maxWidth = Math.max(minWidth, Math.min(computeRange(), (menuWidth > 0 ? menuWidth + dp(16) : containerWidth) + dp(6 + 40)));
+            int maxWidth = Math.max(minWidth, Math.min(computeRange(), (menuWidth > 0 ? menuWidth + dp(16) : containerWidth) + dp(-1 + 40)));
             ViewGroup.LayoutParams layoutParams = getLayoutParams();
             if (layoutParams != null) {
                 layoutParams.width = (int) (minWidth + (float) (maxWidth - minWidth) * easeOutQuad(t));

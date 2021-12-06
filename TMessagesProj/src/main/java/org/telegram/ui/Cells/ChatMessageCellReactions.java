@@ -30,6 +30,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.BackupImageView;
 import org.telegram.ui.Components.ChatMessageScrimPopup;
@@ -91,15 +92,24 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
 
     public boolean rtl = false;
 
+    private String[] chipBackgroundColorKeys = new String[] { Theme.key_chat_outsideReactionBackground, Theme.key_chat_insideReactionBackground, Theme.key_chat_insideOwnerReactionBackground };
+    private String[] countPaintColorKeys = new String[] { Theme.key_chat_outsideReactionCount, Theme.key_chat_insideReactionCount, Theme.key_chat_insideOwnerReactionCount };
+    private String[] chipSelectorColorKeys = new String[] { Theme.key_chat_outsideReactionBorder, Theme.key_chat_insideReactionBorder, Theme.key_chat_insideOwnerReactionBorder };
+    private String[] chipAvatarLoadingColorKeys = new String[] { Theme.key_chat_outsideReactionAvatarBackground, Theme.key_chat_insideReactionAvatarBackground, Theme.key_chat_insideOwnerReactionAvatarBackground };
+
     public int look = OUTSIDE;
     public void setLook(int look) {
         this.look = look;
 
-        countPaint.setColor((new int[]{ 0xffffffff, 0xff378dd1, 0xff53ac50 })[look]); // TODO(dkaraush): color!
-        chipBackground.setColor((new int[]{ 0x42214119, 0x19378dd1, 0x1e5ba756 })[look]); // TODO(dkaraush): color!
-        chipSelector.setColor((new int[]{ 0xffffffff, 0xff378dd1, 0xff53AC50 })[look]); // TODO(dkaraush): color!
-        chipAvatarLoading.setColor((new int[] { 0x6b53ac50, 0x3d378dd1, 0x6b53ac50})[look]); // TODO(dkaraush): color!
-        chipAvatarBorder.setColor((new int[] { 0x00000000, 0xffebf4fa, 0xffddf4cd })[look]); // TODO(dkaraush): color!
+        countPaint.setColor(Theme.getColor(countPaintColorKeys[look]));
+        chipBackground.setColor(Theme.getColor(chipBackgroundColorKeys[look]));
+        chipSelector.setColor(Theme.getColor(chipSelectorColorKeys[look]));
+        chipAvatarLoading.setColor(Theme.getColor(chipAvatarLoadingColorKeys[look]));
+
+        if (Theme.isCurrentThemeDark() || Theme.isCurrentThemeNight())
+            chipAvatarBorder.setColor((new int[] { 0x00000000, 0xff253749, 0xff426A84 })[look]); // TODO(dkaraush): color!
+        else
+            chipAvatarBorder.setColor((new int[] { 0x00000000, 0xffebf4fa, 0xff253749 })[look]); // TODO(dkaraush): color!
 
         invalidate();
     }

@@ -4727,7 +4727,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         }
                         float tx = chatMessageCell.getSlidingOffsetX() + chatMessageCell.getCheckBoxTranslation();
 
-                        int y = (int) ((replaceAnimation ? child.getTop() : child.getY()) + chatMessageCell.getLayoutHeight() + chatMessageCell.getReactionsHeight() + chatMessageCell.getTransitionParams().deltaBottom);
+                        int y = (int) ((replaceAnimation ? child.getTop() : child.getY()) + chatMessageCell.getLayoutHeight() + (chatMessageCell.getCurrentMessagesGroup() != null ? chatMessageCell.getReactionsHeight() : 0) + chatMessageCell.getTransitionParams().deltaBottom);
                         int maxY = chatListView.getMeasuredHeight() - chatListView.getPaddingBottom();
                         if (chatMessageCell.isPlayingRound() || chatMessageCell.getTransitionParams().animatePlayingRound) {
                             if (chatMessageCell.getTransitionParams().animatePlayingRound) {
@@ -4832,7 +4832,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         }
                         if (!chatMessageCell.drawPinnedBottom()) {
                             int cellBottom = replaceAnimation ? chatMessageCell.getBottom() : (int) (chatMessageCell.getY() + chatMessageCell.getMeasuredHeight() + chatMessageCell.getTransitionParams().deltaBottom);
-                            cellBottom += chatMessageCell.getReactionsHeight();
+                            if (chatMessageCell.getCurrentMessagesGroup() != null)
+                                cellBottom += chatMessageCell.getReactionsHeight();
                             if (y > cellBottom) {
                                 y = cellBottom;
                             }

@@ -3442,6 +3442,18 @@ public class Theme {
     public static final String key_chat_inTextSelectionHighlight = "chat_inTextSelectionHighlight";
     public static final String key_chat_recordedVoiceHighlight = "key_chat_recordedVoiceHighlight";
     public static final String key_chat_TextSelectionCursor = "chat_TextSelectionCursor";
+    public static final String key_chat_insideReactionBackground = "chat_insideReactionBackground";
+    public static final String key_chat_insideReactionCount = "chat_insideReactionCount";
+    public static final String key_chat_insideReactionBorder = "chat_insideReactionBorder";
+    public static final String key_chat_insideReactionAvatarBackground = "chat_insideReactionAvatarBackground";
+    public static final String key_chat_insideOwnerReactionBackground = "chat_insideOwnerReactionBackground";
+    public static final String key_chat_insideOwnerReactionCount = "chat_insideOwnerReactionCount";
+    public static final String key_chat_insideOwnerReactionBorder = "chat_insideOwnerReactionBorder";
+    public static final String key_chat_insideOwnerReactionAvatarBackground = "chat_insideOwnerReactionAvatarBackground";
+    public static final String key_chat_outsideReactionBackground = "chat_outsideReactionBackground";
+    public static final String key_chat_outsideReactionCount = "chat_outsideReactionCount";
+    public static final String key_chat_outsideReactionBorder = "chat_outsideReactionBorder";
+    public static final String key_chat_outsideReactionAvatarBackground = "chat_outsideReactionAvatarBackground";
 
     public static final String key_voipgroup_listSelector = "voipgroup_listSelector";
     public static final String key_voipgroup_inviteMembersBackground = "voipgroup_inviteMembersBackground";
@@ -4277,6 +4289,19 @@ public class Theme {
         defaultColors.put(key_chat_mediaLoaderPhotoIconSelected, 0xffd9d9d9);
         defaultColors.put(key_chat_secretTimerBackground, 0xcc3e648e);
         defaultColors.put(key_chat_secretTimerText, 0xffffffff);
+
+        defaultColors.put(key_chat_outsideReactionCount, 0xffffffff);
+        defaultColors.put(key_chat_insideReactionCount, 0xff378dd1);
+        defaultColors.put(key_chat_insideOwnerReactionCount, 0xff53ac50);
+        defaultColors.put(key_chat_outsideReactionBackground, 0x42214119);
+        defaultColors.put(key_chat_insideReactionBackground, 0x19378dd1);
+        defaultColors.put(key_chat_insideOwnerReactionBackground, 0x1e5ba756);
+        defaultColors.put(key_chat_outsideReactionBorder, 0xffffffff);
+        defaultColors.put(key_chat_insideReactionBorder, 0xff378dd1);
+        defaultColors.put(key_chat_insideOwnerReactionBorder, 0xff53AC50);
+        defaultColors.put(key_chat_outsideReactionAvatarBackground, 0x6b53ac50);
+        defaultColors.put(key_chat_insideReactionAvatarBackground, 0x3d378dd1);
+        defaultColors.put(key_chat_insideOwnerReactionAvatarBackground, 0x6b53ac50);
 
         defaultColors.put(key_profile_creatorIcon, 0xff3a95d5);
         defaultColors.put(key_profile_actionIcon, 0xff81868a);

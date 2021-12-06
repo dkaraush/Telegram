@@ -1502,8 +1502,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
 //                outRect.set(outRect.left + cellReactions.getLeft() + getLeft(), outRect.top + cellReactions.getTop() + getTop(), outRect.right + cellReactions.getLeft() + getLeft(), outRect.bottom + cellReactions.getTop() + getTop());
                 return true;
             }
-        } else {
-            // TODO(dkaraush): tiny reactions!
         }
         return false;
     }
@@ -6221,13 +6219,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         updateWaveform();
         updateButtonState(false, dataChanged && !messageObject.cancelEditing, true);
 
-        allowDoubleTap = true; // TODO(dkaraush)
+        allowDoubleTap = true;
 
         int wasReactionsHeight = reactionsHeight;
 
         int cellReactionsWidth = backgroundWidth;
         if (!mediaBackground || groupedMessages != null) {
-            // TODO(dkaraush)
             cellReactionsWidth -= currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(10) : dp(18);
             cellReactionsWidth -= currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(16) : dp(8);
         }
@@ -6261,7 +6258,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     invalidate();
                 });
             }
-            reactionsHeight = cellReactions.updateReactions(reactions, !messageIdChanged, cellReactionsWidth, !reactionsFromGroup || hasCaptionLayout() ? timeWidth : 0);
+            reactionsHeight = cellReactions.updateReactions(reactions, !messageIdChanged, cellReactionsWidth, (!reactionsFromGroup || hasCaptionLayout() ? timeWidth + (reactionsFromGroup ? dp(16) : 0) : 0));
             int w = cellReactions.totalWidth();
             if (w > cellReactionsWidth && !reactionsFromGroup) {
                 backgroundWidth += (w - cellReactionsWidth);
@@ -7407,8 +7404,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 T = bottom;
                 B = T + reactionsHeight;
             } else {
-                // TODO(dkaraush)
-
                 L += currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(10) : dp(pinnedBottom ? 12 : 18);
                 R -= currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(pinnedBottom ? 10 : 16) : dp(8);
                 B = bottom - dp(6);
@@ -11880,7 +11875,6 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         if (cellReactions.look == ChatMessageCellReactions.OUTSIDE) {
             b += reactionsHeight;
         } else {
-            // TODO(dkaraush)
 
             l += currentMessageObject != null && currentMessageObject.isOutOwner() ? dp(10) : dp(10);
             if (!hasCaptionLayout() && currentMessageObject != null && !currentMessageObject.isOutOwner() && !currentMessageObject.isDocument())
