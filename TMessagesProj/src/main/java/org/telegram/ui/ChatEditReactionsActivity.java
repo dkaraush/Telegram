@@ -55,6 +55,7 @@ import org.telegram.ui.Components.LinkActionView;
 import org.telegram.ui.Components.Switch;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 
 public class ChatEditReactionsActivity extends BaseFragment implements NotificationCenter.NotificationCenterDelegate {
@@ -381,6 +382,13 @@ public class ChatEditReactionsActivity extends BaseFragment implements Notificat
         } else {
             TLRPC.TL_messages_setChatAvailableReactions request = new TLRPC.TL_messages_setChatAvailableReactions();
             request.peer = MessagesController.getInputPeer(currentChat);
+            ArrayList<String> availableReactionsStrings = new ArrayList<String>();
+            if (availableReactions != null) {
+                for (TLRPC.TL_availableReaction ar : availableReactions)
+                    if (ar != null && ar.reaction != null)
+                        availableReactionsStrings.add(ar.reaction);
+            }
+            Collections.sort(selectedReactions, (a, b) -> availableReactionsStrings.indexOf(a) - availableReactionsStrings.indexOf(b));
             request.available_reactions = reactionsEnabled ? selectedReactions : new ArrayList<>();
             getConnectionsManager().sendRequest(request, (response, error) -> {
                 if (error != null && !error.text.equals("CHAT_NOT_MODIFIED")) {

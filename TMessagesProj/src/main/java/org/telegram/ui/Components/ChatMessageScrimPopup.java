@@ -42,6 +42,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.gms.vision.Frame;
 
+import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.ChatObject;
 import org.telegram.messenger.ContactsController;
@@ -104,13 +105,18 @@ public class ChatMessageScrimPopup extends FrameLayout {
 
     private class Gap extends FrameLayout {
 //        private Paint shadow = new Paint();
+        private FrameLayout topShadow;
         public Gap(Context context) {
             super(context);
 
-            // TODO(dkaraush): shadow!
-
             setBackgroundColor(Theme.getColor(Theme.key_dialogBackgroundGray));
             setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 8));
+
+            topShadow = new FrameLayout(context);
+            Drawable shadow = getResources().getDrawable(R.drawable.header_shadow).mutate();
+            shadow.setColorFilter(new PorterDuffColorFilter(0x40ffffff, PorterDuff.Mode.MULTIPLY));
+            topShadow.setBackground(shadow);
+            addView(topShadow, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, dp(1), Gravity.FILL_HORIZONTAL | Gravity.TOP));
         }
 
         @Override
@@ -120,11 +126,13 @@ public class ChatMessageScrimPopup extends FrameLayout {
         }
     }
 
-    public class ReactionImage extends BackupImageView implements NotificationCenter.NotificationCenterDelegate {
+    public static class ReactionImage extends BackupImageView implements NotificationCenter.NotificationCenterDelegate {
         private int size;
-        public ReactionImage(Context context, int size) {
+        private int currentAccount;
+        public ReactionImage(Context context, int currentAccount, int size) {
             super(context);
             this.size = size;
+            this.currentAccount = currentAccount;
         }
 
         private String reactionString;
@@ -166,6 +174,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         }
     }
 
+    public int maxPossibleWidth = dp(1000);
     public int maxPossibleHeight = dp(1000);
 
     public class MainMenu extends LinearLayout {
@@ -323,16 +332,25 @@ public class ChatMessageScrimPopup extends FrameLayout {
                         reactionsCount += rc.count;
                     }
                     if (message.messageOwner.reactions.recent_reactons != null && message.messageOwner.reactions.recent_reactons.size() > 0) {
-                        for (TLRPC.TL_messageUserReaction mur : message.messageOwner.reactions.recent_reactons)
-                            reactionUsers.add(MessagesController.getInstance(currentAccount).getUser(mur.user_id));
+                        for (TLRPC.TL_messageUserReaction mur : message.messageOwner.reactions.recent_reactons) {
+                            TLRPC.User user = MessagesController.getInstance(currentAccount).getUser(mur.user_id);
+                            if (user != null)
+                                reactionUsers.add(user);
+                        }
                     }
                 }
             }
 
-            if (shouldShowReactionsButton() && reactionsCount == 1 && reactionUsers.size() == 1 && (!shouldShowMessageSeen() || (!messageSeenLoading && messageSeenPeerIds.size() == 1))) {
+            if (shouldShowReactionsButton() && reactionsCount == 1 && reactionUsers.size() == 1 && (!messageSeenLoading && messageSeenPeerIds.size() <= 1)) {
 
                 TLRPC.User user = reactionUsers.get(0);
                 topButtonText.setText(user != null ? ContactsController.formatName(user.first_name, user.last_name) : "");
+                topButtonText.clearAnimation();
+                topButtonText.setVisibility(View.VISIBLE);
+                topButtonText.animate()
+                        .alpha(1f)
+                        .setDuration((long) (animated ? 220 * Math.abs(1f - topButtonText.getAlpha()) : 0))
+                        .start();
 
                 topAvatarsImageView.clearAnimation();
                 topAvatarsImageView.animate().alpha(1f).translationX(dp(24)).setDuration(animated ? 220 : 0).start();
@@ -341,7 +359,12 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 topAvatarsImageView.setObject(2, currentAccount, null);
                 topAvatarsImageView.commitTransition(animated);
 
-                animateTopButtonTextRightMargin(33, animated);
+                int wasRightMargin = ((MarginLayoutParams) topButtonText.getLayoutParams()).rightMargin;
+                ((MarginLayoutParams) topButtonText.getLayoutParams()).rightMargin = dp(33);
+                if (((MarginLayoutParams) topButtonText.getLayoutParams()).rightMargin != wasRightMargin) {
+                    forceLayout();
+                }
+//                animateTopButtonTextRightMargin(33, animated);
 
                 topButtonIcon.clearAnimation();
                 topButtonIcon.animate().alpha(0f).setDuration(animated ? 220 : 0).withEndAction(() -> topButtonIcon.setVisibility(View.INVISIBLE)).start();
@@ -362,6 +385,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     topButtonReaction.setVisibility(View.VISIBLE);
                     topButtonReaction.animate().alpha(1f).setDuration(animated ? 220 : 0).start();
                 }
+                topButton.setClickable(!messageSeenLoading);
             } else {
                 topButtonIcon.clearAnimation();
                 topButtonIcon.setVisibility(View.VISIBLE);
@@ -536,12 +560,13 @@ public class ChatMessageScrimPopup extends FrameLayout {
             });
 
         }
-//
-//        @Override
-//        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+        @Override
+        protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
 //            heightMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(maxPossibleHeight - dp(16), Math.max(estimateHeight(), MeasureSpec.getSize(heightMeasureSpec))), MeasureSpec.getMode(heightMeasureSpec));
-//            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-//        }
+            widthMeasureSpec = MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(widthMeasureSpec), maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0) - dp(16)), MeasureSpec.getMode(widthMeasureSpec));
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        }
 
         public void init() {
             if (tab != null && !tab.inited) {
@@ -590,7 +615,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
             if (!scrolling)
                 definitelyScrolling = false;
             int action = event.getAction();
-            if (action == MotionEvent.ACTION_DOWN && event.getY() > dp(48) + estimateTopHeight() + dp(8)) {
+            if (action == MotionEvent.ACTION_DOWN && event.getY() > (shouldShowReactionsSelect() ? dp(48) : 0) + estimateTopHeight() + dp(8)) {
                 if (scrollingAnimation != null) {
                     scrollingAnimation.cancel();
                     scrollingAnimation = null;
@@ -598,7 +623,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 scrolling = true;
                 scrollingCapturing = capturing;
                 scrollFromX = event.getX();
-                scrollFromT = scrollT;
+                scrollFromT = Math.max(0, scrollT);
                 definitelyScrolling = false;
                 return true;
             } else if (scrolling) {
@@ -617,9 +642,13 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     return true;
                 } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_OUTSIDE || action == MotionEvent.ACTION_UP) {
                     scrollT = (scrollFromT + dx);
-                    if (scrollT < 0f) {
-                        ChatMessageScrimPopup.this.scrollTo(scrollT <= -0.15f ? 0f : 1f);
+                    if (scrollT <= -0.15f) {
+                        ChatMessageScrimPopup.this.scrollTo(0f);
+                    } else if (scrollT <= 0f) {
+                        ChatMessageScrimPopup.this.scrollTo(1f);
                     }
+
+                    scrollT = Math.max(scrollT, 0);
 
                     float roundedScrollT = Math.round(scrollFromT) + (Math.abs(scrollFromT - scrollT) > 0.2f ? (scrollT > scrollFromT ? 1f : -1f) : 0);
                     float scrollTo = Math.min(Math.max(0, roundedScrollT), tabs == null ? 0 : tabs.size() - 1);
@@ -704,19 +733,23 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 tabIndex = nextTabIndex == upper ? lower : upper;
                 if (tabs != null) {
                     String filter = tabIndex < tabs.size() ? tabs.get(tabIndex).reaction : null;
-                    tab.set(filter, getInitialCount(filter));
+                    if (filter != null || tabIndex == 0)
+                        tab.set(filter, getInitialCount(filter));
                 }
             }
             if (!nextTab.inited || (nextTabIndex != lower && nextTabIndex != upper)) {
                 nextTabIndex = tabIndex == upper ? lower : upper;
                 if (tabs != null) {
                     String filter = nextTabIndex < tabs.size() ? tabs.get(nextTabIndex).reaction : null;
-                    nextTab.set(filter, getInitialCount(filter));
+                    if (filter != null || nextTabIndex == 0)
+                        nextTab.set(filter, getInitialCount(filter));
                 }
             }
 
             tab.setTranslationX(width * T - (tabIndex == lower ? width : 0));
             nextTab.setTranslationX(width * T - (nextTabIndex == lower ? width : 0));
+
+            updateContainerHeight();
         }
 
         public int height() {
@@ -974,7 +1007,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 iconView.setColorFilter(new PorterDuffColorFilter(0xff378dd1, PorterDuff.Mode.MULTIPLY)); // TODO(dkaraush): color!
                 container.addView(iconView, LayoutHelper.createFrame(24, 24, Gravity.LEFT | Gravity.CENTER_VERTICAL, 5.33f, -1f, 0, 0));
 
-                reactionView = new ReactionImage(context, dp(20));
+                reactionView = new ReactionImage(context, currentAccount, dp(20));
                 container.addView(reactionView, LayoutHelper.createFrame(20, 20, Gravity.LEFT | Gravity.CENTER_VERTICAL, 9, 0, 0, 0));
 
                 textView = new TextView(context);
@@ -1075,6 +1108,27 @@ public class ChatMessageScrimPopup extends FrameLayout {
             layoutManager.setOrientation(LinearLayoutManager.VERTICAL);
             addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
+            listView.setOnItemClickListener((view, position) -> {
+                if (loader != null && loader.loaderData != null && position >= 0 && position < loader.loaderData.size()) {
+                    if (onUserClick != null)
+                        onUserClick.run(loader.loaderData.get(position).user);
+                    ChatMessageScrimPopup.this.dismiss();
+                }
+            });
+            listView.setOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    super.onScrolled(recyclerView, dx, dy);
+
+                    int loadedCount = loader == null || loader.loaderData == null ? 0 : loader.loaderData.size();
+                    if (
+                        layoutManager.findFirstVisibleItemPosition() >= loadedCount ||
+                        layoutManager.findLastVisibleItemPosition() >= loadedCount
+                    )
+                        load();
+                }
+            });
+
             setBackgroundColor(Theme.getColor(Theme.key_dialogBackground));
         }
 
@@ -1123,13 +1177,13 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 loader.load();
         }
     }
-    public class ReactionUserData {
+    public static class ReactionUserData {
         public ReactionUserData(TLRPC.User user, String reaction) {
             this.user = user;
             this.reaction = reaction;
         }
-        TLRPC.User user;
-        String reaction;
+        public TLRPC.User user;
+        public String reaction;
     }
     private HashMap<String, ReactionUserListLoader> loaders = new HashMap<>();
     public class ReactionUserListLoader {
@@ -1147,11 +1201,16 @@ public class ChatMessageScrimPopup extends FrameLayout {
         private String offset = null;
         private boolean hasMore = true;
         public boolean loading = false;
+        public boolean shouldLoadNext = false;
         public int count = -1;
         private ArrayList<Integer> listeningForMessageSeen = new ArrayList<>();
         public void load() {
-            if (message == null || message.messageOwner == null || this.loading || !hasMore)
+            if (message == null || message.messageOwner == null || !hasMore)
                 return;
+            if (this.loading) {
+                shouldLoadNext = true;
+                return;
+            }
 
             MessagesController messagesController = MessagesController.getInstance(currentAccount);
             TLRPC.TL_messages_getMessageReactionsList req = new TLRPC.TL_messages_getMessageReactionsList();
@@ -1187,20 +1246,26 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     hasMore = res.next_offset != null;
                     if (filter != null)
                         count = res.count;
+                    loaderData.addAll(newData);
+                    if (!hasMore && filter == null) {
+                        appendMessageSeen();
+                    }
                     AndroidUtilities.runOnUIThread(() -> {
-                        loaderData.addAll(newData);
                         if (onAppendData != null)
                             onAppendData.run(newData, count);
-
-                        if (!hasMore && filter == null) {
-                            appendMessageSeen();
-                        }
                     });
                 } else {
                     hasMore = false;
                     AndroidUtilities.runOnUIThread(this::appendMessageSeen);
                 }
                 this.loading = false;
+
+                postDelayed(() -> {
+                    if (hasMore && shouldLoadNext) {
+                        shouldLoadNext = false;
+                        this.load();
+                    }
+                }, 75);
             });
         }
 
@@ -1221,8 +1286,10 @@ public class ChatMessageScrimPopup extends FrameLayout {
                         messageSeenData.add(new ReactionUserData(user, null));
                 }
                 loaderData.addAll(messageSeenData);
-                if (onAppendData != null)
-                    onAppendData.run(messageSeenData, loaderData.size());
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (onAppendData != null)
+                        onAppendData.run(messageSeenData, loaderData.size());
+                });
             } else {
                 int index;
                 messageSeenCallbacks.put(index = messageSeenCallbacksIndex++, () -> {
@@ -1241,8 +1308,10 @@ public class ChatMessageScrimPopup extends FrameLayout {
                             messageSeenData.add(new ReactionUserData(user, null));
                     }
                     loaderData.addAll(messageSeenData);
-                    if (onAppendData != null)
-                        onAppendData.run(messageSeenData, loaderData.size());
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (onAppendData != null)
+                            onAppendData.run(messageSeenData, loaderData.size());
+                    });
                     listeningForMessageSeen.remove(Integer.valueOf(index));
                 });
                 listeningForMessageSeen.add(index);
@@ -1286,7 +1355,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         @NonNull
         @Override
         public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            return new RecyclerListView.Holder(new ReactionUser(context));
+            return new RecyclerListView.Holder(new ReactionUser(context, currentAccount));
         }
 
         @Override
@@ -1295,26 +1364,23 @@ public class ChatMessageScrimPopup extends FrameLayout {
             ReactionUserData itemData = loader == null || position >= loader.loaderData.size() ? null : loader.loaderData.get(position);
             view.set(itemData == null ? null : itemData.user, itemData == null ? null : itemData.reaction, position);
             view.setLoading(itemData == null);
-
-            if (itemData == null && loader != null && !loader.loading && loader.hasMore)
-                loader.load();
         }
 
         @Override
         public int getItemCount() {
-            return Math.max(initialCount, loader == null ? 0 : Math.max(loader.count, loader.loaderData.size()));
+            return Math.max(initialCount, loader == null ? 0 : loader.loaderData.size());
         }
     }
     private static long globalStart = -1;
-    public class ReactionUser extends FrameLayout {
+    public static class ReactionUser extends FrameLayout {
         private BackupImageView imageView;
         private AvatarDrawable avatarDrawable;
         private TextView textView;
         private ReactionImage reactionImage;
         private FrameLayout container;
-        private TLRPC.User user;
+        public TLRPC.User user;
 
-        public ReactionUser(Context context) {
+        public ReactionUser(Context context, int currentAccount) {
             super(context);
 
             setLayoutParams(LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
@@ -1336,7 +1402,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                      shadePath = new Path();
                 RectF rect = new RectF();
                 @Override
-                protected void onDraw(Canvas canvas) {
+                protected void dispatchDraw(Canvas canvas) {
                     if (loading) {
                         float h = getHeight();
 
@@ -1359,7 +1425,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                         canvas.drawPath(tempPath, loadingPaint);
                         canvas.restore();
                     }
-                    super.onDraw(canvas);
+                    super.dispatchDraw(canvas);
                 }
             };
 
@@ -1376,7 +1442,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
             textView.setEllipsize(TextUtils.TruncateAt.END);
             container.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 57, 0, 41, 0));
 
-            reactionImage = new ReactionImage(context, dp(22));
+            reactionImage = new ReactionImage(context, currentAccount, dp(22));
             container.addView(reactionImage, LayoutHelper.createFrame(22, 22, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 0, 0, 13, 0));
 
             addView(container, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48));
@@ -1389,13 +1455,12 @@ public class ChatMessageScrimPopup extends FrameLayout {
         public void set(TLRPC.User user, String reaction, int position) {
             this.position = position;
             this.user = user;
-            container.setOnClickListener(e -> {
-                if (user != null) {
-                    if (onUserClick != null)
-                        onUserClick.run(user);
-                    ChatMessageScrimPopup.this.dismiss();
-                }
-            });
+//            container.setOnClickListener(e -> {
+//                if (user != null) {
+//                    if (onUserClick != null)
+//                        onUserClick.run(user);
+//                }
+//            });
 
             if (user == null) {
                 imageView.setVisibility(View.GONE);
@@ -1459,6 +1524,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
 
     private UserCallback onUserClick;
     public int containerHeight = 0;
+    public int containerWidth = 0;
     public ChatMessageScrimPopup(
         Context context,
         int currentAccount,
@@ -1492,7 +1558,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     boolean containsInContainer = false;
                     if (container != null) {
                         container.getGlobalVisibleRect(containerRect);
-                        containerRect.set(containerRect.left, containerRect.top, containerRect.right, containerRect.top + containerHeight);
+                        containerRect.set(containerRect.right - containerWidth, containerRect.top, containerRect.right, containerRect.top + containerHeight);
                         containsInContainer = containerRect.contains((int) event.getX(), (int) event.getY());
                     }
                     boolean containsInReactionsList = false;
@@ -1525,12 +1591,15 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 int h = containerHeight;
                 if (h == 0)
                     h = getHeight();
+                int w = containerWidth;
+                if (w == 0)
+                    w = getWidth();
 
-                rect.set(0, 0, getWidth(), h);
+                rect.set(getWidth() - w, 0, getWidth(), h);
                 containerBackground.setBounds(rect);
                 containerBackground.draw(canvas);
 
-                r.set(dp(8), dp(8), getWidth() - dp(8), (h - dp(8)));
+                r.set((getWidth() - w) + dp(8), dp(8), getWidth() - dp(8), h - dp(8));
                 path.reset();
                 path.addRoundRect(r, dp(6), dp(6), Path.Direction.CW);
                 canvas.clipPath(path);
@@ -1549,22 +1618,26 @@ public class ChatMessageScrimPopup extends FrameLayout {
 //        container.setBackgroundDrawable(containerBackground);
 
         menu = new MainMenu(context, buttons);
-        menu.setOnTopButtonClick(() -> scrollTo(1f));
+        menu.setOnTopButtonClick(() -> {
+            scrollTo(1f);
+        });
         menuDim = new FrameLayout(context);
         menuDim.setBackgroundColor(0x33000000);
         menuDim.setAlpha(0f);
 
-        container.addView(menu, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        container.addView(menu, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.RIGHT | Gravity.TOP));
         container.addView(menuDim, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         reactionsMenu = new ReactionsMenu(context);
-        reactionsMenu.setOnBackClick(() -> scrollTo(0f));
+        reactionsMenu.setOnBackClick(() -> {
+            scrollTo(0f);
+        });
 //        reactionsMenu = new ReactionUserList(context);
 //        reactionsMenu.set(null, 10);
 
         reactionsMenuContainer = new FrameLayout(context);
         reactionsMenuContainer.setBackgroundColor(Theme.getColor(Theme.key_dialogBackground));
-        reactionsMenuContainer.addView(reactionsMenu, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        reactionsMenuContainer.addView(reactionsMenu, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.LEFT | Gravity.TOP));
         container.addView(reactionsMenuContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         reactionButtonList = new ChatMessageReactionList(context);
@@ -1575,9 +1648,10 @@ public class ChatMessageScrimPopup extends FrameLayout {
         });
         this.addView(reactionButtonList, LayoutHelper.createFrame(100, 61 + 6, Gravity.TOP | Gravity.RIGHT, 0, 0, 0, 0));
         reactionButtonList.show(false, false);
-        postDelayed(this::updateReactionsSelect, 100);
+        updateReactionsSelect();
+//        postDelayed(this::updateReactionsSelect, 100);
 
-        this.addView(container, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.NO_GRAVITY, 0, 48, 40, 0));
+        this.addView(container, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.NO_GRAVITY, shouldShowReactionsSelect() ? 8 : 0, shouldShowReactionsSelect() ? 48 : 0, shouldShowReactionsSelect() ? 40 : 0, 0));
         reactionButtonList.updateBackground();
 
         this.setClipChildren(false);
@@ -1593,16 +1667,22 @@ public class ChatMessageScrimPopup extends FrameLayout {
         super.onLayout(changed, left, top, right, bottom);
 
         if (scrollAnimator == null && scrollT <= 0f) {
-            int maxHeight = this.getMeasuredHeight() - dp(48 + 16);
+            int maxHeight = this.getMeasuredHeight() - dp((shouldShowReactionsSelect() ? 48 : 0) + 16);
             int menuHeight = Math.min(maxHeight, menu.getMeasuredHeight());
             if (menuHeight != 0)
                 containerHeight = Math.min(maxPossibleHeight, menuHeight + dp(16));
+        }
+        if (scrollAnimator == null && scrollT <= 0f) {
+            int maxWidth = this.getMeasuredWidth();
+            int menuWidth = Math.min(maxWidth, menu.getMeasuredWidth());
+            if (menuWidth != 0)
+                containerWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0), menuWidth + dp(16));
         }
     }
 
     private float scrollT = 0f;
     private void updateScroll(float t) {
-        scrollT = t;
+        scrollT = Math.min(1, Math.max(0, t));
         if (t >= 1f) {
             menu.setVisibility(View.INVISIBLE);
             menuDim.setVisibility(View.INVISIBLE);
@@ -1627,7 +1707,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         reactionsMenuContainer.setTranslationX(width * (1f - T));
 
         updateContainerHeight();
-        updateReactionsSelect();
+        updateContainerWidth();
 
         if (scrollT > 0f) {
             reactionsMenu.init();
@@ -1635,11 +1715,20 @@ public class ChatMessageScrimPopup extends FrameLayout {
     }
 
     private void updateContainerHeight() {
-        int maxHeight = Math.min(maxPossibleHeight, this.getMeasuredHeight() - dp(48 + 16));
+        int maxHeight = Math.min(maxPossibleHeight, this.getMeasuredHeight() - dp((shouldShowReactionsSelect() ? 48 : 0) + 16));
         int menuHeight = Math.min(maxHeight, menu.getMeasuredHeight());
         int reactionsMenuHeight = Math.min(maxHeight, reactionsMenu.getMyHeight());
         if (maxHeight > 0 && menuHeight != 0 && reactionsMenuHeight != 0) {
             containerHeight = (int) (menuHeight + (reactionsMenuHeight - menuHeight) * Math.max(Math.min(scrollT, 1), 0)) + dp(16);
+            container.invalidate();
+        }
+    }
+    private void updateContainerWidth() {
+        int maxWidth = Math.min(maxPossibleWidth - dp(shouldShowReactionsSelect() ? 48 : 0), this.getMeasuredWidth());
+        int menuWidth = Math.min(maxWidth, menu.getWidth());
+        int reactionsMenuWidth = Math.min(maxWidth, reactionsMenu.getWidth());
+        if (maxWidth > 0 && menuWidth != 0 && reactionsMenuWidth != 0) {
+            containerWidth = (int) (menuWidth + (reactionsMenuWidth - menuWidth) * Math.max(Math.min(scrollT, 1), 0)) + dp(16);
             container.invalidate();
         }
     }
@@ -1662,7 +1751,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
         });
         scrollAnimator.start();
 
-        showReactionsSelectFromTab = t <= 0f;
+        showReactionsSelectFromTab = t < 1f;
         updateReactionsSelect();
     }
 
@@ -1690,14 +1779,51 @@ public class ChatMessageScrimPopup extends FrameLayout {
         private ChatMessageReactionListAdapter adapter;
         private LinearLayoutManager layoutManager;
 
+        private Paint background = new Paint();
+        private RectF rect = new RectF();
+        private Path path = new Path();
+
         public void updateBackground() {
-            Drawable reactionsContainerDrawable = getResources().getDrawable(adapter.getItemCount() > 5 ? R.drawable.popup_reactions : R.drawable.popup_reactions_small).mutate();
-            reactionsContainerDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogBackground), PorterDuff.Mode.MULTIPLY));
-            setBackground(reactionsContainerDrawable);
+//            Drawable reactionsContainerDrawable = getResources().getDrawable(adapter.getItemCount() > 5 ? R.drawable.popup_reactions : R.drawable.popup_reactions_small).mutate();
+//            reactionsContainerDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogBackground), PorterDuff.Mode.MULTIPLY));
+//            setBackground(reactionsContainerDrawable);
+//            reactionsContainerDrawable.getPadding(backgroundPadding);
+            setPadding(dp(2.7826f), dp(2.7826f), dp(2.7826f), dp(19.826f));
+            setWillNotDraw(false);
+
+            background.setColor(Theme.getColor(Theme.key_dialogBackground));
+            background.setFlags(Paint.ANTI_ALIAS_FLAG);
+            background.setAntiAlias(true);
+            background.setShadowLayer(dp(3f), 0, dp(2f / 3f), 0x33000000);
 
             MarginLayoutParams containerLayoutParams = (MarginLayoutParams) container.getLayoutParams();
             if (containerLayoutParams != null)
                 containerLayoutParams.rightMargin = dp(adapter.getItemCount() > 5 ? 40 : 32);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            int l = dp(2.7826f),
+                t = dp(2.7826f),
+                r = getWidth() - dp(2.7826f),
+                b = getHeight() - dp(19.826f);
+            int h = b - t;
+
+            path.reset();
+            rect.set(l, t, l + h, b);
+            path.arcTo(rect, 270, -180, true);
+            float R = dp(7) * Math.min(1, T + 0.25f),
+                  cx = r - (adapter.getItemCount() > 5 ? dp(30) : dp(21.3f)) - dp(7);
+            rect.set(cx - R, b - R, cx + R, b + R);
+            path.arcTo(rect, 180, -180, false);
+            rect.set(r - h, t, r, b);
+            path.arcTo(rect, 90, -180, false);
+            path.close();
+            path.addCircle(cx + dp(4.2f), b + dp(14.83f), dp(3.5f) * (T), Path.Direction.CW);
+
+            canvas.drawPath(path, background);
+            canvas.clipPath(path);
+            super.onDraw(canvas);
         }
 
         private ReactionCallback onReactionClick;
@@ -1793,7 +1919,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 imageView = new BackupImageView(context);
                 this.addView(imageView, LayoutHelper.createFrame(32, 32, Gravity.NO_GRAVITY, 4, 6, 4, 6));
 
-//                imageView.setBackground(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogButtonSelector), 8, 8));
+                imageView.setBackground(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogButtonSelector), 8, 8));
 //                imageView.setClickable(true);
             }
 
@@ -1805,6 +1931,32 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 TLRPC.Document document = reaction.select_animation;
                 imageView.setImage(ImageLocation.getForDocument(document), "80_80", null, null, this);
                 imageView.imageReceiver.setAutoRepeat(3);
+                imageView.imageReceiver.setAllowStartAnimation(false);
+                if (imageView.imageReceiver.getLottieAnimation() != null)
+                    imageView.imageReceiver.getLottieAnimation().setProgress(0);
+
+                boolean selected = false;
+                if (message != null && message.messageOwner != null && message.messageOwner.reactions != null && message.messageOwner.reactions.results != null) {
+                    for (TLRPC.TL_reactionCount rc : message.messageOwner.reactions.results) {
+                        if (rc != null && rc.reaction != null && rc.reaction.equals(reaction.reaction)) {
+                            selected = rc.chosen;
+                            break;
+                        }
+                    }
+                }
+                if (!selected) {
+                    long self = AccountInstance.getInstance(currentAccount).getUserConfig().clientUserId;
+                    if (message != null && message.messageOwner != null && message.messageOwner.reactions != null && message.messageOwner.reactions.recent_reactons != null) {
+                        for (TLRPC.TL_messageUserReaction mur : message.messageOwner.reactions.recent_reactons) {
+                            if (mur.reaction != null && mur.reaction.equals(reaction.reaction) && mur.user_id == self) {
+                                selected = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                imageView.setScaleX(selected ? 0.2f : 1f);
+                imageView.setScaleY(selected ? 0.2f : 1f);
                 tickLoop();
 
                 ((MarginLayoutParams) imageView.getLayoutParams()).leftMargin = dp(isFirst ? 12 : 4);
@@ -1912,9 +2064,23 @@ public class ChatMessageScrimPopup extends FrameLayout {
                             break;
                         }
                     }
-                    if (reaction == null)
-                        return;
-                    reactions.add(reaction);
+                    if (reaction != null)
+                        reactions.add(reaction);
+                }
+                if (message != null && message.messageOwner != null && message.messageOwner.reactions != null && message.messageOwner.reactions.results != null) {
+                    for (TLRPC.TL_reactionCount rc : message.messageOwner.reactions.results) {
+                        if (rc != null && rc.reaction != null && !chatReactions.contains(rc.reaction)) {
+                            TLRPC.TL_availableReaction reaction = null;
+                            for (TLRPC.TL_availableReaction availableReaction : allReactions) {
+                                if (availableReaction != null && availableReaction.reaction != null && availableReaction.reaction.equals(rc.reaction)) {
+                                    reaction = availableReaction;
+                                    break;
+                                }
+                            }
+                            if (reaction != null)
+                                reactions.add(reaction);
+                        }
+                    }
                 }
             } else if (allReactions != null) {
                 reactions = allReactions;
@@ -1926,7 +2092,7 @@ public class ChatMessageScrimPopup extends FrameLayout {
             if (showAnimator == null)
                 resize(shown ? 1f : 0f);
         }
-        private float easeOutBack_G = 0.7f;
+        private float easeOutBack_G = 1.75f;
         private float easeOutBack(float x) {
             return 1f + (1f + easeOutBack_G) * (float) Math.pow(x - 1f, 3) + easeOutBack_G * (float) Math.pow(x - 1f, 2f);
         }
@@ -1952,15 +2118,13 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 }
                 this.setAlpha(value ? 1f : 0f);
                 resize(value ? 0f : 1f);
-            } else if (shown != value) {
+            } else {
                 float from = showAnimator != null ? (float) showAnimator.getAnimatedValue() : 0f;
                 if (showAnimator != null)
                     showAnimator.cancel();
-                showAnimator = ValueAnimator.ofFloat(from, 1f);
+                showAnimator = ValueAnimator.ofFloat(from, value ? 1f : 0f);
                 showAnimator.addUpdateListener(a -> {
                     float t = ((float) a.getAnimatedValue());
-                    t = value ? t : 1f - t;
-                    t = easeOutBack(t);
                     this.setAlpha(t);
                     resize(t);
                     forceLayout();
@@ -1968,15 +2132,12 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 showAnimator.addListener(new AnimatorListenerAdapter() {
                     @Override
                     public void onAnimationEnd(Animator animation) {
-                        super.onAnimationEnd(animation);
-                        showAnimator = null;
-                        resize(value ? 1f : 0f);
+                    super.onAnimationEnd(animation);
                     }
                 });
-                showAnimator.setDuration((int) (Math.abs(from - 1f) * 200));
+                showAnimator.setDuration((int) (Math.abs(from - (value ? 1f : 0f)) * 220));
                 showAnimator.start();
             }
-            shown = value;
         }
 
         private int computeRange() {
@@ -1986,12 +2147,15 @@ public class ChatMessageScrimPopup extends FrameLayout {
             return dp(8 + (4 + 32 + 4) * itemCount + 8 + 8);
         }
 
+        private float T = 0f;
         private void resize(float t) {
+            T = t;
             int minWidth = computeRange(1) + dp(8);
-            int maxWidth = Math.max(minWidth, Math.min(computeRange(), dp(250)));
+            int menuWidth = menu.getMeasuredWidth();
+            int maxWidth = Math.max(minWidth, Math.min(computeRange(), (menuWidth > 0 ? menuWidth + dp(16) : containerWidth) + dp(6 + 40)));
             ViewGroup.LayoutParams layoutParams = getLayoutParams();
             if (layoutParams != null) {
-                layoutParams.width = (int) (minWidth + (float) (maxWidth - minWidth) * t);
+                layoutParams.width = (int) (minWidth + (float) (maxWidth - minWidth) * easeOutQuad(t));
                 setLayoutParams(layoutParams);
                 invalidate();
                 adapter.updateItemsScaling();
@@ -2072,10 +2236,38 @@ public class ChatMessageScrimPopup extends FrameLayout {
         return shouldShowReactionsButton() || shouldShowMessageSeen();
     }
     public boolean shouldShowReactionsButton() {
-        return (message != null && reactionsCount > 0 && (!ChatObject.isChannel(currentChat) || currentChat.megagroup) && !DialogObject.isEncryptedDialog(message.getDialogId()));
+        return (
+            message != null &&
+            reactionsCount > 0 &&
+            (!ChatObject.isChannel(currentChat) || currentChat.megagroup) &&
+            !DialogObject.isEncryptedDialog(message.getDialogId())
+        );
     }
     public boolean shouldShowReactionsSelect() {
-        return ((message != null && DialogObject.isUserDialog(message.getDialogId()) && UserConfig.getInstance(currentAccount).getClientUserId() != message.getDialogId()) || (chatInfo != null && chatInfo.available_reactions != null && chatInfo.available_reactions.size() > 0)) && !DialogObject.isEncryptedDialog(message.getDialogId());
+        return (
+                (
+                        message != null &&
+                        DialogObject.isUserDialog(message.getDialogId()) // &&
+//                        UserConfig.getInstance(currentAccount).getClientUserId() != message.getDialogId()
+                ) || (
+                        chatInfo != null &&
+                        chatInfo.available_reactions != null &&
+                        chatInfo.available_reactions.size() > 0
+                ) || (
+                        message != null &&
+                        message.hasReactions()
+                )
+        ) && (
+            message == null ||
+            !DialogObject.isEncryptedDialog(message.getDialogId())
+        ) && (
+            message == null ||
+            message.messageOwner == null ||
+            message.messageOwner.action == null
+        ) && (
+            message == null ||
+            message.isSent()
+        );
     }
 
     public void updateReactionsSelect() {
@@ -2220,5 +2412,139 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 });
             }
         });
+    }
+
+
+    public static class ReactionUsersSimpleList extends FrameLayout {
+        private long dialogId;
+        private int msgId;
+        private int currentAccount;
+        private TLRPC.TL_reactionCount rc;
+        private RecyclerListView listView;
+        private LinearLayoutManager layoutManager;
+        private ReactionUsersSimpleListAdapter adapter;
+        public ReactionUsersSimpleList(Context context, TLRPC.TL_reactionCount rc, int currentAccount, long dialogId, int msgId, UserCallback onUserClick) {
+            super(context);
+
+            this.dialogId = dialogId;
+            this.msgId = msgId;
+            this.rc = rc;
+            this.currentAccount = currentAccount;
+
+            listView = new RecyclerListView(context) {
+                @Override
+                protected void onMeasure(int widthSpec, int heightSpec) {
+                    heightSpec = MeasureSpec.makeMeasureSpec(Math.min(AndroidUtilities.dp(350), MeasureSpec.getSize(heightSpec)), MeasureSpec.getMode(heightSpec));
+                    super.onMeasure(widthSpec, heightSpec);
+                }
+            };
+            listView.setAdapter(adapter = new ReactionUsersSimpleListAdapter());
+            listView.setLayoutManager(layoutManager = new LinearLayoutManager(context));
+            listView.setOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    super.onScrolled(recyclerView, dx, dy);
+                    adapter.checkLoading(layoutManager.findFirstVisibleItemPosition(), layoutManager.findLastVisibleItemPosition());
+                }
+            });
+            listView.setOnItemClickListener((view, position) -> {
+                if (view == null) return;
+                TLRPC.User user = ((ChatMessageScrimPopup.ReactionUser) view).user;
+                if (user == null) return;
+                if (onUserClick != null)
+                    onUserClick.run(user);
+            });
+            Drawable containerBackground = getResources().getDrawable(R.drawable.popup_fixed_alert).mutate();
+            containerBackground.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogBackground), PorterDuff.Mode.MULTIPLY));
+            setBackground(containerBackground);
+            addView(listView, LayoutHelper.createFrame(220, LayoutHelper.WRAP_CONTENT));
+
+            measure(View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(1000), View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(350), View.MeasureSpec.AT_MOST));
+        }
+
+        private class ReactionUsersSimpleListAdapter extends RecyclerView.Adapter {
+            @NonNull
+            @Override
+            public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+                return new RecyclerListView.Holder(new ChatMessageScrimPopup.ReactionUser(getContext(), currentAccount));
+            }
+
+            @Override
+            public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
+                ChatMessageScrimPopup.ReactionUserData itemData = position < data.size() ? data.get(position) : null;
+                ((ChatMessageScrimPopup.ReactionUser) holder.itemView).set(itemData == null ? null : itemData.user, itemData == null ? null : itemData.reaction, position);
+                ((ChatMessageScrimPopup.ReactionUser) holder.itemView).setLoading(itemData == null);
+            }
+
+            @Override
+            public int getItemCount() {
+                return rc.count;
+            }
+
+            public void checkLoading(int from, int to) {
+                if (from >= data.size() || to >= data.size())
+                    load();
+            }
+
+            private ArrayList<ChatMessageScrimPopup.ReactionUserData> data = new ArrayList<>();
+            private boolean loading = false;
+            private boolean hasMore = true;
+            private String offset = null;
+            private boolean shouldLoadNext = false;
+            public void load() {
+                if (!hasMore)
+                    return;
+                if (loading) {
+                    shouldLoadNext = true;
+                    return;
+                }
+
+                MessagesController messagesController = MessagesController.getInstance(currentAccount);
+                TLRPC.TL_messages_getMessageReactionsList req = new TLRPC.TL_messages_getMessageReactionsList();
+                req.peer = messagesController.getInputPeer(dialogId);
+                req.id = msgId;
+                req.reaction = rc.reaction;
+                req.flags |= 1;
+                req.limit = 10;
+                if (offset != null) {
+                    req.offset = offset;
+                    req.flags |= 2;
+                }
+                loading = true;
+                ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
+                    if (error == null && response instanceof TLRPC.TL_messages_messageReactionsList) {
+                        TLRPC.TL_messages_messageReactionsList res = (TLRPC.TL_messages_messageReactionsList) response;
+
+                        for (TLRPC.User u : res.users) {
+                            messagesController.putUser(u, false);
+                        }
+
+                        ArrayList<ChatMessageScrimPopup.ReactionUserData> newData = new ArrayList<>();
+                        if (res.reactions != null) {
+                            for (TLRPC.TL_messageUserReaction r : res.reactions) {
+                                String reaction = r.reaction != null && r.reaction.length() > 0 ? r.reaction : null;
+                                newData.add(new ChatMessageScrimPopup.ReactionUserData(messagesController.getUser(r.user_id), reaction));
+                            }
+                        }
+
+                        offset = res.next_offset;
+                        hasMore = res.next_offset != null;
+                        AndroidUtilities.runOnUIThread(() -> {
+                            data.addAll(newData);
+                            notifyDataSetChanged();
+                        });
+                    } else {
+                        AndroidUtilities.runOnUIThread(() -> {
+                            hasMore = false;
+                        });
+                    }
+                    this.loading = false;
+                    if (shouldLoadNext) {
+                        postDelayed(this::load, 250);
+                        shouldLoadNext = false;
+                    }
+                });
+            }
+        }
     }
 }

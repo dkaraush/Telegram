@@ -883,6 +883,8 @@ public class LaunchActivity extends Activity implements ActionBarLayout.ActionBa
         MediaController.getInstance().setBaseActivity(this, true);
         AndroidUtilities.startAppCenter(this);
         updateAppUpdateViews(false);
+
+        MessagesController.getInstance(currentAccount).getAvailableReactions();
     }
 
     private void openSettings(boolean expanded) {

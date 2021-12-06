@@ -30,6 +30,8 @@ import java.util.ArrayList;
 
 public class ReactionAnimationView extends FrameLayout implements NotificationCenter.NotificationCenterDelegate {
 
+    public boolean quick = false;
+
     private Point point = new Point();
     private Rect rect = new Rect();
 
@@ -395,15 +397,17 @@ public class ReactionAnimationView extends FrameLayout implements NotificationCe
         int[] myLocation = new int[2];
         getRootView().getLocationOnScreen(myLocation);
 
-        float fromMovingT = Math.max(0, Math.min(1, (NOW - start) / 200f));
+        float fromMovingTDuration = 200f;
+        float fromMovingT = Math.max(0, Math.min(1, (NOW - start) / fromMovingTDuration));
 //        fromMovingT = easeInOutQuad(fromMovingT);
 
         long animationDuration = Math.min(
                 mainImage.imageReceiver.getLottieAnimation() == null ? 0 : Math.max(0, mainImage.imageReceiver.getLottieAnimation().getDuration() - 100),
                 effectsImage.imageReceiver.getLottieAnimation() == null ? 0 :  Math.max(0, effectsImage.imageReceiver.getLottieAnimation().getDuration() - 100)
-        );
+        ) / (quick ? 2 : 1);
 //        float animationT = animationDuration <= 0 ? 0 : Math.max(0, Math.min(1, (NOW - start) / animationDuration));
-        float toMovingT = Math.max(0, Math.min(1, Math.max(abortStartTime <= 0 ? 0 : (NOW - abortStartTime) / 150f, animationDuration <= 0 ? 0 : (NOW - (start + animationDuration)) / 150f)));
+        float toMovingTDuration = quick ? 150f : 200f, abortDuration = quick ? 125f : 200f;
+        float toMovingT = Math.max(0, Math.min(1, Math.max(abortStartTime <= 0 ? 0 : (NOW - abortStartTime) / abortDuration, animationDuration <= 0 ? 0 : (NOW - (start + animationDuration)) / toMovingTDuration)));
         toMovingT = easeInOutQuad(toMovingT);
 
         from.set(fromCoordinates);
@@ -443,6 +447,11 @@ public class ReactionAnimationView extends FrameLayout implements NotificationCe
             boundsF.left + (boundsF.width() + mainImageSizePx) / 2f,
             Math.max(effectsImageRect.centerY() - mainImageSizePx / 2f, 0) + mainImageSizePx
         );
+        if (middle.bottom > boundsF.bottom - dp(16))
+            middle.offset(0, -(middle.bottom - (boundsF.bottom - dp(16))));
+        else if (middle.top < dp(16))
+            middle.offset(0, (dp(16) - middle.top));
+
         toEffects.set(boundsF.left + (boundsF.width() - effectsImageSizePx) / 2f, boundsF.top + (boundsF.height() - effectsImageSizePx) / 2f, boundsF.left + (boundsF.width() + effectsImageSizePx) / 2f, boundsF.top + (boundsF.height() + effectsImageSizePx) / 2f);
 
         float centerX = from.centerX() + (middle.centerX() - from.centerX()) * fromMovingT,
@@ -458,18 +467,22 @@ public class ReactionAnimationView extends FrameLayout implements NotificationCe
         if (fromImage == staticImage) {
             layout(fromImage, current);
             fromImage.setAlpha(Math.max(mainImage.imageReceiver.getLottieAnimation() == null ? 1 : 0, Math.max(1f - fromMovingT, Math.min(1, toMovingT))));
+            if (toMovingT > 0.95f)
+                fromImage.setAlpha((1f - toMovingT) / .05f);
         } else {
             layout(fromImage, current);
             fromImage.setAlpha(Math.max(mainImage.imageReceiver.getLottieAnimation() == null ? 1 : 0, 1f - fromMovingT));
 
             layout(staticImage, current);
             staticImage.setAlpha(Math.min(1, toMovingT));
+            if (toMovingT > 0.95f)
+                staticImage.setAlpha((1f - toMovingT) / .05f);
         }
 
         layout(mainImage, current);
         mainImage.setAlpha(Math.min(fromMovingT, 1f - toMovingT));
 
-        if (animationDuration > 0 && ((abortStartTime > 0 && NOW - abortStartTime > 150) || NOW - start > 360 + animationDuration)) {
+        if (animationDuration > 0 && ((abortStartTime > 0 && NOW - abortStartTime > abortDuration) || NOW - start > fromMovingTDuration + animationDuration + toMovingTDuration)) {
             setAlpha(0f);
             if (onDismiss != null)
                 onDismiss.run();
