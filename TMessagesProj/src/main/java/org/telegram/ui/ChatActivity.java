@@ -1374,7 +1374,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                 rectF.set(x, y, x, y);
                                 rectF.offset(p.x, p.y);
                                 reactionAnimation.initFromStatic(rectF, messageCell);
-                            }
+                            } else
+                                rotateMotionBackgroundDrawable();
                         } else {
                             createMenu(view, true, false, x, y);
                         }
@@ -20197,7 +20198,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         chatMessageCell = (ChatMessageCell) scrimView;
                     }
                     reactionAnimation.initFromSelect(imageView, chatMessageCell);
-                }
+                } else
+                    rotateMotionBackgroundDrawable();
 
                 getMessagesController().sendReaction(dialog_id, message.messageOwner.id, reactionToSend);
             }, user -> {
@@ -23562,7 +23564,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             RectF from = new RectF();
                             cell.getReactionImagePosition(toReaction, from);
                             reactionAnimation.initFromStatic(from, cell);
-                        }
+                        } else
+                            rotateMotionBackgroundDrawable();
                         getMessagesController().sendReaction(dialog_id, messageObject.getId(), toReaction);
                     }
                 });

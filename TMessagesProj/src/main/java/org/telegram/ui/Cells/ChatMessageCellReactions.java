@@ -109,7 +109,7 @@ public class ChatMessageCellReactions extends FrameLayout implements Notificatio
         if (Theme.isCurrentThemeDark() || Theme.isCurrentThemeNight())
             chipAvatarBorder.setColor((new int[] { 0x00000000, 0xff253749, 0xff426A84 })[look]); // TODO(dkaraush): color!
         else
-            chipAvatarBorder.setColor((new int[] { 0x00000000, 0xffebf4fa, 0xff253749 })[look]); // TODO(dkaraush): color!
+            chipAvatarBorder.setColor((new int[] { 0x00000000, 0xffebf4fa, 0xffddf4cd })[look]); // TODO(dkaraush): color!
 
         invalidate();
     }

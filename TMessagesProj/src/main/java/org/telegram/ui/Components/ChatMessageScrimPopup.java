@@ -1150,16 +1150,16 @@ public class ChatMessageScrimPopup extends FrameLayout {
                 if (this.adapter.loader == null) {
                     this.adapter.setLoader(loader);
                 } else {
-                    if (loader != null && loader.loaderData != null && newData != null)
-                        this.adapter.notifyItemRangeChanged(loader.loaderData.size() - newData.size(), newData.size());
-                    else
+                    if (loader != null && loader.loaderData != null && newData != null) {
+                        if (newCount > 0 && newCount != adapter.initialCount) {
+                            adapter.initialCount = newCount;
+                            this.adapter.notifyDataSetChanged();
+                        } else
+                            this.adapter.notifyItemRangeChanged(loader.loaderData.size() - newData.size(), newData.size());
+                    } else
                         this.adapter.notifyDataSetChanged();
                 }
 
-//                if (newCount > 0 && newCount != adapter.initialCount) {
-//                    adapter.initialCount = newCount;
-//                    this.adapter.notifyDataSetChanged();
-//                }
             });
             loader.load();
 
@@ -1248,17 +1248,19 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     hasMore = res.next_offset != null;
                     if (filter != null)
                         count = res.count;
-                    loaderData.addAll(newData);
-                    if (!hasMore && filter == null) {
-                        appendMessageSeen();
-                    }
                     AndroidUtilities.runOnUIThread(() -> {
+                        loaderData.addAll(newData);
+                        if (!hasMore && filter == null) {
+                            appendMessageSeen();
+                        }
                         if (onAppendData != null)
                             onAppendData.run(newData, count);
                     });
                 } else {
                     hasMore = false;
-                    AndroidUtilities.runOnUIThread(this::appendMessageSeen);
+                    if (filter == null) {
+                        AndroidUtilities.runOnUIThread(this::appendMessageSeen);
+                    }
                 }
                 this.loading = false;
 
@@ -1287,8 +1289,8 @@ public class ChatMessageScrimPopup extends FrameLayout {
                     if (!alreadyHasThatUser)
                         messageSeenData.add(new ReactionUserData(user, null));
                 }
-                loaderData.addAll(messageSeenData);
                 AndroidUtilities.runOnUIThread(() -> {
+                    loaderData.addAll(messageSeenData);
                     if (onAppendData != null)
                         onAppendData.run(messageSeenData, loaderData.size());
                 });
@@ -1309,8 +1311,8 @@ public class ChatMessageScrimPopup extends FrameLayout {
                         if (!alreadyHasThatUser)
                             messageSeenData.add(new ReactionUserData(user, null));
                     }
-                    loaderData.addAll(messageSeenData);
                     AndroidUtilities.runOnUIThread(() -> {
+                        loaderData.addAll(messageSeenData);
                         if (onAppendData != null)
                             onAppendData.run(messageSeenData, loaderData.size());
                     });
