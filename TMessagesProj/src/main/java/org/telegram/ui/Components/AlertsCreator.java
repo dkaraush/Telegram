@@ -4282,7 +4282,7 @@ public class AlertsCreator {
                 if (checks[1]) {
                     TLRPC.TL_channels_reportSpam req = new TLRPC.TL_channels_reportSpam();
                     req.channel = MessagesController.getInputChannel(chat);
-                    req.user_id = MessagesController.getInstance(currentAccount).getInputUser(userFinal);
+                    req.participant = MessagesController.getInstance(currentAccount).getInputPeer(userFinal);
                     req.id = ids;
                     ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> {
 
