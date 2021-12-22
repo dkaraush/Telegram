@@ -33,6 +33,7 @@ import org.telegram.tgnet.TLObject;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Cells.ChatMessageCell;
+import org.telegram.ui.Components.SpoilerSpan;
 import org.telegram.ui.Components.TextStyleSpan;
 import org.telegram.ui.Components.TypefaceSpan;
 import org.telegram.ui.Components.URLSpanBotCommand;
@@ -3972,6 +3973,9 @@ public class MessageObject {
     }
 
     public static boolean addEntitiesToText(CharSequence text, ArrayList<TLRPC.MessageEntity> entities, boolean out, boolean usernames, boolean photoViewer, boolean useManualParse) {
+        return addEntitiesToText(text, entities, out, usernames, photoViewer, useManualParse, false);
+    }
+    public static boolean addEntitiesToText(CharSequence text, ArrayList<TLRPC.MessageEntity> entities, boolean out, boolean usernames, boolean photoViewer, boolean useManualParse, boolean spoilersOnly) {
         if (!(text instanceof Spannable)) {
             return false;
         }
@@ -4010,16 +4014,18 @@ public class MessageObject {
                 entity.length = text.length() - entity.offset;
             }
 
-            if (!useManualParse || entity instanceof TLRPC.TL_messageEntityBold ||
-                    entity instanceof TLRPC.TL_messageEntityItalic ||
-                    entity instanceof TLRPC.TL_messageEntityStrike ||
-                    entity instanceof TLRPC.TL_messageEntityUnderline ||
-                    entity instanceof TLRPC.TL_messageEntityBlockquote ||
-                    entity instanceof TLRPC.TL_messageEntityCode ||
-                    entity instanceof TLRPC.TL_messageEntityPre ||
-                    entity instanceof TLRPC.TL_messageEntityMentionName ||
-                    entity instanceof TLRPC.TL_inputMessageEntityMentionName ||
-                    entity instanceof TLRPC.TL_messageEntityTextUrl) {
+            if (!useManualParse ||
+                entity instanceof TLRPC.TL_messageEntitySpoiler ||
+                entity instanceof TLRPC.TL_messageEntityBold ||
+                entity instanceof TLRPC.TL_messageEntityItalic ||
+                entity instanceof TLRPC.TL_messageEntityStrike ||
+                entity instanceof TLRPC.TL_messageEntityUnderline ||
+                entity instanceof TLRPC.TL_messageEntityBlockquote ||
+                entity instanceof TLRPC.TL_messageEntityCode ||
+                entity instanceof TLRPC.TL_messageEntityPre ||
+                entity instanceof TLRPC.TL_messageEntityMentionName ||
+                entity instanceof TLRPC.TL_inputMessageEntityMentionName ||
+                entity instanceof TLRPC.TL_messageEntityTextUrl) {
                 if (spans != null && spans.length > 0) {
                     for (int b = 0; b < spans.length; b++) {
                         if (spans[b] == null) {
@@ -4045,6 +4051,8 @@ public class MessageObject {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_UNDERLINE;
             } else if (entity instanceof TLRPC.TL_messageEntityBlockquote) {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_QUOTE;
+            } else if (entity instanceof TLRPC.TL_messageEntitySpoiler) {
+                newRun.flags = TextStyleSpan.FLAG_STYLE_SPOILER;
             } else if (entity instanceof TLRPC.TL_messageEntityBold) {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_BOLD;
             } else if (entity instanceof TLRPC.TL_messageEntityItalic) {
@@ -4076,6 +4084,9 @@ public class MessageObject {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_URL;
                 newRun.urlEntity = entity;
             }
+
+            if (spoilersOnly && newRun.flags != TextStyleSpan.FLAG_STYLE_SPOILER)
+                continue;
 
             for (int b = 0, N2 = runs.size(); b < N2; b++) {
                 TextStyleSpan.TextStyleRun run = runs.get(b);
@@ -4179,6 +4190,8 @@ public class MessageObject {
                 spannable.setSpan(new URLSpanUserMention("" + ((TLRPC.TL_inputMessageEntityMentionName) run.urlEntity).user_id.user_id, t, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             } else if ((run.flags & TextStyleSpan.FLAG_STYLE_MONO) != 0) {
                 spannable.setSpan(new URLSpanMono(spannable, run.start, run.end, t, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if ((run.flags & TextStyleSpan.FLAG_STYLE_SPOILER) != 0) {
+                spannable.setSpan(new SpoilerSpan(null, run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             } else {
                 spannable.setSpan(new TextStyleSpan(run), run.start, run.end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             }

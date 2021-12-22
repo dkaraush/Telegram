@@ -30588,9 +30588,6 @@ public class TLRPC {
     public static class TL_messageEntitySpoiler extends MessageEntity {
         public static int constructor = 0x32ca960f;
 
-        public int offset;
-        public int length;
-
         public void readParams(AbstractSerializedData stream, boolean exception) {
             offset = stream.readInt32(exception);
             length = stream.readInt32(exception);

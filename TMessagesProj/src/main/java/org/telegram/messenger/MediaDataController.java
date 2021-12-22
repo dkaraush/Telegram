@@ -49,6 +49,7 @@ import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.Bulletin;
 import org.telegram.ui.Components.SharedMediaLayout;
+import org.telegram.ui.Components.SpoilerSpan;
 import org.telegram.ui.Components.StickerSetBulletinLayout;
 import org.telegram.ui.Components.StickersArchiveAlert;
 import org.telegram.ui.Components.TextStyleSpan;
@@ -4379,7 +4380,9 @@ public class MediaDataController extends BaseController {
                 run.replace(newStyleRun);
             }
         }
-        if (baseSpan instanceof TextStyleSpan) {
+        if (run.isSpoiler()) {
+            return new SpoilerSpan(null, run);
+        } else if (baseSpan instanceof TextStyleSpan) {
             return new TextStyleSpan(run);
         } else if (baseSpan instanceof URLSpanReplacement) {
             URLSpanReplacement span = (URLSpanReplacement) baseSpan;
@@ -4388,14 +4391,14 @@ public class MediaDataController extends BaseController {
         return null;
     }
 
-    public static void addStyleToText(TextStyleSpan span, int start, int end, Spannable editable, boolean allowIntersection) {
+    public static void addStyleToText(CharacterStyle span, int start, int end, Spannable editable, boolean allowIntersection) {
         try {
             CharacterStyle[] spans = editable.getSpans(start, end, CharacterStyle.class);
             if (spans != null && spans.length > 0) {
                 for (int a = 0; a < spans.length; a++) {
                     CharacterStyle oldSpan = spans[a];
                     TextStyleSpan.TextStyleRun textStyleRun;
-                    TextStyleSpan.TextStyleRun newStyleRun = span != null ? span.getTextStyleRun() : new TextStyleSpan.TextStyleRun();
+                    TextStyleSpan.TextStyleRun newStyleRun = span != null && span instanceof TextStyleSpan ? ((TextStyleSpan) span).getTextStyleRun() : new TextStyleSpan.TextStyleRun();
                     if (oldSpan instanceof TextStyleSpan) {
                         TextStyleSpan textStyleSpan = (TextStyleSpan) oldSpan;
                         textStyleRun = textStyleSpan.getTextStyleRun();
@@ -4417,7 +4420,10 @@ public class MediaDataController extends BaseController {
                     if (spanStart > start && end > spanEnd) {
                         editable.setSpan(createNewSpan(oldSpan, textStyleRun, newStyleRun, allowIntersection), spanStart, spanEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         if (span != null) {
-                            editable.setSpan(new TextStyleSpan(new TextStyleSpan.TextStyleRun(newStyleRun)), spanEnd, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            if (newStyleRun.isSpoiler())
+                                editable.setSpan(new SpoilerSpan(null, newStyleRun), spanEnd, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            else
+                                editable.setSpan(new TextStyleSpan(new TextStyleSpan.TextStyleRun(newStyleRun)), spanEnd, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
                         end = spanStart;
                     } else {
@@ -4485,6 +4491,8 @@ public class MediaDataController extends BaseController {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_UNDERLINE;
             } else if (entity instanceof TLRPC.TL_messageEntityBlockquote) {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_QUOTE;
+            } else if (entity instanceof TLRPC.TL_messageEntitySpoiler) {
+                newRun.flags = TextStyleSpan.FLAG_STYLE_SPOILER;
             } else if (entity instanceof TLRPC.TL_messageEntityBold) {
                 newRun.flags = TextStyleSpan.FLAG_STYLE_BOLD;
             } else if (entity instanceof TLRPC.TL_messageEntityItalic) {
@@ -4570,6 +4578,12 @@ public class MediaDataController extends BaseController {
     }
 
     public void addStyle(int flags, int spanStart, int spanEnd, ArrayList<TLRPC.MessageEntity> entities) {
+        if ((flags & TextStyleSpan.FLAG_STYLE_SPOILER) != 0) {
+            TLRPC.MessageEntity entity = new TLRPC.TL_messageEntitySpoiler();
+            entity.offset = spanStart;
+            entity.length = spanEnd - spanStart;
+            entities.add(entity);
+        }
         if ((flags & TextStyleSpan.FLAG_STYLE_BOLD) != 0) {
             TLRPC.MessageEntity entity = new TLRPC.TL_messageEntityBold();
             entity.offset = spanStart;
@@ -4622,6 +4636,7 @@ public class MediaDataController extends BaseController {
         final String bold = "**";
         final String italic = "__";
         final String strike = "~~";
+        final String spoiler = "||";
         while ((index = TextUtils.indexOf(message[0], !isPre ? mono : pre, lastIndex)) != -1) {
             if (start == -1) {
                 isPre = message[0].length() - index > 2 && message[0].charAt(index + 1) == '`' && message[0].charAt(index + 2) == '`';
@@ -4744,8 +4759,9 @@ public class MediaDataController extends BaseController {
             }
         }
 
-        int count = allowStrike ? 3 : 2;
-        for (int c = 0; c < count; c++) {
+        for (int c = 0; c < 4; c++) {
+            if (c == 2 && !allowStrike)
+                continue;
             lastIndex = 0;
             start = -1;
             String checkString;
@@ -4758,6 +4774,10 @@ public class MediaDataController extends BaseController {
                 case 1:
                     checkString = italic;
                     checkChar = '_';
+                    break;
+                case 3:
+                    checkString = spoiler;
+                    checkChar = '|';
                     break;
                 case 2:
                 default:
@@ -4800,6 +4820,8 @@ public class MediaDataController extends BaseController {
                             entity = new TLRPC.TL_messageEntityBold();
                         } else if (c == 1) {
                             entity = new TLRPC.TL_messageEntityItalic();
+                        } else if (c == 3) {
+                            entity = new TLRPC.TL_messageEntitySpoiler();
                         } else {
                             entity = new TLRPC.TL_messageEntityStrike();
                         }

@@ -64,11 +64,10 @@ import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.animation.Interpolator;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import androidx.core.graphics.ColorUtils;
-
-import com.google.android.exoplayer2.util.Log;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AndroidUtilities;
@@ -113,6 +112,7 @@ import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.EmptyStubSpan;
 import org.telegram.ui.Components.FloatSeekBarAccessibilityDelegate;
 import org.telegram.ui.Components.InfiniteProgress;
+import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.LinkPath;
 import org.telegram.ui.Components.MediaActionDrawable;
 import org.telegram.ui.Components.MessageBackgroundDrawable;
@@ -126,6 +126,7 @@ import org.telegram.ui.Components.SeekBar;
 import org.telegram.ui.Components.SeekBarAccessibilityDelegate;
 import org.telegram.ui.Components.SeekBarWaveform;
 import org.telegram.ui.Components.SlotsDrawable;
+import org.telegram.ui.Components.SpoilerSpan;
 import org.telegram.ui.Components.StaticLayoutEx;
 import org.telegram.ui.Components.TextStyleSpan;
 import org.telegram.ui.Components.TimerParticles;
@@ -1001,11 +1002,12 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return new int[]{start, end};
     }
 
+    private SpoilerSpan pressedSpoiler = null;
     private boolean checkTextBlockMotionEvent(MotionEvent event) {
         if (currentMessageObject.type != 0 || currentMessageObject.textLayoutBlocks == null || currentMessageObject.textLayoutBlocks.isEmpty() || !(currentMessageObject.messageText instanceof Spannable)) {
             return false;
         }
-        if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP && pressedLinkType == 1) {
+        if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
             int x = (int) event.getX();
             int y = (int) event.getY();
             if (x >= textX && y >= textY && x <= textX + currentMessageObject.textWidth && y <= textY + currentMessageObject.textHeight) {
@@ -1027,78 +1029,95 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     final float left = block.textLayout.getLineLeft(line);
                     if (left <= x && left + block.textLayout.getLineWidth(line) >= x) {
                         Spannable buffer = (Spannable) currentMessageObject.messageText;
-                        CharacterStyle[] link = buffer.getSpans(off, off, ClickableSpan.class);
-                        boolean isMono = false;
-                        if (link == null || link.length == 0) {
-                            link = buffer.getSpans(off, off, URLSpanMono.class);
-                            isMono = true;
-                        }
-                        boolean ignore = false;
-                        if (link.length == 0 || link[0] instanceof URLSpanBotCommand && !URLSpanBotCommand.enabled) {
-                            ignore = true;
-                        }
-                        if (!ignore) {
-                            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                                pressedLink = link[0];
-                                linkBlockNum = blockNum;
-                                pressedLinkType = 1;
-                                resetUrlPaths(false);
-                                try {
-                                    LinkPath path = obtainNewUrlPath(false);
-                                    int[] pos = getRealSpanStartAndEnd(buffer, pressedLink);
-                                    path.setCurrentLayout(block.textLayout, pos[0], 0);
-                                    block.textLayout.getSelectionPath(pos[0], pos[1], path);
-                                    if (pos[1] >= block.charactersEnd) {
-                                        for (int a = blockNum + 1; a < currentMessageObject.textLayoutBlocks.size(); a++) {
-                                            MessageObject.TextLayoutBlock nextBlock = currentMessageObject.textLayoutBlocks.get(a);
-                                            CharacterStyle[] nextLink;
-                                            if (isMono) {
-                                                nextLink = buffer.getSpans(nextBlock.charactersOffset, nextBlock.charactersOffset, URLSpanMono.class);
-                                            } else {
-                                                nextLink = buffer.getSpans(nextBlock.charactersOffset, nextBlock.charactersOffset, ClickableSpan.class);
-                                            }
-                                            if (nextLink == null || nextLink.length == 0 || nextLink[0] != pressedLink) {
-                                                break;
-                                            }
-                                            path = obtainNewUrlPath(false);
-                                            path.setCurrentLayout(nextBlock.textLayout, 0, nextBlock.textYOffset - block.textYOffset);
-                                            nextBlock.textLayout.getSelectionPath(0, pos[1], path);
-                                            if (pos[1] < nextBlock.charactersEnd - 1) {
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (pos[0] <= block.charactersOffset) {
-                                        int offsetY = 0;
-                                        for (int a = blockNum - 1; a >= 0; a--) {
-                                            MessageObject.TextLayoutBlock nextBlock = currentMessageObject.textLayoutBlocks.get(a);
-                                            CharacterStyle[] nextLink;
-                                            if (isMono) {
-                                                nextLink = buffer.getSpans(nextBlock.charactersEnd - 1, nextBlock.charactersEnd - 1, URLSpanMono.class);
-                                            } else {
-                                                nextLink = buffer.getSpans(nextBlock.charactersEnd - 1, nextBlock.charactersEnd - 1, ClickableSpan.class);
-                                            }
-                                            if (nextLink == null || nextLink.length == 0 || nextLink[0] != pressedLink) {
-                                                break;
-                                            }
-                                            path = obtainNewUrlPath(false);
-                                            offsetY -= nextBlock.height;
-                                            path.setCurrentLayout(nextBlock.textLayout, pos[0], offsetY);
-                                            nextBlock.textLayout.getSelectionPath(pos[0], pos[1], path);
-                                            if (pos[0] > nextBlock.charactersOffset) {
-                                                break;
+                        if (pressedLinkType == 1) {
+                            CharacterStyle[] link = buffer.getSpans(off, off, ClickableSpan.class);
+                            boolean isMono = false;
+                            if (link == null || link.length == 0) {
+                                link = buffer.getSpans(off, off, URLSpanMono.class);
+                                isMono = true;
+                            }
+                            boolean ignore = false;
+                            if (link.length == 0 || link[0] instanceof URLSpanBotCommand && !URLSpanBotCommand.enabled) {
+                                ignore = true;
+                            }
+                            if (!ignore) {
+                                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                                    pressedLink = link[0];
+                                    linkBlockNum = blockNum;
+                                    pressedLinkType = 1;
+                                    resetUrlPaths(false);
+                                    try {
+                                        LinkPath path = obtainNewUrlPath(false);
+                                        int[] pos = getRealSpanStartAndEnd(buffer, pressedLink);
+                                        path.setCurrentLayout(block.textLayout, pos[0], 0);
+                                        block.textLayout.getSelectionPath(pos[0], pos[1], path);
+                                        if (pos[1] >= block.charactersEnd) {
+                                            for (int a = blockNum + 1; a < currentMessageObject.textLayoutBlocks.size(); a++) {
+                                                MessageObject.TextLayoutBlock nextBlock = currentMessageObject.textLayoutBlocks.get(a);
+                                                CharacterStyle[] nextLink;
+                                                if (isMono) {
+                                                    nextLink = buffer.getSpans(nextBlock.charactersOffset, nextBlock.charactersOffset, URLSpanMono.class);
+                                                } else {
+                                                    nextLink = buffer.getSpans(nextBlock.charactersOffset, nextBlock.charactersOffset, ClickableSpan.class);
+                                                }
+                                                if (nextLink == null || nextLink.length == 0 || nextLink[0] != pressedLink) {
+                                                    break;
+                                                }
+                                                path = obtainNewUrlPath(false);
+                                                path.setCurrentLayout(nextBlock.textLayout, 0, nextBlock.textYOffset - block.textYOffset);
+                                                nextBlock.textLayout.getSelectionPath(0, pos[1], path);
+                                                if (pos[1] < nextBlock.charactersEnd - 1) {
+                                                    break;
+                                                }
                                             }
                                         }
+                                        if (pos[0] <= block.charactersOffset) {
+                                            int offsetY = 0;
+                                            for (int a = blockNum - 1; a >= 0; a--) {
+                                                MessageObject.TextLayoutBlock nextBlock = currentMessageObject.textLayoutBlocks.get(a);
+                                                CharacterStyle[] nextLink;
+                                                if (isMono) {
+                                                    nextLink = buffer.getSpans(nextBlock.charactersEnd - 1, nextBlock.charactersEnd - 1, URLSpanMono.class);
+                                                } else {
+                                                    nextLink = buffer.getSpans(nextBlock.charactersEnd - 1, nextBlock.charactersEnd - 1, ClickableSpan.class);
+                                                }
+                                                if (nextLink == null || nextLink.length == 0 || nextLink[0] != pressedLink) {
+                                                    break;
+                                                }
+                                                path = obtainNewUrlPath(false);
+                                                offsetY -= nextBlock.height;
+                                                path.setCurrentLayout(nextBlock.textLayout, pos[0], offsetY);
+                                                nextBlock.textLayout.getSelectionPath(pos[0], pos[1], path);
+                                                if (pos[0] > nextBlock.charactersOffset) {
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    } catch (Exception e) {
+                                        FileLog.e(e);
                                     }
-                                } catch (Exception e) {
-                                    FileLog.e(e);
+                                    invalidate();
+                                    return true;
+                                } else {
+                                    if (link[0] == pressedLink) {
+                                        delegate.didPressUrl(this, pressedLink, false);
+                                        resetPressedLink(1);
+                                        return true;
+                                    }
                                 }
-                                invalidate();
-                                return true;
-                            } else {
-                                if (link[0] == pressedLink) {
-                                    delegate.didPressUrl(this, pressedLink, false);
-                                    resetPressedLink(1);
+                            }
+                        }
+
+                        SpoilerSpan[] spoilers = buffer.getSpans(off, off, SpoilerSpan.class);
+                        if (spoilers != null && spoilers.length > 0) {
+                            SpoilerSpan spoiler = spoilers[0];
+                            if (spoiler != null) {
+                                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                                    pressedSpoiler = spoiler;
+                                    return true;
+                                } else if (pressedSpoiler == spoiler) {
+                                    spoiler.toggle(x, y);
+                                    pressedSpoiler = null;
                                     return true;
                                 }
                             }
@@ -3078,6 +3097,11 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         }
         if (!messageChanged && messageObject.isDice()) {
             setCurrentDiceValue(isUpdating);
+        }
+        if (messageIdChanged || messageChanged || dataChanged) {
+            SpoilerSpan.clearSpoilers(this);
+            if (replySpoilers != null)
+                removeView(replySpoilers);
         }
         if (!messageChanged && messageObject.isPoll()) {
             ArrayList<TLRPC.TL_pollAnswerVoters> newResults = null;
@@ -8411,10 +8435,27 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 try {
                     Emoji.emojiDrawingYOffset = -transitionYOffsetForDrawables;
                     block.textLayout.draw(canvas);
+
+//                    int backgroundColor = isDrawSelectionBackground() ?
+//                            Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outBubbleSelected : Theme.key_chat_inBubbleSelected) :
+//                            Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outBubble : Theme.key_chat_inBubble);
+                    int textColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_messageTextOut : Theme.key_chat_messageTextIn);
+                    int particleColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outTimeText : (Theme.isCurrentThemeDark() || Theme.isCurrentThemeNight() ? Theme.key_chat_messageTextIn : Theme.key_chat_inTimeText));
+                    SpoilerSpan.putSpoilers(
+                        new SpoilerSpan.SpoilerSpanLocation(currentAccount, currentMessageObject == null ? null : currentMessageObject.getDialogId(), currentMessageObject == null ? null : currentMessageObject.getId()),
+                        this,
+//                        (View) this.getParent(),
+                        block.textLayout,
+//                        backgroundColor,
+                        textColor, particleColor,
+                        textX - (block.isRtl() ? (int) Math.ceil(currentMessageObject.textXOffset) : 0),
+                        textY + block.textYOffset + transitionYOffsetForDrawables
+                    );
                     Emoji.emojiDrawingYOffset = 0;
                 } catch (Exception e) {
                     FileLog.e(e);
                 }
+
                 canvas.restore();
             }
             if (needRestoreColor) {
@@ -9988,6 +10029,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         }
                         mess = mess.replace('\n', ' ');
                         stringFinalText = Emoji.replaceEmoji(mess, Theme.chat_replyTextPaint.getFontMetricsInt(), AndroidUtilities.dp(14), false);
+                        MessageObject.addEntitiesToText(stringFinalText, messageObject.replyMessageObject.messageOwner.entities, messageObject.isOut(), false, false, true, true);
                         stringFinalText = TextUtils.ellipsize(stringFinalText, Theme.chat_replyTextPaint, maxWidth, TextUtils.TruncateAt.END);
                     } else if (messageObject.replyMessageObject.messageText != null && messageObject.replyMessageObject.messageText.length() > 0) {
                         String mess = messageObject.replyMessageObject.messageText.toString();
@@ -9996,6 +10038,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         }
                         mess = mess.replace('\n', ' ');
                         stringFinalText = Emoji.replaceEmoji(mess, Theme.chat_replyTextPaint.getFontMetricsInt(), AndroidUtilities.dp(14), false);
+                        MessageObject.addEntitiesToText(stringFinalText, messageObject.replyMessageObject.messageOwner.entities, messageObject.isOut(), false, false, true, true);
                         stringFinalText = TextUtils.ellipsize(stringFinalText, Theme.chat_replyTextPaint, maxWidth, TextUtils.TruncateAt.END);
                     }
                 } else {
@@ -10035,6 +10078,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                         if (idx >= 0 && (currentForwardName == null || messageObject.messageOwner.fwd_from.from_id != null)) {
                             stringBuilder.setSpan(new TypefaceSpan(AndroidUtilities.getTypeface("fonts/rmedium.ttf")), idx, idx + n.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
+                        MessageObject.addEntitiesToText(stringFinalText, messageObject.replyMessageObject.messageOwner.entities, messageObject.isOut(), false, false, true, true);
                         stringFinalText = TextUtils.ellipsize(stringBuilder, Theme.chat_replyTextPaint, maxWidth, TextUtils.TruncateAt.END);
                         forwardNameCenterX = fromWidth + (int) Math.ceil(Theme.chat_replyNamePaint.measureText(n, 0, n.length())) / 2;
                     }
@@ -11018,6 +11062,7 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
         return !TextUtils.equals(lastPostAuthor, currentMessageObject.messageOwner.post_author);
     }
 
+    private ViewGroup replySpoilers = null;
     public void drawNamesLayout(Canvas canvas, float alpha) {
         long newAnimationTime = SystemClock.elapsedRealtime();
         long dt = newAnimationTime - lastNamesAnimationTime;
@@ -11411,6 +11456,17 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                     canvas.save();
                     canvas.translate(forwardNameX, replyStartY + AndroidUtilities.dp(19));
                     replyTextLayout.draw(canvas);
+                    int textColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_messageTextOut : Theme.key_chat_messageTextIn);
+                    int particleColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outTimeText : (Theme.isCurrentThemeDark() || Theme.isCurrentThemeNight() ? Theme.key_chat_messageTextIn : Theme.key_chat_inTimeText));
+                    if (replySpoilers == null) {
+                        this.addView(replySpoilers = new FrameLayout(getContext()), LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+                        replySpoilers.setClipChildren(false);
+                    }
+                    replySpoilers.layout(0, 0, getWidth(), getHeight());
+                    SpoilerSpan.putSpoilers(
+                        new SpoilerSpan.SpoilerSpanLocation(currentAccount, currentMessageObject == null || currentMessageObject.replyMessageObject == null ? null : currentMessageObject.replyMessageObject.getDialogId(), currentMessageObject == null || currentMessageObject.replyMessageObject == null ? null : currentMessageObject.replyMessageObject.getId()),
+                        replySpoilers, replyTextLayout, textColor, particleColor, forwardNameX, replyStartY + AndroidUtilities.dp(19)
+                    );
                     canvas.restore();
                 }
             }
@@ -11832,6 +11888,21 @@ public class ChatMessageCell extends BaseCell implements SeekBar.SeekBarDelegate
                 }
                 Emoji.emojiDrawingYOffset = -transitionYOffsetForDrawables;
                 captionLayout.draw(canvas);
+
+//                int backgroundColor = isDrawSelectionBackground() ?
+//                        Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outBubbleSelected : Theme.key_chat_inBubbleSelected) :
+//                        Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outBubble : Theme.key_chat_inBubble);
+                int textColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_messageTextOut : Theme.key_chat_messageTextIn);
+                int particleColor = Theme.getColor(currentMessageObject.isOutOwner() ? Theme.key_chat_outTimeText : (Theme.isCurrentThemeDark() || Theme.isCurrentThemeNight() ? Theme.key_chat_messageTextIn : Theme.key_chat_inTimeText));
+                SpoilerSpan.putSpoilers(
+                    new SpoilerSpan.SpoilerSpanLocation(currentAccount, currentMessageObject == null ? null : currentMessageObject.getDialogId(), currentMessageObject == null ? null : currentMessageObject.getId()),
+                    this,
+//                    (View) this.getParent(),
+                    captionLayout,
+//                    backgroundColor,
+                    textColor, particleColor,
+                    captionX, captionY
+                );
                 Emoji.emojiDrawingYOffset = 0;
             } catch (Exception e) {
                 FileLog.e(e);

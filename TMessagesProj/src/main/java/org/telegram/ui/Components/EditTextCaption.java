@@ -17,6 +17,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.Layout;
+import android.text.Spannable;
 import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextPaint;
@@ -93,6 +94,7 @@ public class EditTextCaption extends EditTextBoldCursor {
                     }
                     lineCount = getLineCount();
                 }
+                spansChanged();
             }
         });
     }
@@ -124,6 +126,15 @@ public class EditTextCaption extends EditTextBoldCursor {
         TextStyleSpan.TextStyleRun run = new TextStyleSpan.TextStyleRun();
         run.flags |= TextStyleSpan.FLAG_STYLE_BOLD;
         applyTextStyleToSelection(new TextStyleSpan(run));
+    }
+
+    public void makeSelectedSpoiler() {
+        TextStyleSpan.TextStyleRun run = new TextStyleSpan.TextStyleRun();
+        run.flags |= TextStyleSpan.FLAG_STYLE_SPOILER;
+        SpoilerSpan spoiler = new SpoilerSpan(null, run);
+        spoiler.state = false;
+        spoiler.setState(true);
+        applyTextStyleToSelection(spoiler);
     }
 
     public void makeSelectedItalic() {
@@ -208,9 +219,7 @@ public class EditTextCaption extends EditTextBoldCursor {
             } catch (Exception ignore) {
 
             }
-            if (delegate != null) {
-                delegate.onSpansChanged();
-            }
+            spansChanged();
         });
         builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
         builder.show().setOnShowListener(dialog -> {
@@ -240,7 +249,7 @@ public class EditTextCaption extends EditTextBoldCursor {
         selectionEnd = end;
     }
 
-    private void applyTextStyleToSelection(TextStyleSpan span) {
+    private void applyTextStyleToSelection(CharacterStyle span) {
         int start;
         int end;
         if (selectionStart >= 0 && selectionEnd >= 0) {
@@ -252,10 +261,24 @@ public class EditTextCaption extends EditTextBoldCursor {
             end = getSelectionEnd();
         }
         MediaDataController.addStyleToText(span, start, end, getText(), allowTextEntitiesIntersection);
+        spansChanged();
+    }
+
+    private StaticLayout layout = null;
+    private void spansChanged() {
         if (delegate != null) {
             delegate.onSpansChanged();
         }
+
+        Spannable text = getText();
+        SpoilerSpan[] spoilers = text.getSpans(0, text.length(), SpoilerSpan.class);
+        if (spoilers.length > 0) {
+            layout = new StaticLayout(text, getPaint(), getWidth(), Layout.Alignment.ALIGN_NORMAL, 1.0f, 0.0f, false);
+        } else
+            layout = null;
+        invalidate();
     }
+
 
     @Override
     public void onWindowFocusChanged(boolean hasWindowFocus) {
@@ -341,6 +364,9 @@ public class EditTextCaption extends EditTextBoldCursor {
     private boolean performMenuAction(int itemId) {
         if (itemId == R.id.menu_regular) {
             makeSelectedRegular();
+            return true;
+        } else if (itemId == R.id.menu_spoiler) {
+            makeSelectedSpoiler();
             return true;
         } else if (itemId == R.id.menu_bold) {
             makeSelectedBold();
@@ -437,11 +463,33 @@ public class EditTextCaption extends EditTextBoldCursor {
         return offsetY;
     }
 
+    public FrameLayout spoilers = null;
     @Override
     protected void onDraw(Canvas canvas) {
         canvas.save();
         canvas.translate(0, offsetY);
         super.onDraw(canvas);
+        if (spoilers == null) {
+            ViewGroup enterView = ((ViewGroup) ((ViewGroup) this.getParent()).getParent());
+            ((ViewGroup) ((ViewGroup) enterView.getParent()).getParent()).addView(spoilers = new FrameLayout(getContext()) {
+                @Override
+                protected void measureChild(View child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
+//                    super.measureChild(child, parentWidthMeasureSpec, parentHeightMeasureSpec);
+                }
+
+                @Override
+                protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                    super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(enterView.getMeasuredHeight(), MeasureSpec.EXACTLY));
+                }
+
+                @Override
+                protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+//                    super.onLayout(changed, left, top, right, bottom);
+                }
+
+            }, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, enterView.getMeasuredHeight(), Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
+            spoilers.bringToFront();
+        }
         try {
             if (captionLayout != null && userNameLength == length()) {
                 Paint paint = getPaint();
@@ -457,6 +505,23 @@ public class EditTextCaption extends EditTextBoldCursor {
             FileLog.e(e);
         }
         canvas.restore();
+
+
+        if (layout != null) {
+            canvas.save();
+            canvas.translate(xOffset, offsetY + getPaddingTop());
+            layout.draw(canvas);
+            canvas.restore();
+            SpoilerSpan.putSpoilers(
+                null,
+                    spoilers,
+                layout,
+                getPaint().getColor(),
+                getPaint().getColor(),
+                getLeft() + xOffset, getTop() + offsetY + getPaddingTop() - getScrollY()
+            );
+        } else
+            SpoilerSpan.clearSpoilers(spoilers);
     }
 
     @Override
@@ -475,6 +540,7 @@ public class EditTextCaption extends EditTextBoldCursor {
             }
         }
         if (hasSelection()) {
+            infoCompat.addAction(new AccessibilityNodeInfoCompat.AccessibilityActionCompat(R.id.menu_spoiler, LocaleController.getString("Spoiler", R.string.Spoiler)));
             infoCompat.addAction(new AccessibilityNodeInfoCompat.AccessibilityActionCompat(R.id.menu_bold, LocaleController.getString("Bold", R.string.Bold)));
             infoCompat.addAction(new AccessibilityNodeInfoCompat.AccessibilityActionCompat(R.id.menu_italic, LocaleController.getString("Italic", R.string.Italic)));
             infoCompat.addAction(new AccessibilityNodeInfoCompat.AccessibilityActionCompat(R.id.menu_mono, LocaleController.getString("Mono", R.string.Mono)));

@@ -82,6 +82,10 @@ public class TextStyleSpan extends MetricAffectingSpan {
                 return null;
             }
         }
+
+        public boolean isSpoiler() {
+            return (flags & FLAG_STYLE_SPOILER) != 0;
+        }
     }
 
     public final static int FLAG_STYLE_BOLD = 1;
@@ -92,6 +96,7 @@ public class TextStyleSpan extends MetricAffectingSpan {
     public final static int FLAG_STYLE_QUOTE = 32;
     public final static int FLAG_STYLE_MENTION = 64;
     public final static int FLAG_STYLE_URL = 128;
+    public final static int FLAG_STYLE_SPOILER = 256;
 
     public TextStyleSpan(TextStyleRun run) {
         this(run, 0, 0);
@@ -139,6 +144,10 @@ public class TextStyleSpan extends MetricAffectingSpan {
 
     public boolean isBoldItalic() {
         return style.getTypeface() == AndroidUtilities.getTypeface("fonts/rmediumitalic.ttf");
+    }
+
+    public boolean isSpoiler() {
+        return style.isSpoiler();
     }
 
     @Override

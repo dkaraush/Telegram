@@ -66,7 +66,6 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.LinearSmoothScrollerEnd;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.text.Editable;
 import android.text.Layout;
 import android.text.Selection;
 import android.text.Spannable;
@@ -126,7 +125,6 @@ import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.analytics.AnalyticsListener;
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
-import com.google.android.exoplayer2.util.Log;
 import com.google.android.gms.vision.Frame;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.face.FaceDetector;
@@ -218,6 +216,7 @@ import org.telegram.ui.Components.RLottieDrawable;
 import org.telegram.ui.Components.RadialProgressView;
 import org.telegram.ui.Components.RecyclerListView;
 import org.telegram.ui.Components.SizeNotifierFrameLayoutPhoto;
+import org.telegram.ui.Components.SpoilerSpan;
 import org.telegram.ui.Components.StickersAlert;
 import org.telegram.ui.Components.TextViewSwitcher;
 import org.telegram.ui.Components.Tooltip;
@@ -11090,6 +11089,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
             }
         }
 
+        StaticLayout captionLayout = null;
         if (!isCaptionEmpty) {
             Theme.createChatResources(null, true);
             CharSequence str;
@@ -11109,6 +11109,7 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 if (captionScrollView != null) {
                     captionScrollView.updateTopMargin();
                 }
+//                captionLayout = new StaticLayout(str, 0, str.length(), captionTextView.getPaint(), captionTextView.getWidth(), Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false);
             } catch (Exception e) {
                 FileLog.e(e);
             }
@@ -11128,6 +11129,16 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                 captionTextViewSwitcher.setVisibility(View.INVISIBLE, !withTransition || isCurrentCaptionEmpty);
                 captionTextViewSwitcher.setTag(null);
             }
+        }
+
+        if (captionLayout != null) {
+            SpoilerSpan.putSpoilers(
+                null,
+                (ViewGroup) captionTextViewSwitcher.getParent(),
+                captionLayout,
+                captionTextView.getPaint().getColor(), captionTextView.getPaint().getColor(),
+                captionTextViewSwitcher.getLeft(), captionTextViewSwitcher.getTop()
+            );
         }
     }
 

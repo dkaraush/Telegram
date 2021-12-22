@@ -3040,6 +3040,8 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
 
     @Override
     protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+        if (child instanceof SpoilerSpan.SpoilerView)
+            return false;
         boolean clip = child == topView || child == textFieldContainer;
         if (clip) {
             canvas.save();
@@ -5795,6 +5797,10 @@ public class ChatActivityEnterView extends FrameLayout implements NotificationCe
                                 TextStyleSpan.TextStyleRun run = new TextStyleSpan.TextStyleRun();
                                 run.flags |= TextStyleSpan.FLAG_STYLE_MONO;
                                 MediaDataController.addStyleToText(new TextStyleSpan(run), entity.offset, entity.offset + entity.length, stringBuilder, true);
+                            } else if (entity instanceof TLRPC.TL_messageEntitySpoiler) {
+                                TextStyleSpan.TextStyleRun run = new TextStyleSpan.TextStyleRun();
+                                run.flags |= TextStyleSpan.FLAG_STYLE_SPOILER;
+                                MediaDataController.addStyleToText(new SpoilerSpan(null, run), entity.offset, entity.offset + entity.length, stringBuilder, true);
                             } else if (entity instanceof TLRPC.TL_messageEntityBold) {
                                 TextStyleSpan.TextStyleRun run = new TextStyleSpan.TextStyleRun();
                                 run.flags |= TextStyleSpan.FLAG_STYLE_BOLD;

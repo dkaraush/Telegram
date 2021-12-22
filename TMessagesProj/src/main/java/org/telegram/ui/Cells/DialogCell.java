@@ -64,6 +64,7 @@ import org.telegram.ui.Components.AvatarDrawable;
 import org.telegram.ui.Components.CheckBox2;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.RLottieDrawable;
+import org.telegram.ui.Components.SpoilerSpan;
 import org.telegram.ui.Components.StaticLayoutEx;
 import org.telegram.ui.Components.StatusDrawable;
 import org.telegram.ui.Components.TypefaceSpan;
@@ -931,14 +932,15 @@ public class DialogCell extends BaseCell {
                             messageString = stringBuilder;
                         }
                     } else {
-                        String mess = draftMessage.message;
+                        SpannableStringBuilder mess = new SpannableStringBuilder(draftMessage.message);
                         if (mess.length() > 150) {
-                            mess = mess.substring(0, 150);
+                            mess = (SpannableStringBuilder) mess.subSequence(0, 150);
                         }
-                        SpannableStringBuilder stringBuilder = SpannableStringBuilder.valueOf(String.format(messageFormat, mess.replace('\n', ' '), messageNameString));
+                        SpannableStringBuilder stringBuilder = SpannableStringBuilder.valueOf(String.format(messageFormat, AndroidUtilities.replaceNewLines(mess), messageNameString));
                         if (!useForceThreeLines && !SharedConfig.useThreeLinesLayout) {
                             stringBuilder.setSpan(new ForegroundColorSpanThemable(Theme.key_chats_draft, resourcesProvider), 0, messageNameString.length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                         }
+                        MessageObject.addEntitiesToText(stringBuilder, draftMessage.entities, true, false, false, true, true);
                         messageString = Emoji.replaceEmoji(stringBuilder, Theme.dialogs_messagePaint[paintIndex].getFontMetricsInt(), AndroidUtilities.dp(20), false);
                     }
                 } else {
@@ -1127,6 +1129,7 @@ public class DialogCell extends BaseCell {
                                 } else {
                                     stringBuilder = SpannableStringBuilder.valueOf("");
                                 }
+                                MessageObject.addEntitiesToText(stringBuilder, message.messageOwner.entities, message.isOut(), false, false, true, true);
                                 int thumbInsertIndex = 0;
                                 if (!useForceThreeLines && !SharedConfig.useThreeLinesLayout || currentDialogFolderId != 0 && stringBuilder.length() > 0) {
                                     try {
@@ -1212,7 +1215,8 @@ public class DialogCell extends BaseCell {
                                             int w = getMeasuredWidth() - AndroidUtilities.dp(72 + 23 );
                                             messageString = AndroidUtilities.ellipsizeCenterEnd(messageString, message.highlightedWords.get(0), w, currentMessagePaint, 130).toString();
                                         } else {
-                                            messageString = message.messageText;
+                                            messageString = new SpannableStringBuilder(message.messageText);
+                                            MessageObject.addEntitiesToText(messageString, message.messageOwner.entities, message.isOut(), false, false, true, true);
                                         }
                                         AndroidUtilities.highlightText(messageString, message.highlightedWords, resourcesProvider);
                                     }
@@ -1242,6 +1246,7 @@ public class DialogCell extends BaseCell {
                                     builder.insert(0, " ");
                                     builder.setSpan(new FixedWidthSpan(AndroidUtilities.dp(thumbSize + 6)), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                                     Emoji.replaceEmoji(builder, Theme.dialogs_messagePaint[paintIndex].getFontMetricsInt(), AndroidUtilities.dp(17), false);
+                                    MessageObject.addEntitiesToText(builder, message.messageOwner.entities, message.isOut(), false, false, true, true);
                                     if (message.hasHighlightedWords()) {
                                         CharSequence s = AndroidUtilities.highlightText(builder, message.highlightedWords, resourcesProvider);
                                         if (s != null) {
@@ -1597,14 +1602,14 @@ public class DialogCell extends BaseCell {
             if (messageString == null) {
                 messageString = "";
             }
-            String mess = messageString.toString();
+            SpannableStringBuilder mess = new SpannableStringBuilder(messageString);
             if (mess.length() > 150) {
-                mess = mess.substring(0, 150);
+                mess = (SpannableStringBuilder) mess.subSequence(0, 150);
             }
             if (!useForceThreeLines && !SharedConfig.useThreeLinesLayout || messageNameString != null) {
-                mess = mess.replace('\n', ' ');
+                AndroidUtilities.replaceNewLines(mess);
             } else {
-                mess = mess.replace("\n\n", "\n");
+                mess = new SpannableStringBuilder(mess.toString().replace("\n\n", "\n")); // TODO(dkaraush)
             }
             messageString = Emoji.replaceEmoji(mess, Theme.dialogs_messagePaint[paintIndex].getFontMetricsInt(), AndroidUtilities.dp(17), false);
             if (message != null) {
@@ -2593,6 +2598,13 @@ public class DialogCell extends BaseCell {
             canvas.translate(messageLeft, messageTop);
             try {
                 messageLayout.draw(canvas);
+                SpoilerSpan.putSpoilers(
+                    null,
+                    this, messageLayout,
+                    messageLayout.getPaint().getColor(),
+                    messageLayout.getPaint().getColor(),
+                    messageLeft, messageTop
+                );
             } catch (Exception e) {
                 FileLog.e(e);
             }

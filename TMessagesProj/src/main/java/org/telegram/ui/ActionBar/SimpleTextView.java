@@ -34,10 +34,10 @@ import org.telegram.ui.Components.StaticLayoutEx;
 
 public class SimpleTextView extends View implements Drawable.Callback {
 
-    private Layout layout;
-    private Layout firstLineLayout;
-    private Layout fullLayout;
-    private Layout partLayout;
+    public StaticLayout layout;
+    public StaticLayout firstLineLayout;
+    private StaticLayout fullLayout;
+    private StaticLayout partLayout;
     private TextPaint textPaint;
     private int gravity = Gravity.LEFT | Gravity.TOP;
     private int maxLines = 1;

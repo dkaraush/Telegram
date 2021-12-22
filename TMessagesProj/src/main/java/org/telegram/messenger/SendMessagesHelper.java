@@ -1458,11 +1458,12 @@ public class SendMessagesHelper extends BaseController implements NotificationCe
                 entities = new ArrayList<>();
                 for (int a = 0; a < messageObject.messageOwner.entities.size(); a++) {
                     TLRPC.MessageEntity entity = messageObject.messageOwner.entities.get(a);
-                    if (entity instanceof TLRPC.TL_messageEntityBold ||
-                            entity instanceof TLRPC.TL_messageEntityItalic ||
-                            entity instanceof TLRPC.TL_messageEntityPre ||
-                            entity instanceof TLRPC.TL_messageEntityCode ||
-                            entity instanceof TLRPC.TL_messageEntityTextUrl) {
+                    if (entity instanceof TLRPC.TL_messageEntitySpoiler ||
+                        entity instanceof TLRPC.TL_messageEntityBold ||
+                        entity instanceof TLRPC.TL_messageEntityItalic ||
+                        entity instanceof TLRPC.TL_messageEntityPre ||
+                        entity instanceof TLRPC.TL_messageEntityCode ||
+                        entity instanceof TLRPC.TL_messageEntityTextUrl) {
                         entities.add(entity);
                     }
                 }
