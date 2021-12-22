@@ -71,6 +71,8 @@
 
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
+    <uses-sdk tools:overrideLibrary="com.google.mlkit.common, com.google.mlkit.nl.languageid.bundled" />
+
     <application
         android:name="org.telegram.messenger.ApplicationLoader"
         android:allowBackup="false"
