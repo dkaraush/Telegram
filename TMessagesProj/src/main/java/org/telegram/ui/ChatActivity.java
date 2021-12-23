@@ -238,6 +238,7 @@ import org.telegram.ui.Components.URLSpanUserMention;
 import org.telegram.ui.Components.UndoView;
 import org.telegram.ui.Components.ViewHelper;
 import org.telegram.ui.Components.voip.VoIPHelper;
+import org.telegram.ui.Components.TranslateAlert;
 import org.telegram.ui.Delegates.ChatActivityMemberRequestsDelegate;
 
 import java.io.BufferedWriter;
@@ -19990,22 +19991,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     updateDeleteItemRunnable.run();
                     cell.setSubtextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText6));
                 }
-                if (option == 29) {
-                    String interfaceLanguage = LocaleController.getInstance().getCurrentLocale().getLanguage();
-                    cell.setVisibility(View.GONE);
-                    LanguageIdentification.getClient()
-                            .identifyLanguage(selectedObject.messageOwner.message)
-                            .addOnSuccessListener((String lang) -> {
-                                if (lang != null && (!lang.equals(interfaceLanguage) || lang.equals("und"))) {
-                                    cell.setVisibility(View.VISIBLE);
-                                    // TODO(dkaraush): animation
-                                }
-                            })
-                            .addOnFailureListener((Exception e) -> {
-                                Log.e("mlkit", "failed to detect language in message");
-                                e.printStackTrace();
-                            });
-                }
                 scrimPopupWindowItems[a] = cell;
                 popupLayout.addView(cell);
                 final int i = a;
@@ -20021,6 +20006,35 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         scrimPopupWindow.dismiss();
                     }
                 });
+                if (option == 29) {
+                    String fromLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
+                    final String[] toLang = { null };
+                    cell.setVisibility(View.GONE);
+                    LanguageIdentification.getClient()
+                        .identifyLanguage(selectedObject.messageOwner.message)
+                        .addOnSuccessListener((String lang) -> {
+                            toLang[0] = lang;
+                            if (toLang[0] != null && (!toLang[0].equals(fromLang) || toLang[0].equals("und"))) {
+                                cell.setVisibility(View.VISIBLE); // TODO(dkaraush): animation
+                            }
+                        })
+                        .addOnFailureListener((Exception e) -> {
+                            Log.e("mlkit", "failed to detect language in message");
+                            e.printStackTrace();
+                        });
+                    cell.setOnClickListener(e -> {
+                        if (selectedObject == null || i >= options.size()) {
+                            return;
+                        }
+                        TranslateAlert.showAlert(getParentActivity(), null, fromLang, toLang[0], selectedObject.messageOwner.message);
+                        scrimView = null;
+                        contentView.invalidate();
+                        chatListView.invalidate();
+                        if (scrimPopupWindow != null) {
+                            scrimPopupWindow.dismiss();
+                        }
+                    });
+                }
             }
 
             LinearLayout scrimPopupContainerLayout = new LinearLayout(contentView.getContext()) {
@@ -21151,10 +21165,6 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 presentFragment(new MessageStatisticActivity(selectedObject));
                 break;
             }
-            case 29:
-                // TODO(dkaraush): show alert
-                Toast.makeText(fragmentView.getContext(), "Translate!", Toast.LENGTH_SHORT).show();
-                break;
             case 100: {
                 if (!checkSlowMode(chatActivityEnterView.getSendButton())) {
                     if (getMediaController().isPlayingMessage(selectedObject)) {
