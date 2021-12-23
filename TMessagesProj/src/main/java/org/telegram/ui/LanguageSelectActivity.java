@@ -8,29 +8,38 @@
 
 package org.telegram.ui;
 
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
+import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.LanguageCell;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenu;
 import org.telegram.ui.ActionBar.ActionBarMenuItem;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.Cells.ShadowSectionCell;
+import org.telegram.ui.Cells.TextCheckCell;
+import org.telegram.ui.Cells.TextInfoPrivacyCell;
+import org.telegram.ui.Cells.TextSettingsCell;
+import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.EmptyTextProgressView;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
@@ -38,6 +47,8 @@ import org.telegram.ui.Components.RecyclerListView;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -320,6 +331,101 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         });
     }
 
+    private class TranslateSettings extends LinearLayout {
+        private SharedPreferences preferences;
+
+        private HeaderCell header;
+        private TextCheckCell showButtonCheck;
+        private TextSettingsCell doNotTranslateCell;
+        private TextInfoPrivacyCell info;
+        private ValueAnimator doNotTranslateCellAnimation = null;
+
+        private SharedPreferences.OnSharedPreferenceChangeListener listener;
+
+        public TranslateSettings(Context context) {
+            super(context);
+
+            setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            setOrientation(VERTICAL);
+
+            preferences = MessagesController.getGlobalMainSettings();
+
+            header = new HeaderCell(context);
+            header.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
+            header.setText("Translate messages"); // TODO(dkaraush): text
+            addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            showButtonCheck = new TextCheckCell(context);
+            showButtonCheck.setBackground(Theme.createSelectorWithBackgroundDrawable(Theme.getColor(Theme.key_windowBackgroundWhite), Theme.getColor(Theme.key_listSelector)));
+            showButtonCheck.setTextAndCheck(
+                    "Show Translate Button", // TODO(dkaraush): text
+                    getValue(),
+                    true
+            );
+            showButtonCheck.setOnClickListener(e -> {
+                preferences.edit().putBoolean("translate_button", !getValue()).apply();
+            });
+            addView(showButtonCheck, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            doNotTranslateCell = new TextSettingsCell(context);
+            doNotTranslateCell.setBackground(Theme.createSelectorWithBackgroundDrawable(Theme.getColor(Theme.key_windowBackgroundWhite), Theme.getColor(Theme.key_listSelector)));
+            doNotTranslateCell.setTextAndValue("Do Not Translate", getRestrictedLanguages().size() + " Languages", false); // TODO(dkaraush): text
+            addView(doNotTranslateCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            info = new TextInfoPrivacyCell(context);
+            info.setText("The 'Translate' button will appear when you make a single tap on a text message."); // TODO(dkaraush): text
+            addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            update();
+        }
+
+        private boolean getValue() {
+            return preferences.getBoolean("translate_button", true);
+        }
+        private Set<String> getRestrictedLanguages() {
+            return preferences.getStringSet("translate_button_restricted_languages", new HashSet<>());
+        }
+
+        public void update() {
+            boolean value = getValue();
+
+            showButtonCheck.setChecked(value);
+
+            if (doNotTranslateCellAnimation != null) {
+                doNotTranslateCellAnimation.cancel();
+            }
+
+            doNotTranslateCellAnimation = ValueAnimator.ofFloat(doNotTranslateCell.getAlpha(), value ? 1f : 0f);
+            doNotTranslateCellAnimation.setInterpolator(CubicBezierInterpolator.DEFAULT);
+            doNotTranslateCellAnimation.addUpdateListener(a -> {
+                float t = (float) a.getAnimatedValue();
+                doNotTranslateCell.setAlpha(t);
+                doNotTranslateCell.setTranslationY(-AndroidUtilities.dp(8) * (1f - t));
+                info.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
+            });
+            doNotTranslateCellAnimation.setDuration((long) (Math.abs(doNotTranslateCell.getAlpha() - (value ? 1f : 0f)) * 200));
+            doNotTranslateCellAnimation.start();
+        }
+
+        @Override
+        protected void onAttachedToWindow() {
+            super.onAttachedToWindow();
+            preferences.registerOnSharedPreferenceChangeListener(listener = new SharedPreferences.OnSharedPreferenceChangeListener() {
+                @Override
+                public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
+                    preferences = sharedPreferences;
+                    update();
+                }
+            });
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            super.onDetachedFromWindow();
+            preferences.unregisterOnSharedPreferenceChangeListener(listener);
+        }
+    }
+
     private class ListAdapter extends RecyclerListView.SelectionAdapter {
 
         private Context mContext;
@@ -350,7 +456,7 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 if (!unofficialLanguages.isEmpty()) {
                     count += unofficialLanguages.size() + 1;
                 }
-                return count;
+                return 1 + count;
             }
         }
 
@@ -363,6 +469,9 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                     view.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
                     break;
                 }
+                case 2:
+                    view = new TranslateSettings(mContext);
+                    break;
                 case 1:
                 default: {
                     view = new ShadowSectionCell(mContext);
@@ -376,6 +485,8 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
             switch (holder.getItemViewType()) {
                 case 0: {
+                    if (!search)
+                        position--;
                     LanguageCell textSettingsCell = (LanguageCell) holder.itemView;
                     LocaleController.LocaleInfo localeInfo;
                     boolean last;
@@ -401,6 +512,8 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                     break;
                 }
                 case 1: {
+                    if (!search)
+                        position--;
                     ShadowSectionCell sectionCell = (ShadowSectionCell) holder.itemView;
                     if (!unofficialLanguages.isEmpty() && position == unofficialLanguages.size()) {
                         sectionCell.setBackgroundDrawable(Theme.getThemedDrawable(mContext, R.drawable.greydivider, Theme.key_windowBackgroundGrayShadow));
@@ -409,11 +522,18 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                     }
                     break;
                 }
+                case 2: {
+
+                }
             }
         }
 
         @Override
         public int getItemViewType(int i) {
+            if (!search)
+                i--;
+            if (i == -1)
+                return 2;
             if (search) {
                 return 0;
             }

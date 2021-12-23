@@ -19577,7 +19577,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(12);
                             icons.add(R.drawable.msg_edit);
                         }
-                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0)) { // TODO(dkaraush): check settings
+                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -19827,7 +19827,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(102);
                             icons.add(R.drawable.msg_schedule);
                         }
-                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0)) { // TODO(dkaraush): check settings
+                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -20007,14 +20007,14 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
                 });
                 if (option == 29) {
-                    String fromLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
-                    final String[] toLang = { null };
+                    String toLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
+                    final String[] fromLang = { null };
                     cell.setVisibility(View.GONE);
                     LanguageIdentification.getClient()
                         .identifyLanguage(selectedObject.messageOwner.message)
                         .addOnSuccessListener((String lang) -> {
-                            toLang[0] = lang;
-                            if (toLang[0] != null && (!toLang[0].equals(fromLang) || toLang[0].equals("und"))) {
+                            fromLang[0] = lang;
+                            if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und"))) {
                                 cell.setVisibility(View.VISIBLE); // TODO(dkaraush): animation
                             }
                         })
@@ -20026,7 +20026,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (selectedObject == null || i >= options.size()) {
                             return;
                         }
-                        TranslateAlert.showAlert(getParentActivity(), null, fromLang, toLang[0], selectedObject.messageOwner.message);
+                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
                         scrimView = null;
                         contentView.invalidate();
                         chatListView.invalidate();
