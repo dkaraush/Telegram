@@ -95,7 +95,7 @@ public class TranslateAlert extends BottomSheet {
 
         subtitleView = new TextView(context);
         subtitleView.setLines(1);
-        LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageFromDict(fromLanguage);
+        LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageFromDict(fromLanguage); // TODO(dkaraush): it wouldn't find languages with region codes
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageFromDict(toLanguage);
         subtitleView.setText("From " + (from != null ? from.nameEnglish : "") + " to " + (to != null ? to.nameEnglish : "")); // TODO(dkaraush): text
         subtitleView.setTextColor(Theme.getColor(Theme.key_dialogTextGray));
@@ -103,7 +103,10 @@ public class TranslateAlert extends BottomSheet {
         contentView.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
 
         textView = new TextView(context);
-//        textView.setText();
+        textView.setLines(0);
+        textView.setMaxLines(0);
+        textView.setSingleLine(false);
+        textView.setEllipsize(null);
         textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -147,10 +150,10 @@ public class TranslateAlert extends BottomSheet {
             @Override
             public void run() {
                 try {
-                    String uri = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t&q=" + Uri.encode(text) + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&dt=t";
+                    String uri = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t&q=" + Uri.encode(text) + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss";
                     HttpURLConnection connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
                     connection.setRequestMethod("GET");
-                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 Edg/96.0.1054.62"); // the most common user agent (0.4%)
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 Edg/96.0.1054.62");
                     connection.getInputStream();
 
                     StringBuilder textBuilder = new StringBuilder();
@@ -162,7 +165,13 @@ public class TranslateAlert extends BottomSheet {
                     }
                     JSONTokener tokener = new JSONTokener(textBuilder.toString());
                     JSONArray array = new JSONArray(tokener);
-                    translated = array.getJSONArray(0).getJSONArray(0).getString(0);
+                    JSONArray array1 = array.getJSONArray(0);
+                    translated = "";
+                    for (int i = 0; i < array1.length(); ++i) {
+                        String blockText = array1.getJSONArray(i).getString(0);
+                        if (blockText != null && !blockText.equals("null"))
+                            translated += (i > 0 ? "\n" : "") + blockText;
+                    }
                     AndroidUtilities.runOnUIThread(TranslateAlert.this::updateTranslatedText);
                 } catch (Exception e) {
                     e.printStackTrace();

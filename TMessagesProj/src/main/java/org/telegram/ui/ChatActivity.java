@@ -251,6 +251,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -19577,7 +19578,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(12);
                             icons.add(R.drawable.msg_edit);
                         }
-                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -19827,7 +19828,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(102);
                             icons.add(R.drawable.msg_schedule);
                         }
-                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -20014,7 +20015,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         .identifyLanguage(selectedObject.messageOwner.message)
                         .addOnSuccessListener((String lang) -> {
                             fromLang[0] = lang;
-                            if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und"))) {
+                            if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
+                                !MessagesController.getGlobalMainSettings().getStringSet("translate_button_restricted_languages", new HashSet<>()).contains(fromLang[0])) {
                                 cell.setVisibility(View.VISIBLE); // TODO(dkaraush): animation
                             }
                         })
@@ -20026,7 +20028,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (selectedObject == null || i >= options.size()) {
                             return;
                         }
-                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
+                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0] != null && !fromLang[0].equals("und") ? "auto" : fromLang[0], toLang, selectedObject.messageOwner.message);
                         scrimView = null;
                         contentView.invalidate();
                         chatListView.invalidate();

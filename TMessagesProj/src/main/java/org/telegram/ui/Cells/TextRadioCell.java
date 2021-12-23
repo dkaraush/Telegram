@@ -1,11 +1,3 @@
-/*
- * This is the source code of Telegram for Android v. 5.x.x.
- * It is licensed under GNU GPL v. 2 or later.
- * You should have received a copy of the license in this archive (see LICENSE).
- *
- * Copyright Nikolai Kudashov, 2013-2018.
- */
-
 package org.telegram.ui.Cells;
 
 import android.animation.Animator;
@@ -31,15 +23,16 @@ import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimationProperties;
 import org.telegram.ui.Components.CubicBezierInterpolator;
 import org.telegram.ui.Components.LayoutHelper;
+import org.telegram.ui.Components.RadioButton;
 import org.telegram.ui.Components.Switch;
 
 import java.util.ArrayList;
 
-public class TextCheckCell extends FrameLayout {
+public class TextRadioCell extends FrameLayout {
 
     private TextView textView;
     private TextView valueTextView;
-    private Switch checkBox;
+    private RadioButton radioButton;
     private boolean needDivider;
     private boolean isMultiline;
     private int height = 50;
@@ -50,28 +43,28 @@ public class TextCheckCell extends FrameLayout {
     private ObjectAnimator animator;
     private boolean drawCheckRipple;
 
-    public static final Property<TextCheckCell, Float> ANIMATION_PROGRESS = new AnimationProperties.FloatProperty<TextCheckCell>("animationProgress") {
+    public static final Property<TextRadioCell, Float> ANIMATION_PROGRESS = new AnimationProperties.FloatProperty<TextRadioCell>("animationProgress") {
         @Override
-        public void setValue(TextCheckCell object, float value) {
+        public void setValue(TextRadioCell object, float value) {
             object.setAnimationProgress(value);
             object.invalidate();
         }
 
         @Override
-        public Float get(TextCheckCell object) {
+        public Float get(TextRadioCell object) {
             return object.animationProgress;
         }
     };
 
-    public TextCheckCell(Context context) {
+    public TextRadioCell(Context context) {
         this(context, 21);
     }
 
-    public TextCheckCell(Context context, int padding) {
+    public TextRadioCell(Context context, int padding) {
         this(context, padding, false);
     }
 
-    public TextCheckCell(Context context, int padding, boolean dialog) {
+    public TextRadioCell(Context context, int padding, boolean dialog) {
         super(context);
 
         textView = new TextView(context);
@@ -82,7 +75,7 @@ public class TextCheckCell extends FrameLayout {
         textView.setSingleLine(true);
         textView.setGravity((LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL);
         textView.setEllipsize(TextUtils.TruncateAt.END);
-        addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 70 : padding, 0, LocaleController.isRTL ? padding : 70, 0));
+        addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? padding : 64, 0, LocaleController.isRTL ? 64 : padding, 0));
 
         valueTextView = new TextView(context);
         valueTextView.setTextColor(Theme.getColor(dialog ? Theme.key_dialogIcon : Theme.key_windowBackgroundWhiteGrayText2));
@@ -93,11 +86,13 @@ public class TextCheckCell extends FrameLayout {
         valueTextView.setSingleLine(true);
         valueTextView.setPadding(0, 0, 0, 0);
         valueTextView.setEllipsize(TextUtils.TruncateAt.END);
-        addView(valueTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? 64 : padding, 36, LocaleController.isRTL ? padding : 64, 0));
+        addView(valueTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? padding : 64, 36, LocaleController.isRTL ? 64 : padding, 0));
 
-        checkBox = new Switch(context);
-        checkBox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-        addView(checkBox, LayoutHelper.createFrame(37, 20, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
+        radioButton = new RadioButton(context);
+        radioButton.setSize(AndroidUtilities.dp(20));
+//        radioButton.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
+        radioButton.setColor(Theme.getColor(Theme.key_radioBackground), Theme.getColor(Theme.key_radioBackgroundChecked));
+        addView(radioButton, LayoutHelper.createFrame(20, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
 
         setClipChildren(false);
     }
@@ -117,15 +112,10 @@ public class TextCheckCell extends FrameLayout {
         return super.onTouchEvent(event);
     }
 
-    public void setDivider(boolean divider) {
-        needDivider = divider;
-        setWillNotDraw(!divider);
-    }
-
     public void setTextAndCheck(String text, boolean checked, boolean divider) {
         textView.setText(text);
         isMultiline = false;
-        checkBox.setChecked(checked, false);
+        radioButton.setChecked(checked, false);
         needDivider = divider;
         valueTextView.setVisibility(GONE);
         LayoutParams layoutParams = (LayoutParams) textView.getLayoutParams();
@@ -137,7 +127,7 @@ public class TextCheckCell extends FrameLayout {
 
     public void setColors(String key, String switchKey, String switchKeyChecked, String switchThumb, String switchThumbChecked) {
         textView.setTextColor(Theme.getColor(key));
-        checkBox.setColors(switchKey, switchKeyChecked, switchThumb, switchThumbChecked);
+//        radioButton.setColors(switchKey, switchKeyChecked, switchThumb, switchThumbChecked);
         textView.setTag(key);
     }
 
@@ -149,22 +139,22 @@ public class TextCheckCell extends FrameLayout {
         height = value;
     }
 
-    public void setDrawCheckRipple(boolean value) {
-        drawCheckRipple = value;
-    }
+//    public void setDrawCheckRipple(boolean value) {
+//        drawCheckRipple = value;
+//    }
 
     @Override
     public void setPressed(boolean pressed) {
-        if (drawCheckRipple) {
-            checkBox.setDrawRipple(pressed);
-        }
+//        if (drawCheckRipple) {
+//            checkBox.setDrawRipple(pressed);
+//        }
         super.setPressed(pressed);
     }
 
     public void setTextAndValueAndCheck(String text, String value, boolean checked, boolean multiline, boolean divider) {
         textView.setText(text);
         valueTextView.setText(value);
-        checkBox.setChecked(checked, false);
+        radioButton.setChecked(checked, false);
         needDivider = divider;
         valueTextView.setVisibility(VISIBLE);
         isMultiline = multiline;
@@ -192,13 +182,13 @@ public class TextCheckCell extends FrameLayout {
         super.setEnabled(value);
         if (animators != null) {
             animators.add(ObjectAnimator.ofFloat(textView, "alpha", value ? 1.0f : 0.5f));
-            animators.add(ObjectAnimator.ofFloat(checkBox, "alpha", value ? 1.0f : 0.5f));
+            animators.add(ObjectAnimator.ofFloat(radioButton, "alpha", value ? 1.0f : 0.5f));
             if (valueTextView.getVisibility() == VISIBLE) {
                 animators.add(ObjectAnimator.ofFloat(valueTextView, "alpha", value ? 1.0f : 0.5f));
             }
         } else {
             textView.setAlpha(value ? 1.0f : 0.5f);
-            checkBox.setAlpha(value ? 1.0f : 0.5f);
+            radioButton.setAlpha(value ? 1.0f : 0.5f);
             if (valueTextView.getVisibility() == VISIBLE) {
                 valueTextView.setAlpha(value ? 1.0f : 0.5f);
             }
@@ -206,11 +196,11 @@ public class TextCheckCell extends FrameLayout {
     }
 
     public void setChecked(boolean checked) {
-        checkBox.setChecked(checked, true);
+        radioButton.setChecked(checked, true);
     }
 
     public boolean isChecked() {
-        return checkBox.isChecked();
+        return radioButton.isChecked();
     }
 
     @Override
@@ -231,7 +221,7 @@ public class TextCheckCell extends FrameLayout {
         if (animationPaint == null) {
             animationPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         }
-        checkBox.setOverrideColor(checked ? 1 : 2);
+//        radioButton.setOverrideColor(checked ? 1 : 2);
         animatedColorBackground = color;
         animationPaint.setColor(animatedColorBackground);
         animationProgress = 0.0f;
@@ -254,7 +244,7 @@ public class TextCheckCell extends FrameLayout {
         float cx = lastTouchX;
         int cy = getMeasuredHeight() / 2;
         float animatedRad = rad * animationProgress;
-        checkBox.setOverrideColorProgress(cx, cy, animatedRad);
+//        radioButton.setOverrideColorProgress(cx, cy, animatedRad);
     }
 
     @Override
@@ -267,16 +257,16 @@ public class TextCheckCell extends FrameLayout {
             canvas.drawCircle(cx, cy, animatedRad, animationPaint);
         }
         if (needDivider) {
-            canvas.drawLine(LocaleController.isRTL ? 0 : AndroidUtilities.dp(20), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? AndroidUtilities.dp(20) : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
+            canvas.drawLine(LocaleController.isRTL ? 0 : AndroidUtilities.dp(64), getMeasuredHeight() - 1, getMeasuredWidth() - (LocaleController.isRTL ? AndroidUtilities.dp(64) : 0), getMeasuredHeight() - 1, Theme.dividerPaint);
         }
     }
 
     @Override
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
-        info.setClassName("android.widget.Switch");
+        info.setClassName("android.widget.RadioButton");
         info.setCheckable(true);
-        info.setChecked(checkBox.isChecked());
-        info.setContentDescription(checkBox.isChecked() ? LocaleController.getString("NotificationsOn", R.string.NotificationsOn) : LocaleController.getString("NotificationsOff", R.string.NotificationsOff));
+        info.setChecked(radioButton.isChecked());
+        info.setContentDescription(radioButton.isChecked() ? LocaleController.getString("NotificationsOn", R.string.NotificationsOn) : LocaleController.getString("NotificationsOff", R.string.NotificationsOff));
     }
 }
