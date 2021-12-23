@@ -1019,6 +1019,7 @@
     <string name="UnpinMessageAlert">Do you want to unpin this message?</string>
     <string name="DeleteBanUser">Ban user</string>
     <string name="DeleteReportSpam">Report spam</string>
+    <string name="TranslateMessage">Translate</string>
     <string name="DeleteAllFrom">Delete all from %1$s</string>
     <string name="ClearRecentEmoji">Clear recent emoji?</string>
     <string name="Emoji1">Smileys and people</string>

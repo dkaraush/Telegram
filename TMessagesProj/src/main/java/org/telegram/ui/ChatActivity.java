@@ -8,6 +8,8 @@
 
 package org.telegram.ui;
 
+import static java.security.AccessController.getContext;
+
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -99,6 +101,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
 import com.google.android.exoplayer2.util.Log;
+import com.google.mlkit.nl.languageid.LanguageIdentification;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
@@ -19573,6 +19576,11 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(12);
                             icons.add(R.drawable.msg_edit);
                         }
+                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0)) { // TODO(dkaraush): check settings
+                            items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
+                            options.add(29);
+                            icons.add(R.drawable.msg_translate);
+                        }
                         if (selectedObject.contentType == 0 && !selectedObject.isMediaEmptyWebpage() && selectedObject.getId() > 0 && !selectedObject.isOut() && (currentChat != null || currentUser != null && currentUser.bot)) {
                             items.add(LocaleController.getString("ReportChat", R.string.ReportChat));
                             options.add(23);
@@ -19818,6 +19826,11 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(102);
                             icons.add(R.drawable.msg_schedule);
                         }
+                        if (!selectedObject.isOut() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0)) { // TODO(dkaraush): check settings
+                            items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
+                            options.add(29);
+                            icons.add(R.drawable.msg_translate);
+                        }
                         if (chatMode != MODE_SCHEDULED && selectedObject.contentType == 0 && selectedObject.getId() > 0 && !selectedObject.isOut() && (currentChat != null || currentUser != null && currentUser.bot)) {
                             if (UserObject.isReplyUser(currentUser)) {
                                 items.add(LocaleController.getString("BlockContact", R.string.BlockContact));
@@ -19976,6 +19989,22 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     menuDeleteItem = cell;
                     updateDeleteItemRunnable.run();
                     cell.setSubtextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText6));
+                }
+                if (option == 29) {
+                    String interfaceLanguage = LocaleController.getInstance().getCurrentLocale().getLanguage();
+                    cell.setVisibility(View.GONE);
+                    LanguageIdentification.getClient()
+                            .identifyLanguage(selectedObject.messageOwner.message)
+                            .addOnSuccessListener((String lang) -> {
+                                if (lang != null && (!lang.equals(interfaceLanguage) || lang.equals("und"))) {
+                                    cell.setVisibility(View.VISIBLE);
+                                    // TODO(dkaraush): animation
+                                }
+                            })
+                            .addOnFailureListener((Exception e) -> {
+                                Log.e("mlkit", "failed to detect language in message");
+                                e.printStackTrace();
+                            });
                 }
                 scrimPopupWindowItems[a] = cell;
                 popupLayout.addView(cell);
@@ -21122,6 +21151,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 presentFragment(new MessageStatisticActivity(selectedObject));
                 break;
             }
+            case 29:
+                // TODO(dkaraush): show alert
+                Toast.makeText(fragmentView.getContext(), "Translate!", Toast.LENGTH_SHORT).show();
+                break;
             case 100: {
                 if (!checkSlowMode(chatActivityEnterView.getSendButton())) {
                     if (getMediaController().isPlayingMessage(selectedObject)) {
@@ -22421,7 +22454,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             chatListView.setImportantForAccessibility(mentionContainer.getVisibility() == View.VISIBLE || (scrimPopupWindow != null && scrimPopupWindow.isShowing()) ? View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO);
         }
     }
-    
+
     private void markSponsoredAsRead(MessageObject object) {
         if (!object.isSponsored() || object.viewsReloaded) {
             return;
@@ -22431,7 +22464,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
         req.channel = MessagesController.getInputChannel(currentChat);
         req.random_id = object.sponsoredId;
         getConnectionsManager().sendRequest(req, (response, error) -> {
-            
+
         });
     }
 
