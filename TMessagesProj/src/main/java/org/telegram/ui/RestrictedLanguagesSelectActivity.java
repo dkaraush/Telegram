@@ -106,12 +106,13 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 HashSet<String> newSelectedLanguages = getRestrictedLanguages();
                 if (listView != null && listView.getAdapter() != null) {
                     RecyclerView.Adapter adapter = listView.getAdapter();
+                    int offset = !searching ? 1 : 0;
                     for (String lng : selectedLanguages)
                         if (!newSelectedLanguages.contains(lng))
-                            adapter.notifyItemChanged(langPos(lng) + 1);
+                            adapter.notifyItemChanged(langPos(lng) + offset);
                     for (String lng : newSelectedLanguages)
                         if (!selectedLanguages.contains(lng))
-                            adapter.notifyItemChanged(langPos(lng) + 1);
+                            adapter.notifyItemChanged(langPos(lng) + offset);
                 }
                 selectedLanguages = newSelectedLanguages;
             }
