@@ -20,9 +20,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.Layout;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.method.LinkMovementMethod;
+import android.text.util.Linkify;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -258,7 +262,9 @@ public class TranslateAlert extends BottomSheet {
         fetchTranslation(
             blockText,
             (String translatedText, String sourceLanguage) -> {
-                blockView.setText(translatedText);
+                Spannable spannable = new SpannableStringBuilder(translatedText);
+                AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
+                blockView.setText(spannable);
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
 
@@ -586,6 +592,7 @@ public class TranslateAlert extends BottomSheet {
         public void setText(CharSequence text) {
             text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
             textView.setText(text);
+            textView.setMovementMethod(new LinkMovementMethod());
             updateTextLayout();
             updateHeight();
 
