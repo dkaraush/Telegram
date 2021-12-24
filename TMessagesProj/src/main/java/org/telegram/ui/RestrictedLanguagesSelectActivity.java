@@ -316,7 +316,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
         ArrayList<LocaleController.LocaleInfo> arrayList = LocaleController.getInstance().languages;
         for (int a = 0, size = arrayList.size(); a < size; a++) {
             LocaleController.LocaleInfo info = arrayList.get(a);
-            if (info != null && info.serverIndex != Integer.MAX_VALUE && (info.pluralLangCode == null || !info.pluralLangCode.equals(currentLocale.pluralLangCode))) {
+            if (info != null && info.serverIndex != Integer.MAX_VALUE/* && (info.pluralLangCode == null || !info.pluralLangCode.equals(currentLocale.pluralLangCode))*/) {
                 sortedLanguages.add(info);
             }
         }
@@ -476,10 +476,10 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                     } else {
                         textSettingsCell.setTextAndValue(localeInfo.name, localeInfo.nameEnglish, false, !last);
                     }
-                    try {
-                        textSettingsCell.setClickable(value && langCode != null && langCode.equals(LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode));
-                    } catch (Exception e) {}
-                    textSettingsCell.setChecked(value);
+
+                    boolean isCurrent = langCode != null && langCode.equals(LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode);
+                    textSettingsCell.setDisabled(isCurrent);
+                    textSettingsCell.setChecked(value || isCurrent);
                     break;
                 }
                 case 1: {

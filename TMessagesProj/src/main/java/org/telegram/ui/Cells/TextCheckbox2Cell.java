@@ -98,6 +98,11 @@ public class TextCheckbox2Cell extends FrameLayout {
         setClipChildren(false);
     }
 
+    public void setDisabled(boolean disabled) {
+        checkbox.setColor(disabled ? Theme.key_checkboxDisabled : Theme.key_radioBackgroundChecked, Theme.key_radioBackground, Theme.key_checkboxCheck);
+        setClickable(disabled);
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         if (isMultiline) {

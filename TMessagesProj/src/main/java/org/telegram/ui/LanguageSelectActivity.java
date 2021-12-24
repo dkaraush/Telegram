@@ -181,13 +181,13 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 String langCode = localeInfo.pluralLangCode,
                         prevLangCode = prevLocale.pluralLangCode;
                 SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-                HashSet<String> selectedLanguages = new HashSet<String>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
+                HashSet<String> selectedLanguages = RestrictedLanguagesSelectActivity.getRestrictedLanguages();
                 HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
 
-                if (selectedLanguages.contains(langCode)) {
-                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
-                    if (!selectedLanguages.contains(prevLangCode)) {
-                        newSelectedLanguages.add(prevLangCode);
+                if (!selectedLanguages.contains(prevLangCode)) {
+                    newSelectedLanguages.add(prevLangCode);
+                    if (selectedLanguages.contains(langCode)) {
+                        newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
                     }
                 }
                 preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
@@ -434,7 +434,11 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             return preferences.getBoolean("translate_button", true);
         }
         private ArrayList<String> getRestrictedLanguages() {
-            return new ArrayList<>(RestrictedLanguagesSelectActivity.getRestrictedLanguages());
+            String currentLang = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
+            ArrayList<String> langCodes = new ArrayList<>(RestrictedLanguagesSelectActivity.getRestrictedLanguages());
+            if (!langCodes.contains(currentLang))
+                langCodes.add(currentLang);
+            return langCodes;
         }
 
         public void update() {
