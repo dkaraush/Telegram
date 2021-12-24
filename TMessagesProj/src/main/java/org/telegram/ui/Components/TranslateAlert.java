@@ -116,7 +116,7 @@ public class TranslateAlert extends BottomSheet {
         subtitleView.setLines(1);
         if (from != null && to != null)
             subtitleView.setText(subtitleText);
-        subtitleView.setTextColor(Theme.getColor(Theme.key_dialogTextGray));
+        subtitleView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
         subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         contentView.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
 
