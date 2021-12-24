@@ -532,7 +532,7 @@ public class TranslateAlert extends BottomSheet {
                     invalidate();
                 });
                 animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
-                animator.setDuration(220);
+                animator.setDuration(180);
                 animator.start();
             }
         }
