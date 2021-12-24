@@ -49,7 +49,9 @@ import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -63,9 +65,12 @@ public class TranslateAlert extends BottomSheet {
     private TextView titleView;
     private LoadingTextView subtitleView;
     private LinearLayout contentView;
-    private LoadingTextView textView;
+    private TextView translateMoreView;
     private TextView buttonTextView;
     private FrameLayout buttonView;
+
+    private int blockIndex = 0;
+    private ArrayList<String> textBlocks;
 
 //    public boolean onContainerTouchEvent(MotionEvent event) {
 //        return container.onTouchEvent(event);
@@ -78,6 +83,7 @@ public class TranslateAlert extends BottomSheet {
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
         this.toLanguage = toLanguage;
         this.text = text;
+        this.textBlocks = cutInBlocks(text, 1024);
 
         shadowDrawable = context.getResources().getDrawable(R.drawable.sheet_shadow_round).mutate();
         shadowDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogBackground), PorterDuff.Mode.MULTIPLY));
@@ -96,7 +102,7 @@ public class TranslateAlert extends BottomSheet {
 
         contentView = new LinearLayout(context);
         contentView.setOrientation(LinearLayout.VERTICAL);
-        contentView.setPadding(dp(20), dp(7), dp(20), dp(26));
+        contentView.setPadding(dp(20), dp(7), dp(20), dp(0));
 
         titleView = new TextView(context);
         titleView.setLines(1);
@@ -110,7 +116,7 @@ public class TranslateAlert extends BottomSheet {
         LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
         String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from.nameEnglish : ""), (to != null ? to.nameEnglish : ""));
-        subtitleView = new LoadingTextView(context, subtitleText);
+        subtitleView = new LoadingTextView(context, subtitleText, false);
         subtitleView.showLoadingText(false);
         subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         subtitleView.setLines(1);
@@ -120,17 +126,16 @@ public class TranslateAlert extends BottomSheet {
         subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         contentView.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
 
-        textView = new LoadingTextView(context, text);
-        textView.setLines(0);
-        textView.setMaxLines(0);
-        textView.setSingleLine(false);
-        textView.setEllipsizeNull();
-        textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-
-//        contentScrollView.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         container.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        translateMoreView = new TextView(context);
+        translateMoreView.setTextColor(Theme.getColor(Theme.key_dialogTextBlue));
+        translateMoreView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        translateMoreView.setText(LocaleController.getString("TranslateMore", R.string.TranslateMore));
+        translateMoreView.setVisibility(View.GONE);
+        translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
+        translateMoreView.setOnClickListener(e -> fetchNext());
+        container.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
 
         buttonTextView = new TextView(context);
         buttonTextView.setLines(1);
@@ -153,9 +158,21 @@ public class TranslateAlert extends BottomSheet {
         buttonView.addView(buttonTextView);
         buttonView.setOnClickListener(e -> dismiss());
 
-        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 0, 16, 16));
+        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 26, 16, 16));
 
-        fetchTranslation();
+        fetchNext();
+    }
+    private LoadingTextView addBlock(String startText, boolean scaleFromZero) {
+        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
+        textView.setLines(0);
+        textView.setMaxLines(0);
+        textView.setSingleLine(false);
+        textView.setEllipsizeNull();
+        textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
+        return textView;
     }
 
     @Override
@@ -164,37 +181,102 @@ public class TranslateAlert extends BottomSheet {
         containerView.setPadding(containerView.getPaddingLeft(), dp(10), containerView.getPaddingRight(), 0);
     }
 
-    public void updateTranslatedText() {
-        if (translated != null)
-            textView.setText(translated);
+    public void updateSourceLanguage() {
         LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
         if (from != null && to != null)
             subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from.nameEnglish, to.nameEnglish));
     }
 
-    private String[] userAgents = new String[] {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36", // 13.5%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", // 6.6%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0", // 6.4%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0", // 6.2%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36", // 5.2%
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36" // 4.8%
-    };
-    private void fetchTranslation() {
+    private ArrayList<String> cutInBlocks(String full, int maxBlockSize) {
+        ArrayList<String> blocks = new ArrayList<>();
+        if (full == null)
+            return blocks;
+        while (full.length() > maxBlockSize) {
+            String maxBlock = full.substring(0, maxBlockSize);
+            int newLineIndex = maxBlock.lastIndexOf("\n"),
+                dotIndex = maxBlock.lastIndexOf(".");
+            int n = Math.min(
+                newLineIndex == -1 ? maxBlockSize : newLineIndex,
+                dotIndex == -1 ? maxBlockSize : dotIndex
+            );
+            blocks.add(full.substring(0, n + 1));
+            full = full.substring(n + 1);
+        }
+        if (full.length() > 0)
+            blocks.add(full);
+        return blocks;
+    }
+
+    public interface OnTranslationSuccess {
+        public void run(String translated, String sourceLanguage);
+    }
+    public interface OnTranslationFail {
+        public void run(boolean rateLimit);
+    }
+
+    public void showTranslateMoreView(boolean show) {
+        translateMoreView.setClickable(show);
+        translateMoreView.setVisibility(View.VISIBLE);
+        translateMoreView
+            .animate()
+            .translationX(show ? 0f : dp(4))
+            .alpha(show ? 1f : 0f)
+            .withEndAction(() -> {
+                if (!show)
+                    translateMoreView.setVisibility(View.GONE);
+            })
+            .setInterpolator(CubicBezierInterpolator.EASE_OUT)
+            .setDuration((long) (Math.abs(translateMoreView.getAlpha() - (show ? 1f : 0f)) * 85))
+            .start();
+    }
+
+    private void fetchNext() {
+        showTranslateMoreView(false);
+        if (blockIndex >= textBlocks.size())
+            return;
+
+        String blockText = textBlocks.get(blockIndex);
+        LoadingTextView blockView = addBlock(blockText, blockIndex != 0);
+
+        fetchTranslation(
+            blockText,
+            (String translatedText, String sourceLanguage) -> {
+                blockView.setText(translatedText);
+                fromLanguage = sourceLanguage;
+                updateSourceLanguage();
+
+                blockIndex++;
+                showTranslateMoreView(blockIndex < textBlocks.size());
+            },
+            (boolean rateLimit) -> {
+                if (rateLimit)
+                    Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert1", R.string.TranslationFailedAlert1), Toast.LENGTH_SHORT).show();
+                else
+                    Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert2", R.string.TranslationFailedAlert2), Toast.LENGTH_SHORT).show();
+                if (blockIndex == 0)
+                    dismiss();
+            }
+        );
+    }
+
+    private void fetchTranslation(String text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
             public void run() {
-                long start = SystemClock.elapsedRealtime();
+                String uri = "";
                 HttpURLConnection connection = null;
                 try {
-                    String uri = "https://translate.googleapis.com/";
-                    uri += "translate_a";
-                    uri += "/single?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t&q=" + Uri.encode(text) + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss";
+                    uri = "https://translate.goo";
+                    uri += "gleapis.com/transl";
+                    uri += "ate_a";
+                    uri += "/singl";
+                    uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
+                    uri += Uri.encode(text);
                     connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
                     connection.setRequestMethod("GET");
                     connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
-                    connection.getInputStream();
+                    connection.setRequestProperty("Content-Type", "application/json");
 
                     StringBuilder textBuilder = new StringBuilder();
                     try (Reader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), Charset.forName("UTF-8")))) {
@@ -208,39 +290,55 @@ public class TranslateAlert extends BottomSheet {
                     JSONTokener tokener = new JSONTokener(jsonString);
                     JSONArray array = new JSONArray(tokener);
                     JSONArray array1 = array.getJSONArray(0);
+                    String sourceLanguage = null;
                     try {
-                        if (!subtitleView.loaded)
-                            fromLanguage = array.getString(2);
+                        sourceLanguage = array.getString(2);
                     } catch (Exception e2) {}
-                    translated = "";
+                    String result = "";
                     for (int i = 0; i < array1.length(); ++i) {
                         String blockText = array1.getJSONArray(i).getString(0);
                         if (blockText != null && !blockText.equals("null"))
-                            translated += /*(i > 0 ? "\n" : "") +*/ blockText;
+                            result += /*(i > 0 ? "\n" : "") +*/ blockText;
                     }
-                    AndroidUtilities.runOnUIThread(TranslateAlert.this::updateTranslatedText);
+                    final String finalResult = result;
+                    final String finalSourceLanguage = sourceLanguage;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        if (onSuccess != null)
+                            onSuccess.run(finalResult, finalSourceLanguage);
+                    });
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    Log.e("translate", "failed to translate a text");
-
                     try {
-                        if (connection != null && connection.getResponseCode() == 429) {
-                            long elapsed = SystemClock.elapsedRealtime() - start;
-                            if (elapsed < 750)
-                                Thread.sleep(750 - elapsed);
-                            AndroidUtilities.runOnUIThread(() -> {
-                                Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert1", R.string.TranslationFailedAlert1), Toast.LENGTH_SHORT).show();
-                            });
-                        } else if (connection != null) {
-                            Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert2", R.string.TranslationFailedAlert2), Toast.LENGTH_SHORT).show();
-                        }
-                    } catch (Exception e2) {}
+                        Log.e("translate", "failed to translate a text " + (connection != null ? connection.getResponseCode() : null) + " " + (connection != null ? connection.getResponseMessage() : null));
+                    } catch (IOException ioException) {
+                        ioException.printStackTrace();
+                    }
+                    e.printStackTrace();
 
-                    AndroidUtilities.runOnUIThread(TranslateAlert.this::dismiss);
+                    if (onFail != null) {
+                        try {
+                            final boolean rateLimit = connection != null && connection.getResponseCode() == 429;
+                            AndroidUtilities.runOnUIThread(() -> {
+                                onFail.run(rateLimit);
+                            });
+                        } catch (Exception e2) {
+                            AndroidUtilities.runOnUIThread(() -> {
+                                onFail.run(false);
+                            });
+                        }
+                    }
                 }
             }
         }.start();
     }
+
+    private String[] userAgents = new String[] {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36", // 13.5%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", // 6.6%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0", // 6.4%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0", // 6.2%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36", // 5.2%
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36" // 4.8%
+    };
 
     public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, String text) {
         TranslateAlert alert = new TranslateAlert(context, fromLanguage, toLanguage, text);
@@ -280,9 +378,16 @@ public class TranslateAlert extends BottomSheet {
             }
         };
 
-        public LoadingTextView(Context context, String loadingString) {
+        private boolean scaleFromZero = false;
+        private long scaleFromZeroStart = 0;
+        private final long scaleFromZeroDuration = 220l;
+        public LoadingTextView(Context context, String loadingString, boolean scaleFromZero) {
             super(context);
 
+            this.scaleFromZero = scaleFromZero;
+            this.scaleFromZeroStart = SystemClock.elapsedRealtime();
+
+            loadingT = 0f;
             loadingTextView = new TextView(context);
             loadingTextView.setText(this.loadingString = loadingString);
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
@@ -296,7 +401,6 @@ public class TranslateAlert extends BottomSheet {
             loadingPaint.setShader(gradient);
 
             setWillNotDraw(false);
-            updateHeight();
 
             updateLoadingLayout();
         }
@@ -310,18 +414,23 @@ public class TranslateAlert extends BottomSheet {
         }
 
         private void updateHeight() {
+            int loadingHeight = Math.max(loadingLayout != null ? loadingLayout.getHeight() : 0, loadingTextView.getMeasuredHeight());
+            float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
             int height = (
                 (int) (
-                    loadingTextView.getMeasuredHeight() + (
-                        textView.getMeasuredHeight() -
-                        loadingTextView.getMeasuredHeight()
-                    ) * loadingT
+                    (
+                        loadingHeight + (
+                            textView.getMeasuredHeight() -
+                            loadingHeight
+                        ) * loadingT
+                    ) * scaleFromZeroT
                 )
             );
             ViewGroup.LayoutParams params = (ViewGroup.LayoutParams) getLayoutParams();
             if (params == null)
                 params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height);
-            params.height = height;
+            if (height > 0 || scaleFromZero)
+                params.height = height;
             this.setLayoutParams(params);
         }
 
@@ -345,6 +454,9 @@ public class TranslateAlert extends BottomSheet {
                 loadingAnimator.addUpdateListener(a -> {
                     loadingT = 0f;
                     invalidate();
+
+                    if (scaleFromZero && SystemClock.elapsedRealtime() < scaleFromZeroStart + scaleFromZeroDuration)
+                        updateHeight();
                 });
                 loadingAnimator.setDuration(Long.MAX_VALUE);
                 loadingAnimator.start();
