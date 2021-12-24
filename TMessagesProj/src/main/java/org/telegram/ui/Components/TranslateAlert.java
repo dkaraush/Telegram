@@ -116,9 +116,9 @@ public class TranslateAlert extends BottomSheet {
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 19);
         contentView.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, LoadingTextView.padHorz / AndroidUtilities.density, 10, LoadingTextView.padHorz / AndroidUtilities.density, 5.3f));
 
-        LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
-        LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
-        String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from.nameEnglish : ""), (to != null ? to.nameEnglish : ""));
+        String from = languageName(fromLanguage);
+        String to = languageName(toLanguage);
+        String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from : ""), (to != null ? to : ""));
         subtitleView = new LoadingTextView(context, subtitleText, false);
         subtitleView.showLoadingText(false);
         subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
@@ -186,11 +186,23 @@ public class TranslateAlert extends BottomSheet {
         containerView.setPadding(containerView.getPaddingLeft(), dp(10), containerView.getPaddingRight(), 0);
     }
 
+    public String languageName(String locale) {
+        if (locale != null && !locale.equals("und") && !locale.equals("auto")) {
+            String passportLang = LocaleController.getString("PassportLanguage_" + locale.toUpperCase());
+            if (passportLang != null && passportLang.length() > 0)
+                return passportLang;
+        }
+        LocaleController.LocaleInfo localeInfo = LocaleController.getInstance().getLanguageByPlural(locale);
+        if (localeInfo != null && localeInfo.nameEnglish != null)
+            return localeInfo.nameEnglish;
+        return null;
+    }
+
     public void updateSourceLanguage() {
-        LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
-        LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
+        String from = languageName(fromLanguage);
+        String to = languageName(toLanguage);
         if (from != null && to != null)
-            subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from.nameEnglish, to.nameEnglish));
+            subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
     }
 
     private ArrayList<String> cutInBlocks(String full, int maxBlockSize) {
