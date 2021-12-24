@@ -47,6 +47,7 @@ import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.RecyclerListView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -76,10 +77,16 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
     private SharedPreferences.OnSharedPreferenceChangeListener listener;
     private HashSet<String> selectedLanguages = null;
 
+    public static HashSet<String> getRestrictedLanguages() {
+        String currentLangCode = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
+        String[] onlyCurrentLang = new String[] { currentLangCode };
+        return new HashSet<>(MessagesController.getGlobalMainSettings().getStringSet("translate_button_restricted_languages", new HashSet<String>(Arrays.asList(onlyCurrentLang))));
+    }
+
     @Override
     public boolean onFragmentCreate() {
         preferences = MessagesController.getGlobalMainSettings();
-        selectedLanguages = new HashSet<>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
+        selectedLanguages = getRestrictedLanguages();
         preferences.registerOnSharedPreferenceChangeListener(listener = new SharedPreferences.OnSharedPreferenceChangeListener() {
             public int langPos(String lng) {
                 if (lng == null)
@@ -88,7 +95,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 if (arr == null)
                     return -1;
                 for (int i = 0; i < arr.size(); ++i)
-                    if (lng.equals(arr.get(i).getLangCode()))
+                    if (lng.equals(arr.get(i).pluralLangCode))
                         return i;
                 return -1;
             }
@@ -96,7 +103,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             @Override
             public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
                 preferences = sharedPreferences;
-                HashSet<String> newSelectedLanguages = new HashSet<>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
+                HashSet<String> newSelectedLanguages = getRestrictedLanguages();
                 if (listView != null && listView.getAdapter() != null) {
                     RecyclerView.Adapter adapter = listView.getAdapter();
                     for (String lng : selectedLanguages)
@@ -206,14 +213,18 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 localeInfo = sortedLanguages.get(position);
             }
             if (localeInfo != null) {
-                String langCode = localeInfo.getLangCode();
+                String langCode = localeInfo.pluralLangCode;
                 boolean value = selectedLanguages.contains(langCode);
                 HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
                 if (value)
                     newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
                 else
                     newSelectedLanguages.add(langCode);
-                preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
+                LocaleController.LocaleInfo currentLocaleInfo = LocaleController.getInstance().getCurrentLocaleInfo();
+                if (newSelectedLanguages.size() == 1 && newSelectedLanguages.contains(currentLocaleInfo.pluralLangCode))
+                    preferences.edit().remove("translate_button_restricted_languages").apply();
+                else
+                    preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
             }
         });
 
@@ -301,19 +312,15 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
         };
 
         sortedLanguages = new ArrayList<>();
-//        unofficialLanguages = new ArrayList<>(LocaleController.getInstance().unofficialLanguages);
 
         ArrayList<LocaleController.LocaleInfo> arrayList = LocaleController.getInstance().languages;
         for (int a = 0, size = arrayList.size(); a < size; a++) {
             LocaleController.LocaleInfo info = arrayList.get(a);
-            if (info.serverIndex != Integer.MAX_VALUE) {
+            if (info != null && info.serverIndex != Integer.MAX_VALUE && (info.pluralLangCode == null || !info.pluralLangCode.equals(currentLocale.pluralLangCode))) {
                 sortedLanguages.add(info);
-            } else {
-//                unofficialLanguages.add(info);
             }
         }
         Collections.sort(sortedLanguages, comparator);
-//        Collections.sort(unofficialLanguages, comparator);
     }
 
     @Override
@@ -411,12 +418,6 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 return searchResult.size();
             } else {
                 int count = sortedLanguages.size();
-//                if (count != 0) {
-//                    count++;
-//                }
-//                if (!unofficialLanguages.isEmpty()) {
-//                    count += unofficialLanguages.size() + 1;
-//                }
                 return 1 + count;
             }
         }
@@ -426,7 +427,6 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             View view;
             switch (viewType) {
                 case 0: {
-//                    view = new LanguageCell(mContext, false);
                     view = new TextCheckbox2Cell(mContext);
                     view.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
                     break;
@@ -469,7 +469,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                         localeInfo = sortedLanguages.get(position);
                         last = position == sortedLanguages.size() - 1;
                     }
-                    String langCode = localeInfo.getLangCode();
+                    String langCode = localeInfo.pluralLangCode;
                     boolean value = selectedLanguages.contains(langCode);
                     if (localeInfo.isLocal()) {
                         textSettingsCell.setTextAndValue(String.format("%1$s (%2$s)", localeInfo.name, LocaleController.getString("LanguageCustom", R.string.LanguageCustom)), localeInfo.nameEnglish, false, !last);

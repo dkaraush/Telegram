@@ -56,7 +56,7 @@ public class CheckBox2 extends View {
     }
 
     public void setDrawBackgroundAsArc(int type) {
-        checkBoxBase.setBackgroundType(1);
+        checkBoxBase.setBackgroundType(type);
     }
 
     public float getProgress() {
@@ -67,6 +67,10 @@ public class CheckBox2 extends View {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         checkBoxBase.onAttachedToWindow();
+    }
+
+    public void setDuration(long duration) {
+        checkBoxBase.animationDuration = duration;
     }
 
     @Override

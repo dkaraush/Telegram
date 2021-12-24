@@ -20016,7 +20016,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         .addOnSuccessListener((String lang) -> {
                             fromLang[0] = lang;
                             if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
-                                !MessagesController.getGlobalMainSettings().getStringSet("translate_button_restricted_languages", new HashSet<>()).contains(fromLang[0])) {
+                                !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
                                 cell.setVisibility(View.VISIBLE); // TODO(dkaraush): animation
                             }
                         })
@@ -20028,7 +20028,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (selectedObject == null || i >= options.size()) {
                             return;
                         }
-                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0] != null && !fromLang[0].equals("und") ? "auto" : fromLang[0], toLang, selectedObject.messageOwner.message);
+                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
                         scrimView = null;
                         contentView.invalidate();
                         chatListView.invalidate();

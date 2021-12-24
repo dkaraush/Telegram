@@ -32,7 +32,7 @@ public class TextCheckbox2Cell extends FrameLayout {
 
     private TextView textView;
     private TextView valueTextView;
-    private CheckBox2 checkbox;
+    public CheckBox2 checkbox;
     private boolean needDivider;
     private boolean isMultiline;
     private int height = 50;
@@ -90,10 +90,9 @@ public class TextCheckbox2Cell extends FrameLayout {
         addView(valueTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? padding : 64, 36, LocaleController.isRTL ? 64 : padding, 0));
 
         checkbox = new CheckBox2(context, 20);
-        checkbox.setDrawBackgroundAsArc(5);
-//        checkbox.setSize(AndroidUtilities.dp(20));
-//        checkbox.setColors(Theme.key_switchTrack, Theme.key_switchTrackChecked, Theme.key_windowBackgroundWhite, Theme.key_windowBackgroundWhite);
-//        checkbox.setColor(Theme.getColor(Theme.key_radioBackground), Theme.getColor(Theme.key_radioBackgroundChecked));
+        checkbox.setDrawBackgroundAsArc(10);
+        checkbox.setDuration(100);
+        checkbox.setColor(Theme.key_radioBackgroundChecked, Theme.key_radioBackground, Theme.key_checkboxCheck);
         addView(checkbox, LayoutHelper.createFrame(20, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
 
         setClipChildren(false);

@@ -173,8 +173,23 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 localeInfo = sortedLanguages.get(position);
             }
             if (localeInfo != null) {
+                LocaleController.LocaleInfo prevLocale = LocaleController.getInstance().getCurrentLocaleInfo();
                 LocaleController.getInstance().applyLanguage(localeInfo, true, false, false, true, currentAccount);
                 parentLayout.rebuildAllFragmentViews(false, false);
+
+//                String langCode = localeInfo.pluralLangCode,
+//                       prevLangCode = prevLocale.pluralLangCode;
+//                SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+//                HashSet<String> selectedLanguages = new HashSet<String>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
+//                HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
+//
+//                if (selectedLanguages.contains(langCode)) {
+//                    if (!selectedLanguages.contains(prevLangCode))
+//                        newSelectedLanguages.add(prevLangCode);
+//                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
+//                }
+//                preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
+
                 finishFragment();
             }
         });
@@ -379,12 +394,13 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             header.setText("Translate messages"); // TODO(dkaraush): text
             addView(header, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
+            boolean value = getValue();
             showButtonCheck = new TextCheckCell(context);
             showButtonCheck.setBackground(Theme.createSelectorWithBackgroundDrawable(Theme.getColor(Theme.key_windowBackgroundWhite), Theme.getColor(Theme.key_listSelector)));
             showButtonCheck.setTextAndCheck(
                     "Show Translate Button", // TODO(dkaraush): text
-                    getValue(),
-                    getValue()
+                    value,
+                    value
             );
             showButtonCheck.setOnClickListener(e -> {
                 preferences.edit().putBoolean("translate_button", !getValue()).apply();
@@ -397,10 +413,11 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 presentFragment(new RestrictedLanguagesSelectActivity());
                 update();
             });
+            doNotTranslateCell.setAlpha(value ? 1f : 0f);
             addView(doNotTranslateCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             info = new TextInfoPrivacyCell(context);
-            info.setText("The 'Translate' button will appear when you make a single tap on a text message."); // TODO(dkaraush): text
+            info.setText("The ‘Translate’ button will appear when you make a single tap on a text message."); // TODO(dkaraush): text
             addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             header2 = new HeaderCell(context);
@@ -414,8 +431,8 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         private boolean getValue() {
             return preferences.getBoolean("translate_button", true);
         }
-        private Set<String> getRestrictedLanguages() {
-            return preferences.getStringSet("translate_button_restricted_languages", new HashSet<>());
+        private ArrayList<String> getRestrictedLanguages() {
+            return new ArrayList<>(RestrictedLanguagesSelectActivity.getRestrictedLanguages());
         }
 
         public void update() {
@@ -428,7 +445,16 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             }
 
             showButtonCheck.setDivider(value);
-            doNotTranslateCell.setTextAndValue("Do Not Translate", getRestrictedLanguages().size() + " Languages", false); // TODO(dkaraush): text
+            ArrayList<String> langCodes = getRestrictedLanguages();
+            String doNotTranslateCellValue = null;
+            if (langCodes.size() == 1) {
+                try {
+                    doNotTranslateCellValue = LocaleController.getInstance().getLanguageFromDict(langCodes.get(0)).name;
+                } catch (Exception e) {}
+            }
+            if (doNotTranslateCellValue == null)
+                doNotTranslateCellValue = getRestrictedLanguages().size() + " Languages"; // TODO(dkaraush): text
+            doNotTranslateCell.setTextAndValue("Do Not Translate", doNotTranslateCellValue, false);
             doNotTranslateCellAnimation = ValueAnimator.ofFloat(doNotTranslateCell.getAlpha(), value ? 1f : 0f);
             doNotTranslateCellAnimation.setInterpolator(CubicBezierInterpolator.DEFAULT);
             doNotTranslateCellAnimation.addUpdateListener(a -> {

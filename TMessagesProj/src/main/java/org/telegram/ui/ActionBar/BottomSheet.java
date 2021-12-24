@@ -33,6 +33,8 @@ import androidx.annotation.RequiresApi;
 import androidx.core.view.NestedScrollingParent;
 import androidx.core.view.NestedScrollingParentHelper;
 import androidx.core.view.ViewCompat;
+import androidx.core.widget.NestedScrollView;
+
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -304,6 +306,8 @@ public class BottomSheet extends Dialog {
             if (onContainerTouchEvent(ev)) {
                 return true;
             }
+
+            boolean scrollAtTop = !(customView instanceof NestedScrollView) || ((NestedScrollView) customView).getScrollY() > 0;
             if (canDismissWithTouchOutside() && ev != null && (ev.getAction() == MotionEvent.ACTION_DOWN || ev.getAction() == MotionEvent.ACTION_MOVE) && (!startedTracking && !maybeStartTracking && ev.getPointerCount() == 1)) {
                 startedTrackingX = (int) ev.getX();
                 startedTrackingY = (int) ev.getY();
@@ -311,11 +315,13 @@ public class BottomSheet extends Dialog {
                     dismiss();
                     return true;
                 }
-                startedTrackingPointerId = ev.getPointerId(0);
-                maybeStartTracking = true;
-                cancelCurrentAnimation();
-                if (velocityTracker != null) {
-                    velocityTracker.clear();
+                if (!scrollAtTop) {
+                    startedTrackingPointerId = ev.getPointerId(0);
+                    maybeStartTracking = true;
+                    cancelCurrentAnimation();
+                    if (velocityTracker != null) {
+                        velocityTracker.clear();
+                    }
                 }
             } else if (ev != null && ev.getAction() == MotionEvent.ACTION_MOVE && ev.getPointerId(0) == startedTrackingPointerId) {
                 if (velocityTracker == null) {
