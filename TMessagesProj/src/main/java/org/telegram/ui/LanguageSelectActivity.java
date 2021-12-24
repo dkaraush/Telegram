@@ -383,6 +383,9 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
 
         private SharedPreferences.OnSharedPreferenceChangeListener listener;
 
+        private float HEIGHT_OPEN = 243;
+        private float HEIGHT_CLOSED = HEIGHT_OPEN - 50;
+
         public TranslateSettings(Context context) {
             super(context);
 
@@ -468,6 +471,12 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 doNotTranslateCell.setAlpha(t);
                 doNotTranslateCell.setTranslationY(-AndroidUtilities.dp(8) * (1f - t));
                 info.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
+                header2.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
+
+                ViewGroup.LayoutParams layoutParams = getLayoutParams();
+                layoutParams.height = AndroidUtilities.dp(HEIGHT_CLOSED + (HEIGHT_OPEN - HEIGHT_CLOSED) * t);
+                setLayoutParams(layoutParams);
+
             });
             doNotTranslateCellAnimation.setDuration((long) (Math.abs(doNotTranslateCell.getAlpha() - (value ? 1f : 0f)) * 200));
             doNotTranslateCellAnimation.start();
