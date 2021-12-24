@@ -78,9 +78,9 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
     private HashSet<String> selectedLanguages = null;
 
     public static HashSet<String> getRestrictedLanguages() {
-        String currentLangCode = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
-        String[] onlyCurrentLang = new String[] { currentLangCode };
-        return new HashSet<>(MessagesController.getGlobalMainSettings().getStringSet("translate_button_restricted_languages", new HashSet<String>(Arrays.asList(onlyCurrentLang))));
+//        String currentLangCode = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
+//        String[] onlyCurrentLang = new String[] { currentLangCode };
+        return new HashSet<>(MessagesController.getGlobalMainSettings().getStringSet("translate_button_restricted_languages", new HashSet<String>(/*Arrays.asList(onlyCurrentLang)*/)));
     }
 
     @Override
@@ -476,6 +476,9 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                     } else {
                         textSettingsCell.setTextAndValue(localeInfo.name, localeInfo.nameEnglish, false, !last);
                     }
+                    try {
+                        textSettingsCell.setClickable(value && langCode != null && langCode.equals(LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode));
+                    } catch (Exception e) {}
                     textSettingsCell.setChecked(value);
                     break;
                 }

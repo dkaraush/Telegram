@@ -177,18 +177,19 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 LocaleController.getInstance().applyLanguage(localeInfo, true, false, false, true, currentAccount);
                 parentLayout.rebuildAllFragmentViews(false, false);
 
-//                String langCode = localeInfo.pluralLangCode,
-//                       prevLangCode = prevLocale.pluralLangCode;
-//                SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-//                HashSet<String> selectedLanguages = new HashSet<String>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
-//                HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
-//
-//                if (selectedLanguages.contains(langCode)) {
-//                    if (!selectedLanguages.contains(prevLangCode))
-//                        newSelectedLanguages.add(prevLangCode);
-//                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
-//                }
-//                preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
+                String langCode = localeInfo.pluralLangCode,
+                        prevLangCode = prevLocale.pluralLangCode;
+                SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+                HashSet<String> selectedLanguages = new HashSet<String>(preferences.getStringSet("translate_button_restricted_languages", new HashSet<>()));
+                HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
+
+                if (selectedLanguages.contains(langCode)) {
+                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
+                    if (!selectedLanguages.contains(prevLangCode)) {
+                        newSelectedLanguages.add(prevLangCode);
+                    }
+                }
+                preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
 
                 finishFragment();
             }
