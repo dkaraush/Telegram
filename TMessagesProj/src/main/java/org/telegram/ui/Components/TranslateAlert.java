@@ -5,6 +5,7 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -20,6 +21,7 @@ import android.os.Bundle;
 import android.os.SystemClock;
 import android.text.Layout;
 import android.text.StaticLayout;
+import android.text.TextPaint;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
@@ -103,7 +105,7 @@ public class TranslateAlert extends BottomSheet {
 
         contentView = new LinearLayout(context);
         contentView.setOrientation(LinearLayout.VERTICAL);
-        contentView.setPadding(dp(20), dp(7), dp(20), dp(0));
+        contentView.setPadding(dp(20) - LoadingTextView.padHorz, dp(7), dp(20) - LoadingTextView.padHorz, dp(0));
 
         titleView = new TextView(context);
         titleView.setLines(1);
@@ -112,7 +114,7 @@ public class TranslateAlert extends BottomSheet {
         titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 19);
-        contentView.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 10, 0, 5.3f));
+        contentView.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, LoadingTextView.padHorz / AndroidUtilities.density, 10, LoadingTextView.padHorz / AndroidUtilities.density, 5.3f));
 
         LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
@@ -136,7 +138,7 @@ public class TranslateAlert extends BottomSheet {
         translateMoreView.setVisibility(View.GONE);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
         translateMoreView.setOnClickListener(e -> fetchNext());
-        container.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
+        container.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT,20, 0, 20, 0));
 
         fetchNext();
 
@@ -171,6 +173,8 @@ public class TranslateAlert extends BottomSheet {
         textView.setEllipsizeNull();
         textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        textView.setTextIsSelectable(true);
+        textView.setTranslationY(contentView.getChildCount() * -LoadingTextView.padVert * 2f);
         contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         return textView;
@@ -195,12 +199,10 @@ public class TranslateAlert extends BottomSheet {
             return blocks;
         while (full.length() > maxBlockSize) {
             String maxBlock = full.substring(0, maxBlockSize);
-            int newLineIndex = maxBlock.lastIndexOf("\n"),
-                dotIndex = maxBlock.lastIndexOf(".");
-            int n = Math.min(
-                newLineIndex == -1 ? maxBlockSize : newLineIndex,
-                dotIndex == -1 ? maxBlockSize : dotIndex
-            );
+            int n = -1;
+            if (n == -1) n = maxBlock.lastIndexOf("\n\n");
+            if (n == -1) n = maxBlock.lastIndexOf("\n");
+            if (n == -1) n = maxBlock.lastIndexOf(". ");
             blocks.add(full.substring(0, n + 1));
             full = full.substring(n + 1);
         }
@@ -301,6 +303,8 @@ public class TranslateAlert extends BottomSheet {
                         if (blockText != null && !blockText.equals("null"))
                             result += /*(i > 0 ? "\n" : "") +*/ blockText;
                     }
+                    if (text.length() > 0 && text.charAt(0) == '\n')
+                        result = "\n" + result;
                     final String finalResult = result;
                     final String finalSourceLanguage = sourceLanguage;
                     AndroidUtilities.runOnUIThread(() -> {
@@ -352,15 +356,17 @@ public class TranslateAlert extends BottomSheet {
         }
     }
 
-    private class LoadingTextView extends FrameLayout {
+    private static class LoadingTextView extends FrameLayout {
         private TextView loadingTextView;
         public TextView textView;
 
         private String loadingString;
         private StaticLayout loadingLayout;
+        private StaticLayout textLayout;
         private Paint loadingPaint = new Paint();
         private Path loadingPath = new Path();
         private RectF fetchedPathRect = new RectF();
+        public static int padHorz = dp(6), padVert = dp(2);
         private Path fetchPath = new Path() {
             private boolean got = false;
 
@@ -373,7 +379,12 @@ public class TranslateAlert extends BottomSheet {
             @Override
             public void addRect(float left, float top, float right, float bottom, @NonNull Direction dir) {
                 if (!got) {
-                    fetchedPathRect.set(left, top, right, bottom);
+                    fetchedPathRect.set(
+                        left - padHorz,
+                        top - padVert,
+                        right + padHorz,
+                        bottom + padVert
+                    );
                     got = true;
                 }
             }
@@ -388,9 +399,12 @@ public class TranslateAlert extends BottomSheet {
             this.scaleFromZero = scaleFromZero;
             this.scaleFromZeroStart = SystemClock.elapsedRealtime();
 
+            setPadding(padHorz, padVert, padHorz, padVert);
+
             loadingT = 0f;
             loadingTextView = new TextView(context);
             loadingTextView.setText(this.loadingString = loadingString);
+            loadingTextView.setVisibility(INVISIBLE);
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             textView = new TextView(context);
@@ -402,6 +416,7 @@ public class TranslateAlert extends BottomSheet {
             loadingPaint.setShader(gradient);
 
             setWillNotDraw(false);
+            setClipChildren(false);
 
             updateLoadingLayout();
         }
@@ -411,6 +426,7 @@ public class TranslateAlert extends BottomSheet {
             super.onAttachedToWindow();
 
             updateLoadingLayout();
+            updateTextLayout();
             updateHeight();
         }
 
@@ -422,6 +438,7 @@ public class TranslateAlert extends BottomSheet {
             int height = (
                 (int) (
                     (
+                        padVert * 2 +
                         loadingHeight + (
                             Math.max(textView.getMeasuredHeight(), textView.getHeight()) -
                             loadingHeight
@@ -437,18 +454,26 @@ public class TranslateAlert extends BottomSheet {
             this.setLayoutParams(params);
         }
 
+        private TextPaint textPaint = new TextPaint();
+        private TextPaint loadingTextPaint = new TextPaint();
         private float gradientWidth = dp(350f);
         private void updateLoadingLayout() {
-            float width = getMeasuredWidth();
-            if (width > 0) {
-                loadingLayout = new StaticLayout(loadingString, loadingTextView.getPaint(), getMeasuredWidth(), Layout.Alignment.ALIGN_NORMAL, 1f, 0f, false);
+            float textWidth = loadingTextView.getMeasuredWidth();
+            if (textWidth > 0) {
+                loadingLayout = new StaticLayout(
+                    loadingString,
+                    loadingTextPaint,
+                    (int) textWidth,
+                    Layout.Alignment.ALIGN_NORMAL,
+                    1f, 0f, false
+                );
                 loadingPath.reset();
                 for (int i = 0; i < loadingLayout.getLineCount(); ++i) {
                     int start = loadingLayout.getLineStart(i), end = loadingLayout.getLineEnd(i);
-                    if (start == end + 1)
+                    if (start + 1 == end)
                         continue;
                     loadingLayout.getSelectionPath(start, end, fetchPath);
-                    loadingPath.addRoundRect(fetchedPathRect, dp(1), dp(1), Path.Direction.CW);
+                    loadingPath.addRoundRect(fetchedPathRect, dp(4), dp(4), Path.Direction.CW);
                 }
             }
 
@@ -464,6 +489,18 @@ public class TranslateAlert extends BottomSheet {
                 loadingAnimator.start();
             }
         }
+        private void updateTextLayout() {
+            float textWidth = textView.getMeasuredWidth();
+            if (textWidth > 0) {
+                textLayout = new StaticLayout(
+                    textView.getText(),
+                    textPaint,
+                    (int) textWidth,
+                    Layout.Alignment.ALIGN_NORMAL,
+                    1f, 0f, false
+                );
+            }
+        }
 
         @Override
         protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -472,6 +509,7 @@ public class TranslateAlert extends BottomSheet {
 //            float height = measureHeight + (loadingHeight - measureHeight) * (1f - loadingT);
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             updateLoadingLayout();
+            updateTextLayout();
         }
 
         public boolean loaded = false;
@@ -498,17 +536,31 @@ public class TranslateAlert extends BottomSheet {
             loadingTextView.setMaxLines(maxLines);
             textView.setMaxLines(maxLines);
         }
+        public void setTextIsSelectable(boolean selectable) {
+            textView.setTextIsSelectable(selectable);
+        }
         private boolean showLoadingTextValue = true;
         public void showLoadingText(boolean show) {
             showLoadingTextValue = show;
         }
         public void setTextColor(int textColor) {
+            loadingTextPaint.setColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
             loadingTextView.setTextColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
+            textPaint.setColor(textColor);
             textView.setTextColor(textColor);
+        }
+        private float sz(int unit, float size) {
+            Context c = getContext();
+            return TypedValue.applyDimension(
+                unit, size, (c == null ? Resources.getSystem() : c.getResources()).getDisplayMetrics()
+            );
         }
         public void setTextSize(int unit, float size) {
             loadingTextView.setTextSize(unit, size);
             textView.setTextSize(unit, size);
+            loadingTextPaint.setTextSize(sz(unit, size));
+            textPaint.setTextSize(sz(unit, size));
+            updateLoadingLayout();
         }
         public int multAlpha(int color, float mult) {
             return (color & 0x00ffffff) | ((int) ((color >> 24 & 0xff) * mult) << 24);
@@ -516,6 +568,7 @@ public class TranslateAlert extends BottomSheet {
         private ValueAnimator animator = null;
         public void setText(CharSequence text) {
             textView.setText(text);
+            updateTextLayout();
             updateHeight();
 
             if (!loaded) {
@@ -555,8 +608,8 @@ public class TranslateAlert extends BottomSheet {
                     @Override public void onAnimationCancel(Animator animator) { }
                     @Override public void onAnimationRepeat(Animator animator) {}
                 });
-                animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
-                animator.setDuration(180);
+                animator.setInterpolator(CubicBezierInterpolator.EASE_IN);
+                animator.setDuration(220);
                 animator.start();
             }
         }
@@ -565,7 +618,6 @@ public class TranslateAlert extends BottomSheet {
         private Path shadePath = new Path();
         private Path tempPath = new Path();
         private Path inPath = new Path();
-        private Path outPath = new Path();
         private RectF rect = new RectF();
         @Override
         protected void onDraw(Canvas canvas) {
@@ -581,15 +633,6 @@ public class TranslateAlert extends BottomSheet {
             inPath.reset();
             inPath.addCircle(cx, cy, r, Path.Direction.CW);
 
-//            outPath.reset();
-//            outPath.moveTo(0, 0);
-//            rect.set(cx - r, cy - r, cx + r, cy + r);
-//            outPath.arcTo(rect, 0, 360, false);
-//            outPath.lineTo(w, 0);
-//            outPath.lineTo(w, h);
-//            outPath.lineTo(0, h);
-//            outPath.lineTo(0, 0);
-
             canvas.save();
             canvas.clipPath(inPath, Region.Op.DIFFERENCE);
 
@@ -598,24 +641,42 @@ public class TranslateAlert extends BottomSheet {
             shadePath.reset();
             shadePath.addRect(0, 0, w, h, Path.Direction.CW);
 
+            canvas.translate(padHorz, padVert);
             canvas.clipPath(loadingPath);
+            canvas.translate(-padHorz, -padVert);
             canvas.translate(-dx, 0);
             shadePath.offset(dx, 0f, tempPath);
             canvas.drawPath(tempPath, loadingPaint);
             canvas.translate(dx, 0);
-
-            loadingTextView.draw(canvas);
             canvas.restore();
 
             canvas.save();
-            canvas.clipPath(inPath);
-            textView.draw(canvas);
+            canvas.clipPath(inPath, Region.Op.DIFFERENCE);
+            canvas.translate(padHorz, padVert);
+            if (loadingLayout != null)
+                loadingLayout.draw(canvas);
             canvas.restore();
+
+//            canvas.save();
+//            canvas.clipPath(inPath);
+//            canvas.translate(padHorz, padVert);
+//            if (loadingT < 1f)
+//                textLayout.draw(canvas);
+//            else
+//                textView.draw(canvas);
+//            canvas.restore();
         }
+        private Paint RED = new Paint();
 
         @Override
         protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
-//            return super.drawChild(canvas, child, drawingTime);
+            if (child == textView) {
+                canvas.save();
+                canvas.clipPath(inPath);
+                boolean r = super.drawChild(canvas, child, drawingTime);
+                canvas.restore();
+                return r;
+            }
             return false;
         }
     }
