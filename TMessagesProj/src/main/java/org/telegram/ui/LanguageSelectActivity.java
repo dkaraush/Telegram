@@ -455,7 +455,7 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 } catch (Exception e) {}
             }
             if (doNotTranslateCellValue == null)
-                doNotTranslateCellValue = LocaleController.getPluralString("Languages", getRestrictedLanguages().size());
+                doNotTranslateCellValue = String.format(LocaleController.getPluralString("Languages", getRestrictedLanguages().size()), getRestrictedLanguages().size());
             doNotTranslateCell.setTextAndValue(LocaleController.getString("DoNotTranslate", R.string.DoNotTranslate), doNotTranslateCellValue, false);
             doNotTranslateCellAnimation = ValueAnimator.ofFloat(doNotTranslateCell.getAlpha(), value ? 1f : 0f);
             doNotTranslateCellAnimation.setInterpolator(CubicBezierInterpolator.DEFAULT);
