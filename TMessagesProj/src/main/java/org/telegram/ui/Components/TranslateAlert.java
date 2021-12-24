@@ -429,7 +429,7 @@ public class TranslateAlert extends BottomSheet {
             ViewGroup.LayoutParams params = (ViewGroup.LayoutParams) getLayoutParams();
             if (params == null)
                 params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height);
-            if (height > 0 || scaleFromZero)
+//            if (height > 0 || scaleFromZero)
                 params.height = height;
             this.setLayoutParams(params);
         }
