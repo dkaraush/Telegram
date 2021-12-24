@@ -2,6 +2,7 @@ package org.telegram.ui.Components;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
 
+import android.animation.Animator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -126,8 +127,6 @@ public class TranslateAlert extends BottomSheet {
         subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         contentView.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
 
-        container.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
-
         translateMoreView = new TextView(context);
         translateMoreView.setTextColor(Theme.getColor(Theme.key_dialogTextBlue));
         translateMoreView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -135,6 +134,9 @@ public class TranslateAlert extends BottomSheet {
         translateMoreView.setVisibility(View.GONE);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
         translateMoreView.setOnClickListener(e -> fetchNext());
+
+        fetchNext();
+        container.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
         container.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, 20, 0, 20, 0));
 
         buttonTextView = new TextView(context);
@@ -159,8 +161,6 @@ public class TranslateAlert extends BottomSheet {
         buttonView.setOnClickListener(e -> dismiss());
 
         container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 26, 16, 16));
-
-        fetchNext();
     }
     private LoadingTextView addBlock(String startText, boolean scaleFromZero) {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
@@ -170,7 +170,7 @@ public class TranslateAlert extends BottomSheet {
         textView.setEllipsizeNull();
         textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
         return textView;
     }
@@ -393,6 +393,7 @@ public class TranslateAlert extends BottomSheet {
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             textView = new TextView(context);
+            textView.setText("");
             addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             int c1 = Theme.getColor(Theme.key_dialogBackground),
@@ -401,6 +402,7 @@ public class TranslateAlert extends BottomSheet {
             loadingPaint.setShader(gradient);
 
             setWillNotDraw(false);
+            setClipChildren(false);
 
             updateLoadingLayout();
         }
@@ -414,8 +416,10 @@ public class TranslateAlert extends BottomSheet {
         }
 
         private void updateHeight() {
-            int loadingHeight = Math.max(loadingLayout != null ? loadingLayout.getHeight() : 0, loadingTextView.getMeasuredHeight());
+            int loadingHeight = loadingTextView.getMeasuredHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
+            if (scaleFromZeroT < 1f)
+                loadingHeight = Math.max(loadingHeight, loadingLayout != null ? loadingLayout.getHeight() : loadingHeight);
             int height = (
                 (int) (
                     (
@@ -429,8 +433,7 @@ public class TranslateAlert extends BottomSheet {
             ViewGroup.LayoutParams params = (ViewGroup.LayoutParams) getLayoutParams();
             if (params == null)
                 params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height);
-//            if (height > 0 || scaleFromZero)
-                params.height = height;
+            params.height = height;
             this.setLayoutParams(params);
         }
 
@@ -453,10 +456,9 @@ public class TranslateAlert extends BottomSheet {
                 loadingAnimator = ValueAnimator.ofFloat(0f, 1f);
                 loadingAnimator.addUpdateListener(a -> {
                     loadingT = 0f;
-                    invalidate();
-
-                    if (scaleFromZero && SystemClock.elapsedRealtime() < scaleFromZeroStart + scaleFromZeroDuration)
+                    if (scaleFromZero && SystemClock.elapsedRealtime() <= scaleFromZeroStart + scaleFromZeroDuration + 25)
                         updateHeight();
+                    invalidate();
                 });
                 loadingAnimator.setDuration(Long.MAX_VALUE);
                 loadingAnimator.start();
