@@ -39,9 +39,6 @@ dependencies {
     implementation files('libs/libgsaverification-client.aar')
 
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
-
-    implementation 'com.google.mlkit:translate:16.1.2'
-    implementation 'com.google.mlkit:language-id:17.0.2'
 }
 
 android {
@@ -186,6 +183,23 @@ android {
 
     sourceSets.release {
         manifest.srcFile 'config/release/AndroidManifest.xml'
+    }
+    sourceSets {
+        main {
+            java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
+        }
+        armv7_SDK23 {
+            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        }
+        x86_SDK23 {
+            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        }
+        arm64_SDK23 {
+            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        }
+        x64_SDK23 {
+            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        }
     }
 
     flavorDimensions "minApi"
@@ -332,6 +346,13 @@ android {
             }
         }
     }
+}
+
+dependencies {
+    "armv7_SDK23Implementation"("com.google.mlkit:language-id:17.0.2")
+    "arm64_SDK23Implementation"("com.google.mlkit:language-id:17.0.2")
+    "x64_SDK23Implementation"("com.google.mlkit:language-id:17.0.2")
+    "x86_SDK23Implementation"("com.google.mlkit:language-id:17.0.2")
 }
 
 apply plugin: 'com.google.gms.google-services'

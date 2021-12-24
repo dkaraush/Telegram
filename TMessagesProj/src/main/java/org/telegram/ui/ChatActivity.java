@@ -8,8 +8,6 @@
 
 package org.telegram.ui;
 
-import static java.security.AccessController.getContext;
-
 import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -101,7 +99,6 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout;
 import com.google.android.exoplayer2.util.Log;
-import com.google.mlkit.nl.languageid.LanguageIdentification;
 
 import org.telegram.PhoneFormat.PhoneFormat;
 import org.telegram.messenger.AccountInstance;
@@ -120,6 +117,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.ForwardingMessagesParams;
 import org.telegram.messenger.ImageLocation;
 import org.telegram.messenger.ImageReceiver;
+import org.telegram.messenger.LanguageDetector;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MediaController;
 import org.telegram.messenger.MediaDataController;
@@ -251,7 +249,6 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -20009,33 +20006,50 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 });
                 if (option == 29) {
                     String toLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
-                    final String[] fromLang = { null };
-                    cell.setVisibility(View.GONE);
-                    LanguageIdentification.getClient()
-                        .identifyLanguage(selectedObject.messageOwner.message)
-                        .addOnSuccessListener((String lang) -> {
-                            fromLang[0] = lang;
-                            if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
-                                !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
-                                cell.setVisibility(View.VISIBLE);
+                    if (LanguageDetector.hasSupport()) {
+                        final String[] fromLang = {null};
+                        cell.setVisibility(View.GONE);
+
+                        LanguageDetector.detectLanguage(
+                                selectedObject.messageOwner.message,
+                                (String lang) -> {
+                                    fromLang[0] = lang;
+                                    if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
+                                            !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
+                                        cell.setVisibility(View.VISIBLE);
+                                    }
+                                },
+                                (Exception e) -> {
+                                    Log.e("mlkit", "failed to detect language in message");
+                                    e.printStackTrace();
+                                }
+                        );
+                        cell.setOnClickListener(e -> {
+                            if (selectedObject == null || i >= options.size()) {
+                                return;
                             }
-                        })
-                        .addOnFailureListener((Exception e) -> {
-                            Log.e("mlkit", "failed to detect language in message");
-                            e.printStackTrace();
+                            TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
+                            scrimView = null;
+                            contentView.invalidate();
+                            chatListView.invalidate();
+                            if (scrimPopupWindow != null) {
+                                scrimPopupWindow.dismiss();
+                            }
                         });
-                    cell.setOnClickListener(e -> {
-                        if (selectedObject == null || i >= options.size()) {
-                            return;
-                        }
-                        TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
-                        scrimView = null;
-                        contentView.invalidate();
-                        chatListView.invalidate();
-                        if (scrimPopupWindow != null) {
-                            scrimPopupWindow.dismiss();
-                        }
-                    });
+                    } else {
+                        cell.setOnClickListener(e -> {
+                            if (selectedObject == null || i >= options.size()) {
+                                return;
+                            }
+                            TranslateAlert.showAlert(getParentActivity(), null, "und", toLang, selectedObject.messageOwner.message);
+                            scrimView = null;
+                            contentView.invalidate();
+                            chatListView.invalidate();
+                            if (scrimPopupWindow != null) {
+                                scrimPopupWindow.dismiss();
+                            }
+                        });
+                    }
                 }
             }
 
