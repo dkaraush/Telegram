@@ -415,7 +415,7 @@ public class TranslateAlert extends BottomSheet {
         }
 
         private void updateHeight() {
-            int loadingHeight = Math.max(loadingTextView.getMeasuredHeight(), loadingTextView.getHeight());
+            int loadingHeight = loadingTextView.getMeasuredHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
             if (scaleFromZero && scaleFromZeroT > 0.5f)
                 loadingHeight = Math.max(loadingLayout != null ? loadingLayout.getHeight() : 0, loadingHeight);
