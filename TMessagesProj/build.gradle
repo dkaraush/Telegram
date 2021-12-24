@@ -299,18 +299,16 @@ android {
         }
     }
     sourceSets {
-        armv7_SDK23 {
-            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
-        }
-        x86_SDK23 {
-            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
-        }
-        arm64_SDK23 {
-            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
-        }
-        x64_SDK23 {
-            java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
-        }
+        armv7_SDK23.java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        x86_SDK23.java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        arm64_SDK23.java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+        x64_SDK23.java.srcDirs = [ 'src/sdk23/java', 'src/main/java' ]
+
+        armv7.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
+        x86.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
+        arm64.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
+        x64.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
+        afat.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
     }
 
     defaultConfig.versionCode = 2481
@@ -333,8 +331,6 @@ android {
         minSdkVersion 16
         targetSdkVersion 30
         versionName "8.3.0"
-
-        sourceSets.main.java.srcDirs = [ 'src/sdk16/java', 'src/main/java' ]
 
         vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
