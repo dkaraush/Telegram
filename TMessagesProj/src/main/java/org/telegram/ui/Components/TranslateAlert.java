@@ -100,7 +100,7 @@ public class TranslateAlert extends BottomSheet {
 
         titleView = new TextView(context);
         titleView.setLines(1);
-        titleView.setText("Automatic translation"); // TODO(dkaraush): text
+        titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
         titleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
         titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
@@ -109,7 +109,7 @@ public class TranslateAlert extends BottomSheet {
 
         LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
-        String subtitleText = "From " + (from != null ? from.nameEnglish : "") + " to " + (to != null ? to.nameEnglish : ""); // TODO(dkaraush): text
+        String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from.nameEnglish : ""), (to != null ? to.nameEnglish : ""));
         subtitleView = new LoadingTextView(context, subtitleText);
         subtitleView.showLoadingText(false);
         subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
@@ -141,7 +141,7 @@ public class TranslateAlert extends BottomSheet {
         buttonTextView.setTextColor(Theme.getColor(Theme.key_featuredStickers_buttonText));
         buttonTextView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
         buttonTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        buttonTextView.setText("Close Translation"); // TODO(dkaraush): text
+        buttonTextView.setText(LocaleController.getString("CloseTranslation", R.string.CloseTranslation));
 
         buttonView = new FrameLayout(context) {
             @Override
@@ -170,7 +170,7 @@ public class TranslateAlert extends BottomSheet {
         LocaleController.LocaleInfo from = LocaleController.getInstance().getLanguageByPlural(fromLanguage);
         LocaleController.LocaleInfo to = LocaleController.getInstance().getLanguageByPlural(toLanguage);
         if (from != null && to != null)
-            subtitleView.setText("From " + from.nameEnglish + " to " + to.nameEnglish); // TODO(dkaraush): text
+            subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from.nameEnglish, to.nameEnglish));
     }
 
     private String[] userAgents = new String[] {
@@ -188,7 +188,6 @@ public class TranslateAlert extends BottomSheet {
                 long start = SystemClock.elapsedRealtime();
                 HttpURLConnection connection = null;
                 try {
-                    Thread.sleep(2000);
                     String uri = "https://translate.googleapis.com/";
                     uri += "translate_a";
                     uri += "/single?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t&q=" + Uri.encode(text) + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss";
@@ -230,10 +229,10 @@ public class TranslateAlert extends BottomSheet {
                             if (elapsed < 750)
                                 Thread.sleep(750 - elapsed);
                             AndroidUtilities.runOnUIThread(() -> {
-                                Toast.makeText(getContext(), "Failed to translate. Retry later.", Toast.LENGTH_SHORT).show(); // TODO(dkaraush): text
+                                Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert1", R.string.TranslationFailedAlert1), Toast.LENGTH_SHORT).show();
                             });
                         } else if (connection != null) {
-                            Toast.makeText(getContext(), "Failed to translate.", Toast.LENGTH_SHORT).show(); // TODO(dkaraush): text
+                            Toast.makeText(getContext(), LocaleController.getString("TranslationFailedAlert2", R.string.TranslationFailedAlert2), Toast.LENGTH_SHORT).show();
                         }
                     } catch (Exception e2) {}
 
@@ -420,8 +419,8 @@ public class TranslateAlert extends BottomSheet {
                     forceLayout();
                     invalidate();
                 });
-                animator.setInterpolator(CubicBezierInterpolator.EASE_IN);
-                animator.setDuration(150);
+                animator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+                animator.setDuration(220);
                 animator.start();
             }
         }

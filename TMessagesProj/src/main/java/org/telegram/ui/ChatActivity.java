@@ -20017,7 +20017,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             fromLang[0] = lang;
                             if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
                                 !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
-                                cell.setVisibility(View.VISIBLE); // TODO(dkaraush): animation
+                                cell.setVisibility(View.VISIBLE);
                             }
                         })
                         .addOnFailureListener((Exception e) -> {

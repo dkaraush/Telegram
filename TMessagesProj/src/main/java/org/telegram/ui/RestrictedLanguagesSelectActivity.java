@@ -137,7 +137,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
 
         actionBar.setBackButtonImage(R.drawable.ic_ab_back);
         actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle("Do Not Translate"); // TODO(dkaraush): text
+        actionBar.setTitle(LocaleController.getString("DoNotTranslate", R.string.DoNotTranslate));
 
         actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
             @Override
@@ -434,7 +434,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 case 2:
                     HeaderCell header = new HeaderCell(mContext);
                     header.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
-                    header.setText("Choose languages"); // TODO(dkaraush): text
+                    header.setText(LocaleController.getString("ChooseLanguages", R.string.ChooseLanguages));
                     view = header;
                     break;
                 case 1:
