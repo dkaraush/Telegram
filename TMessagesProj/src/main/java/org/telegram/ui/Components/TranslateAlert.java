@@ -44,6 +44,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.Emoji;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
@@ -282,6 +283,7 @@ public class TranslateAlert extends BottomSheet {
                 String uri = "";
                 HttpURLConnection connection = null;
                 try {
+                    sleep(1500);
                     uri = "https://translate.goo";
                     uri += "gleapis.com/transl";
                     uri += "ate_a";
@@ -372,7 +374,7 @@ public class TranslateAlert extends BottomSheet {
         private TextView loadingTextView;
         public TextView textView;
 
-        private String loadingString;
+        private CharSequence loadingString;
         private StaticLayout loadingLayout;
         private StaticLayout textLayout;
         private Paint loadingPaint = new Paint();
@@ -405,7 +407,7 @@ public class TranslateAlert extends BottomSheet {
         private boolean scaleFromZero = false;
         private long scaleFromZeroStart = 0;
         private final long scaleFromZeroDuration = 220l;
-        public LoadingTextView(Context context, String loadingString, boolean scaleFromZero) {
+        public LoadingTextView(Context context, CharSequence loadingString, boolean scaleFromZero) {
             super(context);
 
             this.scaleFromZero = scaleFromZero;
@@ -415,6 +417,7 @@ public class TranslateAlert extends BottomSheet {
 
             loadingT = 0f;
             loadingTextView = new TextView(context);
+            loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
@@ -572,6 +575,8 @@ public class TranslateAlert extends BottomSheet {
             textView.setTextSize(unit, size);
             loadingTextPaint.setTextSize(sz(unit, size));
             textPaint.setTextSize(sz(unit, size));
+            loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
+            textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
         }
         public int multAlpha(int color, float mult) {
@@ -579,6 +584,7 @@ public class TranslateAlert extends BottomSheet {
         }
         private ValueAnimator animator = null;
         public void setText(CharSequence text) {
+            text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
             textView.setText(text);
             updateTextLayout();
             updateHeight();
