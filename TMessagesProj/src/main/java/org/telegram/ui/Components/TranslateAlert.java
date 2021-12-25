@@ -1,6 +1,7 @@
 package org.telegram.ui.Components;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
+import static org.telegram.messenger.AndroidUtilities.lerp;
 
 import android.animation.Animator;
 import android.animation.ValueAnimator;
@@ -52,6 +53,7 @@ import org.telegram.messenger.Emoji;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
@@ -70,8 +72,7 @@ import java.util.ArrayList;
 
 public class TranslateAlert extends BottomSheet {
     private LinearLayout container;
-    private TextView titleView;
-    private LoadingTextView subtitleView;
+    private TranslateAlertHeader header;
     private LinearLayout contentView;
     private TextView translateMoreView;
     private TextView buttonTextView;
@@ -83,6 +84,79 @@ public class TranslateAlert extends BottomSheet {
 //    public boolean onContainerTouchEvent(MotionEvent event) {
 //        return container.onTouchEvent(event);
 //    }
+
+    private class TranslateAlertHeader extends FrameLayout {
+        public TextView titleView;
+        public LoadingTextView subtitleView;
+        private FrameLayout shadowView;
+
+        private FrameLayout.LayoutParams titleLayout;
+        private FrameLayout.LayoutParams subtitleLayout;
+        private LinearLayout.LayoutParams layout;
+
+        public TranslateAlertHeader(Context context, String subtitleText) {
+            super(context);
+
+            titleView = new TextView(context);
+            titleView.setLines(1);
+            titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
+            titleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+            titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+            titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(19));
+            addView(titleView, titleLayout = LayoutHelper.createFrame(
+                LayoutHelper.MATCH_PARENT,
+                LayoutHelper.WRAP_CONTENT,
+                Gravity.FILL_HORIZONTAL | Gravity.TOP,
+                22,
+                22,
+                22,
+                0
+            ));
+
+            subtitleView = new LoadingTextView(context, subtitleText, false);
+            subtitleView.showLoadingText(false);
+            subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+            subtitleView.setLines(1);
+            if (subtitleText != null)
+                subtitleView.setText(subtitleText);
+            subtitleView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
+            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(14));
+            addView(subtitleView, subtitleLayout = LayoutHelper.createFrame(
+                LayoutHelper.MATCH_PARENT,
+                LayoutHelper.WRAP_CONTENT,
+                Gravity.TOP | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT),
+                22 - LoadingTextView.padHorz / AndroidUtilities.density,
+                47 - LoadingTextView.padVert / AndroidUtilities.density,
+                22 - LoadingTextView.padHorz / AndroidUtilities.density,
+                0
+            ));
+
+            shadowView = new FrameLayout(context);
+            shadowView.setBackgroundColor(getThemedColor(Theme.key_dialogShadowLine));
+            shadowView.setAlpha(0);
+            addView(shadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
+
+            setLayoutParams(layout = LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 66, Gravity.FILL_HORIZONTAL | Gravity.TOP));
+            setClipChildren(false);
+        }
+
+        public void animate(float t) {
+            titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(lerp(19,18, t)));
+            titleLayout.topMargin = dp(lerp(22, 8, t));
+            titleLayout.leftMargin = dp(lerp(22, 72, t));
+            titleView.setLayoutParams(titleLayout);
+
+            subtitleLayout.topMargin = dp(lerp(47, 30, t)) - LoadingTextView.padVert;
+            subtitleLayout.leftMargin = dp(lerp(22, 72, t)) - LoadingTextView.padHorz;
+            subtitleView.setLayoutParams(subtitleLayout);
+
+            shadowView.setAlpha(t);
+
+            layout.height = (int) lerp(dp(66), dp(56), t);
+            setLayoutParams(layout);
+        }
+    }
 
     private String fromLanguage, toLanguage, translated = null;
     private CharSequence text;
@@ -103,7 +177,7 @@ public class TranslateAlert extends BottomSheet {
         NestedScrollView scrollView = new NestedScrollView(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(heightMeasureSpec), dp(450)), MeasureSpec.AT_MOST));
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(heightMeasureSpec), dp(550)), MeasureSpec.AT_MOST));
             }
         };
         scrollView.addView(container);
@@ -111,29 +185,13 @@ public class TranslateAlert extends BottomSheet {
 
         contentView = new LinearLayout(context);
         contentView.setOrientation(LinearLayout.VERTICAL);
-        contentView.setPadding(dp(20) - LoadingTextView.padHorz, dp(7), dp(20) - LoadingTextView.padHorz, dp(0));
-
-        titleView = new TextView(context);
-        titleView.setLines(1);
-        titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
-        titleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
-        titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-        titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 19);
-        contentView.addView(titleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, LoadingTextView.padHorz / AndroidUtilities.density, 10, LoadingTextView.padHorz / AndroidUtilities.density, 5.3f));
+        contentView.setPadding(dp(22) - LoadingTextView.padHorz, dp(7), dp(22) - LoadingTextView.padHorz, dp(0));
 
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
         String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from : ""), (to != null ? to : ""));
-        subtitleView = new LoadingTextView(context, subtitleText, false);
-        subtitleView.showLoadingText(false);
-        subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
-        subtitleView.setLines(1);
-        if (from != null && to != null)
-            subtitleView.setText(subtitleText);
-        subtitleView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
-        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
-        contentView.addView(subtitleView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, 18));
+        header = new TranslateAlertHeader(context, subtitleText);
+        container.addView(header);
 
         container.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
@@ -159,17 +217,18 @@ public class TranslateAlert extends BottomSheet {
         buttonTextView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
         buttonTextView.setText(LocaleController.getString("CloseTranslation", R.string.CloseTranslation));
 
-        buttonView = new FrameLayout(context) {
-            @Override
-            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(AndroidUtilities.dp(48), MeasureSpec.EXACTLY));
-            }
-        };
+        buttonView = new FrameLayout(context);
         buttonView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(4), Theme.getColor(Theme.key_featuredStickers_addButton), Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
         buttonView.addView(buttonTextView);
-        buttonView.setOnClickListener(e -> dismiss());
+//        buttonView.setOnClickListener(e -> dismiss());
+        buttonView.setOnClickListener(e -> {
+            ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+            animator.addUpdateListener(a -> header.animate((float) a.getAnimatedValue()));
+            animator.setDuration(220);
+            animator.start();
+        });
 
-        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 16));
+        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 16, 16, 16));
     }
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
@@ -207,7 +266,7 @@ public class TranslateAlert extends BottomSheet {
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
         if (from != null && to != null)
-            subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
+            header.subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
     }
 
     private ArrayList<CharSequence> cutInBlocks(CharSequence full, int maxBlockSize) {
@@ -215,8 +274,7 @@ public class TranslateAlert extends BottomSheet {
         if (full == null)
             return blocks;
         while (full.length() > maxBlockSize) {
-            CharSequence maxBlock = full.subSequence(0, maxBlockSize);
-            String maxBlockStr = full.toString();
+            String maxBlockStr = full.subSequence(0, maxBlockSize).toString();
             int n = -1;
             if (n == -1) n = maxBlockStr.lastIndexOf("\n\n");
             if (n == -1) n = maxBlockStr.lastIndexOf("\n");
@@ -229,12 +287,6 @@ public class TranslateAlert extends BottomSheet {
         return blocks;
     }
 
-    public interface OnTranslationSuccess {
-        public void run(String translated, String sourceLanguage);
-    }
-    public interface OnTranslationFail {
-        public void run(boolean rateLimit);
-    }
 
     public void showTranslateMoreView(boolean show) {
         translateMoreView.setClickable(show);
@@ -283,6 +335,21 @@ public class TranslateAlert extends BottomSheet {
         );
     }
 
+
+    private String[] userAgents = new String[] {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36", // 13.5%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", // 6.6%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0", // 6.4%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0", // 6.2%
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36", // 5.2%
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36" // 4.8%
+    };
+    public interface OnTranslationSuccess {
+        public void run(String translated, String sourceLanguage);
+    }
+    public interface OnTranslationFail {
+        public void run(boolean rateLimit);
+    }
     private void fetchTranslation(CharSequence text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
@@ -357,15 +424,6 @@ public class TranslateAlert extends BottomSheet {
         }.start();
     }
 
-    private String[] userAgents = new String[] {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36", // 13.5%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", // 6.6%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) Gecko/20100101 Firefox/94.0", // 6.4%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0", // 6.2%
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36", // 5.2%
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36" // 4.8%
-    };
-
     public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text) {
         TranslateAlert alert = new TranslateAlert(context, fromLanguage, toLanguage, text);
         if (fragment != null) {
@@ -387,7 +445,7 @@ public class TranslateAlert extends BottomSheet {
         private Paint loadingPaint = new Paint();
         private Path loadingPath = new Path();
         private RectF fetchedPathRect = new RectF();
-        public static int padHorz = dp(6), padVert = dp(2);
+        public static int padHorz = dp(6), padVert = dp(1.5f);
         private Path fetchPath = new Path() {
             private boolean got = false;
 
@@ -427,10 +485,23 @@ public class TranslateAlert extends BottomSheet {
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
+            loadingTextView.setClipToOutline(false);
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
-            textView = new TextView(context);
-            addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
+            textView = new TextView(context) {
+                @Override
+                protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                    super.onMeasure(
+                        widthMeasureSpec,
+                        MeasureSpec.makeMeasureSpec(
+                            MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(heightMeasureSpec),
+                            MeasureSpec.getMode(heightMeasureSpec)
+                        )
+                    );
+                }
+            };
+            textView.setClipToOutline(false);
+            addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             int c1 = Theme.getColor(Theme.key_dialogBackground),
                 c2 = Theme.getColor(Theme.key_dialogBackgroundGray);
@@ -576,6 +647,15 @@ public class TranslateAlert extends BottomSheet {
             return TypedValue.applyDimension(
                 unit, size, (c == null ? Resources.getSystem() : c.getResources()).getDisplayMetrics()
             );
+        }
+        public void setTextSize(int size) {
+            loadingTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
+            textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
+            loadingTextPaint.setTextSize(size);
+            textPaint.setTextSize(size);
+            loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
+            textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
+            updateLoadingLayout();
         }
         public void setTextSize(int unit, float size) {
             loadingTextView.setTextSize(unit, size);

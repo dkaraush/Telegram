@@ -184,11 +184,10 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 HashSet<String> selectedLanguages = RestrictedLanguagesSelectActivity.getRestrictedLanguages();
                 HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
 
-                if (!selectedLanguages.contains(prevLangCode)) {
-                    newSelectedLanguages.add(prevLangCode);
-                    if (selectedLanguages.contains(langCode)) {
-                        newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
-                    }
+                if (selectedLanguages.contains(langCode)) {
+                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
+                    if (!selectedLanguages.contains(prevLangCode))
+                        newSelectedLanguages.add(prevLangCode);
                 }
                 preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
 
