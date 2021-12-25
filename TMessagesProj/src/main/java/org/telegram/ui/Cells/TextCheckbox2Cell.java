@@ -89,10 +89,11 @@ public class TextCheckbox2Cell extends FrameLayout {
         valueTextView.setEllipsize(TextUtils.TruncateAt.END);
         addView(valueTextView, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.TOP, LocaleController.isRTL ? padding : 64, 36, LocaleController.isRTL ? 64 : padding, 0));
 
-        checkbox = new CheckBox2(context, 20);
+        checkbox = new CheckBox2(context, 21);
+        checkbox.setDrawUnchecked(true);
         checkbox.setDrawBackgroundAsArc(10);
         checkbox.setDuration(100);
-        checkbox.setColor(Theme.key_radioBackgroundChecked, Theme.key_radioBackground, Theme.key_checkboxCheck);
+        checkbox.setColor(Theme.key_statisticChartLine_lightblue, Theme.key_statisticChartLine_lightblue, Theme.key_checkboxCheck);
         addView(checkbox, LayoutHelper.createFrame(20, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
 
         setClipChildren(false);
