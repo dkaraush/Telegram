@@ -29,6 +29,7 @@ import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.ActionBar.ThemeDescription;
+import org.telegram.ui.Cells.CheckBoxCell;
 import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.LanguageCell;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -214,14 +215,18 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                 localeInfo = sortedLanguages.get(position);
             }
             if (localeInfo != null) {
+                LocaleController.LocaleInfo currentLocaleInfo = LocaleController.getInstance().getCurrentLocaleInfo();
                 String langCode = localeInfo.pluralLangCode;
+                if (langCode != null && langCode.equals(currentLocaleInfo.pluralLangCode)) {
+                    AndroidUtilities.shakeView(((TextCheckbox2Cell) view).checkbox, 2, 0);
+                    return;
+                }
                 boolean value = selectedLanguages.contains(langCode);
                 HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
                 if (value)
                     newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
                 else
                     newSelectedLanguages.add(langCode);
-                LocaleController.LocaleInfo currentLocaleInfo = LocaleController.getInstance().getCurrentLocaleInfo();
                 if (newSelectedLanguages.size() == 1 && newSelectedLanguages.contains(currentLocaleInfo.pluralLangCode))
                     preferences.edit().remove("translate_button_restricted_languages").apply();
                 else
@@ -479,7 +484,6 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                     }
 
                     boolean isCurrent = langCode != null && langCode.equals(LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode);
-                    textSettingsCell.setDisabled(isCurrent);
                     textSettingsCell.setChecked(value || isCurrent);
                     break;
                 }
