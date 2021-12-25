@@ -19529,9 +19529,23 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             ArrayList<CharSequence> items = new ArrayList<>();
             final ArrayList<Integer> options = new ArrayList<>();
 
+            CharSequence messageText = null;
             if (type >= 0 || type == -1 && single && (message.isSending() || message.isEditing()) && currentEncryptedChat == null) {
                 selectedObject = message;
                 selectedObjectGroup = groupedMessages;
+                messageText = getMessageCaption(selectedObject, selectedObjectGroup); // used only in translations
+                if (messageText == null && selectedObject.isPoll()) {
+                    try {
+                        TLRPC.Poll poll = ((TLRPC.TL_messageMediaPoll) selectedObject.messageOwner.media).poll;
+                        StringBuilder pollText = new StringBuilder();
+                        pollText = new StringBuilder(poll.question).append("\n");
+                        for (TLRPC.TL_pollAnswer answer : poll.answers)
+                            pollText.append("\n\uD83D\uDD18 ").append(answer.text);
+                        messageText = pollText.toString();
+                    } catch (Exception e) {}
+                }
+                if (messageText == null)
+                    messageText = getMessageContent(selectedObject, 0, false);
 
                 if (type == -1) {
                     if (selectedObject.type == 0 || selectedObject.isAnimatedEmoji() || getMessageCaption(selectedObject, selectedObjectGroup) != null) {
@@ -19575,7 +19589,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(12);
                             icons.add(R.drawable.msg_edit);
                         }
-                        if (!selectedObject.isOutOwner() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -19825,7 +19839,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(102);
                             icons.add(R.drawable.msg_schedule);
                         }
-                        if (!selectedObject.isOutOwner() && (selectedObject.messageOwner.message != null && selectedObject.messageOwner.message.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -20006,29 +20020,29 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 });
                 if (option == 29) {
                     String toLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
+                    final CharSequence finalMessageText = messageText;
                     if (LanguageDetector.hasSupport()) {
-                        final String[] fromLang = {null};
+                        final String[] fromLang = { null };
                         cell.setVisibility(View.GONE);
-
                         LanguageDetector.detectLanguage(
-                                selectedObject.messageOwner.message,
-                                (String lang) -> {
-                                    fromLang[0] = lang;
-                                    if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
-                                            !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
-                                        cell.setVisibility(View.VISIBLE);
-                                    }
-                                },
-                                (Exception e) -> {
-                                    Log.e("mlkit", "failed to detect language in message");
-                                    e.printStackTrace();
+                            finalMessageText.toString(),
+                            (String lang) -> {
+                                fromLang[0] = lang;
+                                if (fromLang[0] != null && (!fromLang[0].equals(toLang) || fromLang[0].equals("und")) &&
+                                        !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
+                                    cell.setVisibility(View.VISIBLE);
                                 }
+                            },
+                            (Exception e) -> {
+                                Log.e("mlkit", "failed to detect language in message");
+                                e.printStackTrace();
+                            }
                         );
                         cell.setOnClickListener(e -> {
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, selectedObject.messageOwner.message);
+                            TranslateAlert.showAlert(getParentActivity(), null, fromLang[0], toLang, finalMessageText);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();
@@ -20041,7 +20055,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), null, "und", toLang, selectedObject.messageOwner.message);
+                            TranslateAlert.showAlert(getParentActivity(), null, "und", toLang, finalMessageText);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();

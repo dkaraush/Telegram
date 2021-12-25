@@ -78,14 +78,15 @@ public class TranslateAlert extends BottomSheet {
     private FrameLayout buttonView;
 
     private int blockIndex = 0;
-    private ArrayList<String> textBlocks;
+    private ArrayList<CharSequence> textBlocks;
 
 //    public boolean onContainerTouchEvent(MotionEvent event) {
 //        return container.onTouchEvent(event);
 //    }
 
-    private String fromLanguage, toLanguage, text, translated = null;
-    public TranslateAlert(Context context, String fromLanguage, String toLanguage, String text) {
+    private String fromLanguage, toLanguage, translated = null;
+    private CharSequence text;
+    public TranslateAlert(Context context, String fromLanguage, String toLanguage, CharSequence text) {
         super(context, true);
 
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
@@ -168,9 +169,9 @@ public class TranslateAlert extends BottomSheet {
         buttonView.addView(buttonTextView);
         buttonView.setOnClickListener(e -> dismiss());
 
-        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 26, 16, 16));
+        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 16, 16, 16, 16));
     }
-    private LoadingTextView addBlock(String startText, boolean scaleFromZero) {
+    private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
         textView.setLines(0);
         textView.setMaxLines(0);
@@ -181,7 +182,6 @@ public class TranslateAlert extends BottomSheet {
         textView.setTextIsSelectable(true);
         textView.setTranslationY(contentView.getChildCount() * -LoadingTextView.padVert * 2f);
         contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
-
         return textView;
     }
 
@@ -210,18 +210,19 @@ public class TranslateAlert extends BottomSheet {
             subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
     }
 
-    private ArrayList<String> cutInBlocks(String full, int maxBlockSize) {
-        ArrayList<String> blocks = new ArrayList<>();
+    private ArrayList<CharSequence> cutInBlocks(CharSequence full, int maxBlockSize) {
+        ArrayList<CharSequence> blocks = new ArrayList<>();
         if (full == null)
             return blocks;
         while (full.length() > maxBlockSize) {
-            String maxBlock = full.substring(0, maxBlockSize);
+            CharSequence maxBlock = full.subSequence(0, maxBlockSize);
+            String maxBlockStr = full.toString();
             int n = -1;
-            if (n == -1) n = maxBlock.lastIndexOf("\n\n");
-            if (n == -1) n = maxBlock.lastIndexOf("\n");
-            if (n == -1) n = maxBlock.lastIndexOf(". ");
-            blocks.add(full.substring(0, n + 1));
-            full = full.substring(n + 1);
+            if (n == -1) n = maxBlockStr.lastIndexOf("\n\n");
+            if (n == -1) n = maxBlockStr.lastIndexOf("\n");
+            if (n == -1) n = maxBlockStr.lastIndexOf(". ");
+            blocks.add(full.subSequence(0, n + 1));
+            full = full.subSequence(n + 1, full.length());
         }
         if (full.length() > 0)
             blocks.add(full);
@@ -256,7 +257,7 @@ public class TranslateAlert extends BottomSheet {
         if (blockIndex >= textBlocks.size())
             return;
 
-        String blockText = textBlocks.get(blockIndex);
+        CharSequence blockText = textBlocks.get(blockIndex);
         LoadingTextView blockView = addBlock(blockText, blockIndex != 0);
 
         fetchTranslation(
@@ -282,20 +283,20 @@ public class TranslateAlert extends BottomSheet {
         );
     }
 
-    private void fetchTranslation(String text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
+    private void fetchTranslation(CharSequence text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
             public void run() {
                 String uri = "";
                 HttpURLConnection connection = null;
                 try {
-                    sleep(1500);
+                    sleep(125);
                     uri = "https://translate.goo";
                     uri += "gleapis.com/transl";
                     uri += "ate_a";
                     uri += "/singl";
                     uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
-                    uri += Uri.encode(text);
+                    uri += Uri.encode(text.toString());
                     connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
                     connection.setRequestMethod("GET");
                     connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
@@ -365,7 +366,7 @@ public class TranslateAlert extends BottomSheet {
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.55 Safari/537.36" // 4.8%
     };
 
-    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, String text) {
+    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text) {
         TranslateAlert alert = new TranslateAlert(context, fromLanguage, toLanguage, text);
         if (fragment != null) {
             if (fragment.getParentActivity() != null) {
