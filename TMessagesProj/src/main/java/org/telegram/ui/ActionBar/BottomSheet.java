@@ -299,7 +299,8 @@ public class BottomSheet extends Dialog {
             }
         }
 
-        boolean processTouchEvent(MotionEvent ev, boolean intercept) {
+        private float y = 0f;
+        public boolean processTouchEvent(MotionEvent ev, boolean intercept) {
             if (dismissed) {
                 return false;
             }
@@ -307,7 +308,6 @@ public class BottomSheet extends Dialog {
                 return true;
             }
 
-            boolean scrollAtTop = !(customView instanceof NestedScrollView) || ((NestedScrollView) customView).getScrollY() > 0;
             if (canDismissWithTouchOutside() && ev != null && (ev.getAction() == MotionEvent.ACTION_DOWN || ev.getAction() == MotionEvent.ACTION_MOVE) && (!startedTracking && !maybeStartTracking && ev.getPointerCount() == 1)) {
                 startedTrackingX = (int) ev.getX();
                 startedTrackingY = (int) ev.getY();
@@ -315,13 +315,12 @@ public class BottomSheet extends Dialog {
                     dismiss();
                     return true;
                 }
-                if (!scrollAtTop) {
-                    startedTrackingPointerId = ev.getPointerId(0);
-                    maybeStartTracking = true;
-                    cancelCurrentAnimation();
-                    if (velocityTracker != null) {
-                        velocityTracker.clear();
-                    }
+                onScrollUpBegin(y);
+                startedTrackingPointerId = ev.getPointerId(0);
+                maybeStartTracking = true;
+                cancelCurrentAnimation();
+                if (velocityTracker != null) {
+                    velocityTracker.clear();
                 }
             } else if (ev != null && ev.getAction() == MotionEvent.ACTION_MOVE && ev.getPointerId(0) == startedTrackingPointerId) {
                 if (velocityTracker == null) {
@@ -329,6 +328,7 @@ public class BottomSheet extends Dialog {
                 }
                 float dx = Math.abs((int) (ev.getX() - startedTrackingX));
                 float dy = (int) ev.getY() - startedTrackingY;
+                boolean canScrollUp = onScrollUp(y + dy);
                 velocityTracker.addMovement(ev);
                 if (!disableScroll && maybeStartTracking && !startedTracking && (dy > 0 && dy / 3.0f > Math.abs(dx) && Math.abs(dy) >= touchSlop)) {
                     startedTrackingY = (int) ev.getY();
@@ -336,12 +336,10 @@ public class BottomSheet extends Dialog {
                     startedTracking = true;
                     requestDisallowInterceptTouchEvent(true);
                 } else if (startedTracking) {
-                    float translationY = containerView.getTranslationY();
-                    translationY += dy;
-                    if (translationY < 0) {
-                        translationY = 0;
-                    }
-                    containerView.setTranslationY(translationY);
+                    y += dy;
+                    if (!canScrollUp)
+                        y = Math.max(y, 0);
+                    containerView.setTranslationY(Math.max(y, 0));
                     startedTrackingY = (int) ev.getY();
                     container.invalidate();
                 }
@@ -350,14 +348,13 @@ public class BottomSheet extends Dialog {
                     velocityTracker = VelocityTracker.obtain();
                 }
                 velocityTracker.computeCurrentVelocity(1000);
-                float translationY = containerView.getTranslationY();
-                if (startedTracking || translationY != 0) {
+                onScrollUpEnd(y);
+                if (startedTracking || y > 0) {
                     checkDismiss(velocityTracker.getXVelocity(), velocityTracker.getYVelocity());
-                    startedTracking = false;
                 } else {
                     maybeStartTracking = false;
-                    startedTracking = false;
                 }
+                startedTracking = false;
                 if (velocityTracker != null) {
                     velocityTracker.recycle();
                     velocityTracker = null;
@@ -1063,6 +1060,12 @@ public class BottomSheet extends Dialog {
     protected boolean onContainerTouchEvent(MotionEvent event) {
         return false;
     }
+    protected boolean onScrollUp(float translationY) {
+        return false;
+    }
+    protected void onScrollUpEnd(float translationY) {
+    }
+    protected void onScrollUpBegin(float translationY) {}
 
     public void setCustomView(View view) {
         customView = view;

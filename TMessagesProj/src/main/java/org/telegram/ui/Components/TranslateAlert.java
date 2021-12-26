@@ -5,18 +5,23 @@ import static org.telegram.messenger.AndroidUtilities.lerp;
 
 import android.animation.Animator;
 import android.animation.ValueAnimator;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffColorFilter;
 import android.graphics.RectF;
+import android.graphics.Rect;
 import android.graphics.Region;
 import android.graphics.Shader;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -24,17 +29,24 @@ import android.os.SystemClock;
 import android.text.Layout;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -53,6 +65,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
@@ -74,145 +87,277 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
-public class TranslateAlert extends BottomSheet {
-    private LinearLayout container;
-    private TranslateAlertHeader header;
-    private LinearLayout contentView;
+public class TranslateAlert extends Dialog {
+    private FrameLayout statusBar;
+    private FrameLayout contentView;
+    private FrameLayout container;
+    private TextView titleView;
+    private LoadingTextView subtitleView;
+    private ImageView backButton;
+    private FrameLayout header;
+    private FrameLayout headerShadowView;
+    private boolean scrollViewScrollable = false;
+    private NestedScrollView scrollView;
+    private LinearLayout textsView;
     private TextView translateMoreView;
     private TextView buttonTextView;
     private FrameLayout buttonView;
+    private FrameLayout buttonShadowView;
+
+    private FrameLayout.LayoutParams titleLayout;
+    private FrameLayout.LayoutParams subtitleLayout;
+    private FrameLayout.LayoutParams backLayout;
+    private FrameLayout.LayoutParams headerLayout;
+    private FrameLayout.LayoutParams scrollViewLayout;
 
     private int blockIndex = 0;
     private ArrayList<CharSequence> textBlocks;
 
-//    public boolean onContainerTouchEvent(MotionEvent event) {
-//        return container.onTouchEvent(event);
-//    }
+    private float containerOpenAnimationT = 0f;
+    private float openAnimationT = 0f;
+    private void openAnimation(float t) {
+        t = Math.min(Math.max(t, 0), 1);
+        containerOpenAnimationT = t;
+        container.forceLayout();
 
-    private class TranslateAlertHeader extends FrameLayout {
-        public TextView titleView;
-        public LoadingTextView subtitleView;
-        public ImageView backButton;
-        private FrameLayout shadowView;
+        titleView.setScaleX(lerp(1f, 0.9473f, t));
+        titleView.setScaleY(lerp(1f, 0.9473f, t));
+        titleLayout.topMargin = dp(lerp(22, 8, t));
+        titleLayout.leftMargin = dp(lerp(22, 72, t));
+        titleView.setLayoutParams(titleLayout);
 
-        private FrameLayout.LayoutParams titleLayout;
-        private FrameLayout.LayoutParams subtitleLayout;
-        private FrameLayout.LayoutParams backLayout;
-        private LinearLayout.LayoutParams layout;
+//        statusBar.setAlpha(Math.max(0, (t - .8f) / .2f));
+//        statusBar.setTranslationY(Math.max(0, (1f - (t - .9f) / .1f) * dp(48)));
+//        statusBar.setScaleY(Math.max(0, (t - .8f) / .2f));
 
-        public TranslateAlertHeader(Context context, String subtitleText) {
-            super(context);
+        subtitleLayout.topMargin = dp(lerp(47, 30, t)) - LoadingTextView.padVert;
+        subtitleLayout.leftMargin = dp(lerp(22, 72, t)) - LoadingTextView.padHorz;
+        subtitleView.setLayoutParams(subtitleLayout);
 
-            titleView = new TextView(context);
-            titleView.setLines(1);
-            titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
-            titleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
-            titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
-            titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(19));
-            addView(titleView, titleLayout = LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT,
-                LayoutHelper.WRAP_CONTENT,
-                Gravity.FILL_HORIZONTAL | Gravity.TOP,
-                22,
-                22,
-                22,
-                0
-            ));
+        backButton.setAlpha(t);
+        backButton.setScaleX(.75f + .25f * t);
+        backButton.setScaleY(.75f + .25f * t);
+        backButton.setClickable(t > .5f);
+        headerShadowView.setAlpha(scrollView.getScrollY() > 0 ? 1f : t);
 
-            subtitleView = new LoadingTextView(context, subtitleText, false);
-            subtitleView.showLoadingText(false);
-            subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
-            subtitleView.setLines(1);
-            if (subtitleText != null)
-                subtitleView.setText(subtitleText);
-            subtitleView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
-            subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(14));
-            addView(subtitleView, subtitleLayout = LayoutHelper.createFrame(
-                LayoutHelper.MATCH_PARENT,
-                LayoutHelper.WRAP_CONTENT,
-                Gravity.TOP | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT),
-                22 - LoadingTextView.padHorz / AndroidUtilities.density,
-                47 - LoadingTextView.padVert / AndroidUtilities.density,
-                22 - LoadingTextView.padHorz / AndroidUtilities.density,
-                0
-            ));
+        headerLayout.height = (int) lerp(dp(70), dp(56), t);
+        header.setLayoutParams(headerLayout);
 
-            backButton = new ImageView(context);
-            backButton.setImageResource(R.drawable.ic_ab_back);
-            backButton.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogTextBlack), PorterDuff.Mode.MULTIPLY));
-            backButton.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            backButton.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
-            backButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_dialogButtonSelector)));
-            backButton.setClickable(false);
-            backButton.setAlpha(0f);
-            backButton.setOnClickListener(e -> dismiss());
-            addView(backButton, backLayout = LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.CENTER_HORIZONTAL));
-
-            shadowView = new FrameLayout(context);
-            shadowView.setBackgroundColor(getThemedColor(Theme.key_dialogShadowLine));
-            shadowView.setAlpha(0);
-            addView(shadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
-
-            setLayoutParams(layout = LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 66, Gravity.FILL_HORIZONTAL | Gravity.TOP));
-            setClipChildren(false);
-        }
-
-        public void animate(float t) {
-            titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(lerp(19,18, t)));
-            titleLayout.topMargin = dp(lerp(22, 8, t));
-            titleLayout.leftMargin = dp(lerp(22, 72, t));
-            titleView.setLayoutParams(titleLayout);
-
-            subtitleLayout.topMargin = dp(lerp(47, 30, t)) - LoadingTextView.padVert;
-            subtitleLayout.leftMargin = dp(lerp(22, 72, t)) - LoadingTextView.padHorz;
-            subtitleView.setLayoutParams(subtitleLayout);
-
-            backButton.setAlpha(t);
-            backButton.setClickable(t > .5f);
-            shadowView.setAlpha(t);
-
-            layout.height = (int) lerp(dp(66), dp(56), t);
-            setLayoutParams(layout);
+        scrollViewLayout.topMargin = (int) lerp(dp(70), dp(56), t);
+        scrollView.setLayoutParams(scrollViewLayout);
+        for (int i = 0; i < textsView.getChildCount(); ++i) {
+            View child = textsView.getChildAt(i);
+            if (child instanceof LoadingTextView)
+                ((LoadingTextView) child).setTextIsSelectable(t >= 1f);
         }
     }
+    private boolean openAnimationToAnimatorPriority = false;
+    private ValueAnimator openAnimationToAnimator = null;
+    private void openAnimationTo(float to, boolean priority) {
+        if (openAnimationToAnimatorPriority && !priority)
+            return;
+        openAnimationToAnimatorPriority = priority;
+        to = Math.min(Math.max(to, 0), 1);
+        if (openAnimationToAnimator != null)
+            openAnimationToAnimator.cancel();
+        openAnimationToAnimator = ValueAnimator.ofFloat(containerOpenAnimationT, to);
+        openAnimationToAnimator.addUpdateListener(a -> openAnimation((float) a.getAnimatedValue()));
+        openAnimationToAnimator.addListener(new Animator.AnimatorListener() {
+            @Override public void onAnimationStart(Animator animator) { }
+            @Override public void onAnimationRepeat(Animator animator) { }
 
-    private String fromLanguage, toLanguage, translated = null;
+            @Override
+            public void onAnimationEnd(Animator animator) {
+                openAnimationToAnimatorPriority = false;
+            }
+
+            @Override
+            public void onAnimationCancel(Animator animator) {
+                openAnimationToAnimatorPriority = false;
+            }
+        });
+        openAnimationToAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+        openAnimationToAnimator.setDuration(220);
+        openAnimationToAnimator.start();
+        if (to >= .5 && blockIndex <= 1)
+            fetchNext();
+    }
+
+    private int textsViewMinHeight = 0;
+    private int minHeight() {
+        return (textsView == null ? 0 : textsView.getMeasuredHeight()) + dp(
+            66 + // header
+            1 +  // button separator
+            16 + // button top padding
+            48 + // button
+            16   // button bottom padding
+        );
+    }
+    private boolean canExpand() {
+        return (
+            textsView.getChildCount() < textBlocks.size() ||
+            minHeight() >= Math.min(dp(550), AndroidUtilities.displayMetrics.heightPixels / 2) //||
+//            (scrollView.canScrollVertically(1) || scrollView.canScrollVertically(-1))
+        );
+    }
+    private void updateCanExpand() {
+        boolean canExpand = canExpand();
+        if (containerOpenAnimationT > 0f && !canExpand)
+            openAnimationTo(0f, false);
+
+        buttonShadowView.animate().alpha(canExpand ? 1f : 0f).setDuration((long) (Math.abs(buttonShadowView.getAlpha() - (canExpand ? 1f : 0f)) * 220)).start();
+    }
+
+    private String fromLanguage, toLanguage;
     private CharSequence text;
     public TranslateAlert(Context context, String fromLanguage, String toLanguage, CharSequence text) {
-        super(context, true);
+        super(context, R.style.TransparentDialog);
 
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
         this.toLanguage = toLanguage;
         this.text = text;
         this.textBlocks = cutInBlocks(text, 1024);
 
-        shadowDrawable = context.getResources().getDrawable(R.drawable.sheet_shadow_round).mutate();
-        shadowDrawable.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogBackground), PorterDuff.Mode.MULTIPLY));
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        } else if (Build.VERSION.SDK_INT >= 21) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        }
 
-        container = new LinearLayout(context);
-        container.setOrientation(LinearLayout.VERTICAL);
+        contentView = new FrameLayout(context);
+        contentView.setBackgroundDrawable(backDrawable);
+        contentView.setClipChildren(false);
+        contentView.setClipToPadding(false);
+        if (Build.VERSION.SDK_INT >= 21) {
+            contentView.setFitsSystemWindows(true);
+            if (Build.VERSION.SDK_INT >= 30) {
+                contentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |  View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            } else {
+                contentView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+            }
+        }
 
-        NestedScrollView scrollView = new NestedScrollView(context) {
+//        statusBar = new FrameLayout(context) {
+//            @Override
+//            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+//                int fullWidth = MeasureSpec.getSize(widthMeasureSpec);
+//                super.onMeasure(
+//                    MeasureSpec.makeMeasureSpec(
+//                        (int) Math.max(fullWidth * 0.8f, Math.min(dp(480), fullWidth)),
+//                        MeasureSpec.getMode(widthMeasureSpec)
+//                    ),
+//                    heightMeasureSpec
+//                );
+//            }
+//        };
+//        statusBar.setBackgroundColor(Theme.getColor(Theme.key_dialogBackground));
+//        statusBar.setPivotY(AndroidUtilities.statusBarHeight);
+//        contentView.addView(statusBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, AndroidUtilities.statusBarHeight / AndroidUtilities.density, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, -AndroidUtilities.statusBarHeight / AndroidUtilities.density, 0, 0));
+
+        Paint containerPaint = new Paint();
+        containerPaint.setColor(Theme.getColor(Theme.key_dialogBackground));
+        containerPaint.setShadowLayer(dp(2), 0, dp(-0.66f), 0x1e000000);
+        container = new FrameLayout(context) {
+            private int contentHeight = Integer.MAX_VALUE;
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(Math.min(MeasureSpec.getSize(heightMeasureSpec), dp(550)), MeasureSpec.AT_MOST));
+                int fullWidth = MeasureSpec.getSize(widthMeasureSpec);
+                int fullHeight = MeasureSpec.getSize(widthMeasureSpec);
+                boolean isPortrait = fullHeight > fullWidth;
+                int minHeight = (int) Math.min(dp(550), AndroidUtilities.displayMetrics.heightPixels * (isPortrait ? .5f : .85f));
+                int fromHeight = Math.min(minHeight, minHeight());
+                int height = (int) (fromHeight + (AndroidUtilities.displayMetrics.heightPixels - fromHeight) * containerOpenAnimationT);
+                updateCanExpand();
+                super.onMeasure(
+                    MeasureSpec.makeMeasureSpec(
+                        (int) Math.max(fullWidth * 0.8f, Math.min(dp(480), fullWidth)),
+                        MeasureSpec.getMode(widthMeasureSpec)
+                    ),
+                    MeasureSpec.makeMeasureSpec(
+                        height,
+                        MeasureSpec.EXACTLY
+                    )
+                );
+            }
+
+            @Override
+            protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+                super.onLayout(changed, left, top, right, bottom);
+                contentHeight = Math.min(contentHeight, bottom - top);
+            }
+
+            private RectF containerRect = new RectF();
+            @Override
+            protected void onDraw(Canvas canvas) {
+                containerRect.set(0, 0, getWidth(), getHeight());
+                canvas.translate(0, (1f - openingT) * getHeight());
+                canvas.drawRoundRect(containerRect, dp(12 * (1f - containerOpenAnimationT)), dp(12 * (1f - containerOpenAnimationT)), containerPaint);
+                super.onDraw(canvas);
             }
         };
-        scrollView.addView(container);
-        setCustomView(scrollView);
+        container.setWillNotDraw(false);
 
-        contentView = new LinearLayout(context);
-        contentView.setOrientation(LinearLayout.VERTICAL);
-        contentView.setPadding(dp(22) - LoadingTextView.padHorz, dp(7), dp(22) - LoadingTextView.padHorz, dp(0));
+        header = new FrameLayout(context);
+
+        titleView = new TextView(context);
+        titleView.setPivotX(0);
+        titleView.setPivotY(0);
+        titleView.setLines(1);
+        titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
+        titleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+        titleView.setTypeface(AndroidUtilities.getTypeface("fonts/rmedium.ttf"));
+        titleView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
+        titleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(19));
+        header.addView(titleView, titleLayout = LayoutHelper.createFrame(
+            LayoutHelper.MATCH_PARENT,
+            LayoutHelper.WRAP_CONTENT,
+            Gravity.FILL_HORIZONTAL | Gravity.TOP,
+            22, 22,22, 0
+        ));
 
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
         String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from : ""), (to != null ? to : ""));
-        header = new TranslateAlertHeader(context, subtitleText);
-        container.addView(header);
+        subtitleView = new LoadingTextView(context, subtitleText, false);
+        subtitleView.showLoadingText(false);
+        subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+        subtitleView.setLines(1);
+        if (from != null && to != null)
+            subtitleView.setText(subtitleText);
+        subtitleView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
+        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(14));
+        header.addView(subtitleView, subtitleLayout = LayoutHelper.createFrame(
+            LayoutHelper.MATCH_PARENT,
+            LayoutHelper.WRAP_CONTENT,
+            Gravity.TOP | (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT),
+            22 - LoadingTextView.padHorz / AndroidUtilities.density,
+            47 - LoadingTextView.padVert / AndroidUtilities.density,
+            22 - LoadingTextView.padHorz / AndroidUtilities.density,
+            0
+        ));
 
-        container.addView(contentView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        backButton = new ImageView(context);
+        backButton.setImageResource(R.drawable.ic_ab_back);
+        backButton.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogTextBlack), PorterDuff.Mode.MULTIPLY));
+        backButton.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        backButton.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
+        backButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_dialogButtonSelector)));
+        backButton.setClickable(false);
+        backButton.setAlpha(0f);
+        backButton.setOnClickListener(e -> dismiss());
+        header.addView(backButton, backLayout = LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.CENTER_HORIZONTAL));
+
+        headerShadowView = new FrameLayout(context);
+        headerShadowView.setBackgroundColor(Theme.getColor(Theme.key_dialogShadowLine));
+        headerShadowView.setAlpha(0);
+        header.addView(headerShadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL));
+
+        header.setClipChildren(false);
+        container.addView(header, headerLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 70, Gravity.FILL_HORIZONTAL | Gravity.TOP));
+
+        textsView = new LinearLayout(context);
+        textsView.setOrientation(LinearLayout.VERTICAL);
+        textsView.setPadding(dp(22) - LoadingTextView.padHorz, dp(12) - LoadingTextView.padVert, dp(22) - LoadingTextView.padHorz, dp(12) - LoadingTextView.padVert);
 
         translateMoreView = new TextView(context);
         translateMoreView.setTextColor(Theme.getColor(Theme.key_dialogTextBlue));
@@ -220,10 +365,28 @@ public class TranslateAlert extends BottomSheet {
         translateMoreView.setText(LocaleController.getString("TranslateMore", R.string.TranslateMore));
         translateMoreView.setVisibility(View.GONE);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
-        translateMoreView.setOnClickListener(e -> fetchNext());
-        container.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT,20, 0, 20, 0));
+        translateMoreView.setOnClickListener(e -> {
+            openAnimationTo(1f, true);
+            fetchNext();
+        });
+        translateMoreView.setPadding(LoadingTextView.padHorz, LoadingTextView.padVert, LoadingTextView.padHorz, LoadingTextView.padVert);
+        textsView.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT,0, 0, 0, 0));
+
+        scrollView = new NestedScrollView(context) {
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent ev) {
+                return containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
+            }
+        };
+        scrollView.setClipChildren(true);
+        scrollView.addView(textsView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1f));
+        container.addView(scrollView, scrollViewLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.FILL, 0, 70, 0, 81));
 
         fetchNext();
+
+        buttonShadowView = new FrameLayout(context);
+        buttonShadowView.setBackgroundColor(Theme.getColor(Theme.key_dialogShadowLine));
+        container.addView(buttonShadowView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 1, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL, 0, 0, 0, 80));
 
         buttonTextView = new TextView(context);
         buttonTextView.setLines(1);
@@ -239,19 +402,118 @@ public class TranslateAlert extends BottomSheet {
         buttonView = new FrameLayout(context);
         buttonView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(4), Theme.getColor(Theme.key_featuredStickers_addButton), Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
         buttonView.addView(buttonTextView);
-//        buttonView.setOnClickListener(e -> dismiss());
+        buttonView.setOnClickListener(e -> dismiss());
 
-        buttonView.setOnClickListener(e -> {
-            i++;
-            ValueAnimator animator = ValueAnimator.ofFloat(i % 2, 1 - (i % 2));
-            animator.addUpdateListener(a -> header.animate((float) a.getAnimatedValue()));
-            animator.setDuration(220);
-            animator.start();
-        });
-
-        container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 16, 16, 16));
+        container.addView(buttonView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 16, 16, 16, 16));
+        contentView.addView(container, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
     }
-    int i = 0;
+
+
+    private void setScrollY(float t) {
+        openAnimation(t);
+        openingT = Math.max(Math.min(1f + t, 1), 0);
+        container.invalidate();
+    }
+    private void scrollYTo(float t) {
+        openAnimationTo(t, false);
+        openTo(1f + t, false);
+    }
+    private float fromScrollY = 0;
+    private float getScrollY() {
+        return Math.max(Math.min(containerOpenAnimationT - (1 - openingT), 1), 0);
+    }
+
+    private boolean hasSelection() {
+        return false; // TODO(dkaraush)
+    }
+
+    private Rect containerRect = new Rect();
+    private Rect translateMoreRect = new Rect();
+    private Rect buttonRect = new Rect();
+    private Rect backRect = new Rect();
+    private Rect scrollRect = new Rect();
+    private float fromY = 0;
+    private boolean pressedOutside = false;
+    private boolean maybeScrolling = false;
+    private boolean scrolling = false;
+    private boolean fromScrollRect = false;
+    private boolean fromTranslateMoreView = false;
+    private float fromScrollViewY = 0;
+    @Override
+    public boolean dispatchTouchEvent(@NonNull MotionEvent event) {
+        float x = event.getX();
+        float y = event.getY();
+
+        container.getGlobalVisibleRect(containerRect);
+        if (!containerRect.contains((int) x, (int) y)) {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                pressedOutside = true;
+                return true;
+            } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                if (pressedOutside) {
+                    pressedOutside = false;
+                    dismiss();
+                    return true;
+                }
+            }
+        }
+
+        scrollView.getGlobalVisibleRect(scrollRect);
+        backButton.getGlobalVisibleRect(backRect);
+        buttonView.getGlobalVisibleRect(buttonRect);
+        translateMoreView.getGlobalVisibleRect(translateMoreRect);
+        fromTranslateMoreView = translateMoreRect.contains((int) x, (int) y);
+        if (
+//            (!scrollRect.contains((int) x, (int) y) || !canExpand() || containerOpenAnimationT <= 0f) &&
+            !backRect.contains((int) x, (int) y) &&
+            !buttonRect.contains((int) x, (int) y) &&
+            !fromTranslateMoreView &&
+            !hasSelection() &&
+            event.getAction() == MotionEvent.ACTION_DOWN
+        ) {
+            fromScrollRect = scrollRect.contains((int) x, (int) y) && (containerOpenAnimationT > 0 || !canExpand());
+            maybeScrolling = true;
+            scrolling = false;
+            fromY = y;
+            fromScrollY = getScrollY();
+            fromScrollViewY = scrollView.getScrollY();
+            return super.dispatchTouchEvent(event) || true;
+        } else if (maybeScrolling && !fromTranslateMoreView && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
+            float dy = fromY - y;
+            if (fromScrollRect) {
+                dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
+                if (dy < 0)
+                    scrolling = true;
+            } else if (Math.abs(dy) > dp(4) && !fromScrollRect)
+                scrolling = true;
+            float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
+                  minHeight = dp(550);
+            float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
+               (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
+            float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
+            if (!canExpand())
+                scrollY = Math.min(scrollY, 0);
+            updateCanExpand();
+
+            if (scrolling) {
+                setScrollY(scrollY);
+                if (event.getAction() == MotionEvent.ACTION_UP) {
+                    scrolling = false;
+                    maybeScrolling = false;
+                    scrollYTo(
+                        Math.abs(dy) > dp(16) ?
+                            /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
+                            Math.round(fromScrollY)
+                    );
+                }
+//                if (fromScrollRect)
+//                    return super.dispatchTouchEvent(event) || true;
+                return true;
+            }
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
         textView.setLines(0);
@@ -261,15 +523,115 @@ public class TranslateAlert extends BottomSheet {
         textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         textView.setTextIsSelectable(true);
-        textView.setTranslationY(contentView.getChildCount() * -LoadingTextView.padVert * 2f);
-        contentView.addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        textView.setTranslationY((textsView.getChildCount() - 1) * -LoadingTextView.padVert * 2f);
+        textsView.addView(textView, textsView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         return textView;
     }
+
+    private float openingT = 0f;
+    private ValueAnimator openingAnimator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        containerView.setPadding(containerView.getPaddingLeft(), dp(10), containerView.getPaddingRight(), 0);
+
+        contentView.setPadding(0, 0, 0, 0);
+        setContentView(contentView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+//        int flags = contentView.getSystemUiVisibility();
+//        flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+//        contentView.setSystemUiVisibility(flags);
+
+        Window window = getWindow();
+
+        window.setWindowAnimations(R.style.DialogNoAnimation);
+        WindowManager.LayoutParams params = window.getAttributes();
+        params.width = ViewGroup.LayoutParams.MATCH_PARENT;
+        params.gravity = Gravity.TOP | Gravity.LEFT;
+        params.dimAmount = 0;
+        params.flags &= ~WindowManager.LayoutParams.FLAG_DIM_BEHIND;
+        params.flags |= WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM;
+        if (Build.VERSION.SDK_INT >= 21) {
+            params.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR |
+                WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+            window.setStatusBarColor(Theme.getColor(Theme.key_dialogBackgroundGray));
+        }
+        params.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+//        if (Build.VERSION.SDK_INT >= 28) {
+//            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+//        }
+        window.setAttributes(params);
+
+
+        container.forceLayout();
+    }
+
+    protected ColorDrawable backDrawable = new ColorDrawable(0xff000000) {
+        @Override
+        public void setAlpha(int alpha) {
+            super.setAlpha(alpha);
+            container.invalidate();
+        }
+    };
+    @Override
+    public void show() {
+        super.show();
+
+        openAnimation(0);
+        openTo(1, true);
+    }
+    
+    private boolean dismissed = false;
+    @Override
+    public void dismiss() {
+        if (dismissed)
+            return;
+        dismissed = true;
+
+        openTo(0, true);
+    }
+    private void openTo(float t) {
+        openTo(t, false);
+    }
+    private boolean openingAnimatorPriority = false;
+    private void openTo(float t, boolean priority) {
+        final float T = Math.min(Math.max(t, 0), 1);
+        if (openingAnimatorPriority && !priority)
+            return;
+        openingAnimatorPriority = priority;
+        if (openingAnimator != null)
+            openingAnimator.cancel();
+        openingAnimator = ValueAnimator.ofFloat(openingT, T);
+        openingAnimator.addUpdateListener(a -> {
+            openingT = (float) a.getAnimatedValue();
+            container.invalidate();
+            backDrawable.setAlpha((int) (openingT * 51));
+        });
+        openingAnimator.addListener(new Animator.AnimatorListener() {
+            @Override public void onAnimationCancel(Animator animator) {
+                if (T <= 0f)
+                    dismissInternal();
+                openingAnimatorPriority = false;
+            }
+            @Override public void onAnimationEnd(Animator animator) {
+                if (T <= 0f)
+                    dismissInternal();
+                openingAnimatorPriority = false;
+            }
+            @Override public void onAnimationRepeat(Animator animator) { }
+            @Override public void onAnimationStart(Animator animator) { }
+        });
+        openingAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
+        openingAnimator.setDuration((long) (Math.abs(openingT - T) * 220));
+        openingAnimator.start();
+    }
+    public void dismissInternal() {
+        try {
+            super.dismiss();
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
     }
 
     public String languageName(String locale) {
@@ -288,7 +650,7 @@ public class TranslateAlert extends BottomSheet {
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
         if (from != null && to != null)
-            header.subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
+            subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
     }
 
     private ArrayList<CharSequence> cutInBlocks(CharSequence full, int maxBlockSize) {
@@ -339,6 +701,16 @@ public class TranslateAlert extends BottomSheet {
             (String translatedText, String sourceLanguage) -> {
                 Spannable spannable = new SpannableStringBuilder(translatedText);
                 AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
+                URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+                for (int i = 0; i < urlSpans.length; ++i) {
+                    URLSpan urlSpan = urlSpans[i];
+                    spannable.setSpan(
+                        new ForegroundColorSpanThemable(Theme.key_dialogTextLink),
+                        spannable.getSpanStart(urlSpan),
+                        spannable.getSpanEnd(urlSpan),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                    );
+                }
                 blockView.setText(spannable);
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
@@ -357,7 +729,6 @@ public class TranslateAlert extends BottomSheet {
         );
     }
 
-
     private String[] userAgents = new String[] {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36", // 13.5%
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", // 6.6%
@@ -372,14 +743,15 @@ public class TranslateAlert extends BottomSheet {
     public interface OnTranslationFail {
         public void run(boolean rateLimit);
     }
+    private long minFetchingDuration = 250;
     private void fetchTranslation(CharSequence text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
             public void run() {
                 String uri = "";
                 HttpURLConnection connection = null;
+                long start = SystemClock.elapsedRealtime();
                 try {
-                    sleep(125);
                     uri = "https://translate.goo";
                     uri += "gleapis.com/transl";
                     uri += "ate_a";
@@ -417,6 +789,9 @@ public class TranslateAlert extends BottomSheet {
                         result = "\n" + result;
                     final String finalResult = result;
                     final String finalSourceLanguage = sourceLanguage;
+                    long elapsed = SystemClock.elapsedRealtime() - start;
+                    if (elapsed < minFetchingDuration)
+                        sleep(minFetchingDuration - elapsed);
                     AndroidUtilities.runOnUIThread(() -> {
                         if (onSuccess != null)
                             onSuccess.run(finalResult, finalSourceLanguage);
@@ -503,7 +878,18 @@ public class TranslateAlert extends BottomSheet {
             setPadding(padHorz, padVert, padHorz, padVert);
 
             loadingT = 0f;
-            loadingTextView = new TextView(context);
+            loadingTextView = new TextView(context)/* {
+                @Override
+                protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                    super.onMeasure(
+                        widthMeasureSpec,
+                        MeasureSpec.makeMeasureSpec(
+                            MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(heightMeasureSpec),
+                            MeasureSpec.getMode(heightMeasureSpec)
+                        )
+                    );
+                }
+            }*/;
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
@@ -546,10 +932,8 @@ public class TranslateAlert extends BottomSheet {
         }
 
         private void updateHeight() {
-            int loadingHeight = loadingTextView.getMeasuredHeight();
+            int loadingHeight = loadingLayout != null ? loadingLayout.getHeight() : loadingTextView.getMeasuredHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
-            if (scaleFromZero && scaleFromZeroT > 0.5f)
-                loadingHeight = Math.max(loadingLayout != null ? loadingLayout.getHeight() : 0, loadingHeight);
             int height = (
                 (int) (
                     (
@@ -590,6 +974,8 @@ public class TranslateAlert extends BottomSheet {
                     loadingLayout.getSelectionPath(start, end, fetchPath);
                     loadingPath.addRoundRect(fetchedPathRect, dp(4), dp(4), Path.Direction.CW);
                 }
+
+                updateHeight();
             }
 
             if (!loaded && loadingAnimator == null) {
