@@ -542,7 +542,7 @@ public class TranslateAlert extends Dialog {
             } else if (Math.abs(dy) > dp(4) && !fromScrollRect)
                 scrolling = true;
             float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
-                  minHeight = dp(550);
+                  minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
             float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
                (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
             float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
@@ -970,6 +970,20 @@ public class TranslateAlert extends Dialog {
             }
         };
 
+        public void resize() {
+            textView.forceLayout();
+            loadingTextView.forceLayout();
+            updateLoadingLayout();
+            updateTextLayout();
+            updateHeight();
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+            super.onLayout(changed, left, top, right, bottom);
+            LoadingTextView.this.resize();
+        }
+
         private boolean scaleFromZero = false;
         private long scaleFromZeroStart = 0;
         private final long scaleFromZeroDuration = 220l;
@@ -982,7 +996,7 @@ public class TranslateAlert extends Dialog {
             setPadding(padHorz, padVert, padHorz, padVert);
 
             loadingT = 0f;
-            loadingTextView = new TextView(context)/* {
+            loadingTextView = new TextView(context);/* {
                 @Override
                 protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                     super.onMeasure(
