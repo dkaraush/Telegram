@@ -537,10 +537,14 @@ public class TranslateAlert extends Dialog {
             float dy = fromY - y;
             if (fromScrollRect) {
                 dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
-                if (dy < 0)
+                if (dy < 0) {
                     scrolling = true;
-            } else if (Math.abs(dy) > dp(4) && !fromScrollRect)
+                    allTextsView.setTextIsSelectable(false);
+                }
+            } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
                 scrolling = true;
+                allTextsView.setTextIsSelectable(false);
+            }
             float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
                   minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
             float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
@@ -554,6 +558,7 @@ public class TranslateAlert extends Dialog {
                 setScrollY(scrollY);
                 if (event.getAction() == MotionEvent.ACTION_UP) {
                     scrolling = false;
+                    allTextsView.setTextIsSelectable(true);
                     maybeScrolling = false;
                     scrollYTo(
                         Math.abs(dy) > dp(16) ?
