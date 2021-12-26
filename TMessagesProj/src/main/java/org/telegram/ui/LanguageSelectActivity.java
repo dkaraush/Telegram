@@ -377,18 +377,19 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         private TextCheckCell showButtonCheck;
         private TextSettingsCell doNotTranslateCell;
         private TextInfoPrivacyCell info;
+        private TextInfoPrivacyCell info2;
         private ValueAnimator doNotTranslateCellAnimation = null;
         private HeaderCell header2;
 
         private SharedPreferences.OnSharedPreferenceChangeListener listener;
 
-        private float HEIGHT_OPEN = 243;
-        private float HEIGHT_CLOSED = HEIGHT_OPEN - 50;
+//        private float HEIGHT_OPEN = 243;
+//        private float HEIGHT_CLOSED = HEIGHT_OPEN - 50;
 
         public TranslateSettings(Context context) {
             super(context);
 
-            setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+            setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 242));
             setOrientation(VERTICAL);
 
             preferences = MessagesController.getGlobalMainSettings();
@@ -421,19 +422,29 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
             addView(doNotTranslateCell, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             info = new TextInfoPrivacyCell(context);
-            info.setText(LocaleController.getString("TranslateMessagesInfo", R.string.TranslateMessagesInfo));
+            info.setTopPadding(11);
+            info.setBottomPadding(8);
+            info.setText(LocaleController.getString("TranslateMessagesInfo1", R.string.TranslateMessagesInfo1));
             addView(info, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+            info2 = new TextInfoPrivacyCell(context);
+            info2.setTopPadding(8);
+            info2.setBottomPadding(17);
+            info2.setText(LocaleController.getString("TranslateMessagesInfo2", R.string.TranslateMessagesInfo2));
+            info2.setAlpha(value ? 0f : 1f);
+            addView(info2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             header2 = new HeaderCell(context);
             header2.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundWhite));
             header2.setText(LocaleController.getString("Language", R.string.Language));
+            header2.setTranslationY(-AndroidUtilities.dp(53));
             addView(header2, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             update();
         }
 
         private boolean getValue() {
-            return preferences.getBoolean("translate_button", true);
+            return preferences.getBoolean("translate_button", false);
         }
         private ArrayList<String> getRestrictedLanguages() {
             String currentLang = LocaleController.getInstance().getCurrentLocaleInfo().pluralLangCode;
@@ -470,12 +481,13 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 doNotTranslateCell.setAlpha(t);
                 doNotTranslateCell.setTranslationY(-AndroidUtilities.dp(8) * (1f - t));
                 info.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
-                header2.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
+                info2.setAlpha(1f - t);
+                info2.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
+//                header2.setTranslationY(-doNotTranslateCell.getHeight() * (1f - t));
 
-                ViewGroup.LayoutParams layoutParams = getLayoutParams();
-                layoutParams.height = AndroidUtilities.dp(HEIGHT_CLOSED + (HEIGHT_OPEN - HEIGHT_CLOSED) * t);
-                setLayoutParams(layoutParams);
-
+//                ViewGroup.LayoutParams layoutParams = getLayoutParams();
+//                layoutParams.height = AndroidUtilities.dp(HEIGHT_CLOSED + (HEIGHT_OPEN - HEIGHT_CLOSED) * t);
+//                setLayoutParams(layoutParams);
             });
             doNotTranslateCellAnimation.setDuration((long) (Math.abs(doNotTranslateCell.getAlpha() - (value ? 1f : 0f)) * 200));
             doNotTranslateCellAnimation.start();

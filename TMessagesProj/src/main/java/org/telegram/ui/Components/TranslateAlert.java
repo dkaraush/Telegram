@@ -8,6 +8,7 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -35,12 +36,14 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.widget.NestedScrollView;
 
 import com.google.android.gms.vision.Frame;
@@ -54,6 +57,7 @@ import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
+import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
@@ -88,10 +92,12 @@ public class TranslateAlert extends BottomSheet {
     private class TranslateAlertHeader extends FrameLayout {
         public TextView titleView;
         public LoadingTextView subtitleView;
+        public ImageView backButton;
         private FrameLayout shadowView;
 
         private FrameLayout.LayoutParams titleLayout;
         private FrameLayout.LayoutParams subtitleLayout;
+        private FrameLayout.LayoutParams backLayout;
         private LinearLayout.LayoutParams layout;
 
         public TranslateAlertHeader(Context context, String subtitleText) {
@@ -132,6 +138,17 @@ public class TranslateAlert extends BottomSheet {
                 0
             ));
 
+            backButton = new ImageView(context);
+            backButton.setImageResource(R.drawable.ic_ab_back);
+            backButton.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_dialogTextBlack), PorterDuff.Mode.MULTIPLY));
+            backButton.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            backButton.setPadding(AndroidUtilities.dp(16), 0, AndroidUtilities.dp(16), 0);
+            backButton.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_dialogButtonSelector)));
+            backButton.setClickable(false);
+            backButton.setAlpha(0f);
+            backButton.setOnClickListener(e -> dismiss());
+            addView(backButton, backLayout = LayoutHelper.createFrame(56, 56, Gravity.LEFT | Gravity.CENTER_HORIZONTAL));
+
             shadowView = new FrameLayout(context);
             shadowView.setBackgroundColor(getThemedColor(Theme.key_dialogShadowLine));
             shadowView.setAlpha(0);
@@ -151,6 +168,8 @@ public class TranslateAlert extends BottomSheet {
             subtitleLayout.leftMargin = dp(lerp(22, 72, t)) - LoadingTextView.padHorz;
             subtitleView.setLayoutParams(subtitleLayout);
 
+            backButton.setAlpha(t);
+            backButton.setClickable(t > .5f);
             shadowView.setAlpha(t);
 
             layout.height = (int) lerp(dp(66), dp(56), t);
@@ -221,8 +240,10 @@ public class TranslateAlert extends BottomSheet {
         buttonView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(4), Theme.getColor(Theme.key_featuredStickers_addButton), Theme.getColor(Theme.key_featuredStickers_addButtonPressed)));
         buttonView.addView(buttonTextView);
 //        buttonView.setOnClickListener(e -> dismiss());
+
         buttonView.setOnClickListener(e -> {
-            ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+            i++;
+            ValueAnimator animator = ValueAnimator.ofFloat(i % 2, 1 - (i % 2));
             animator.addUpdateListener(a -> header.animate((float) a.getAnimatedValue()));
             animator.setDuration(220);
             animator.start();
@@ -230,6 +251,7 @@ public class TranslateAlert extends BottomSheet {
 
         container.addView(buttonView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 48, 16, 16, 16, 16));
     }
+    int i = 0;
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
         textView.setLines(0);

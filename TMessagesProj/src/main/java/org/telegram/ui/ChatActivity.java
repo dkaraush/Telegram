@@ -19589,7 +19589,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(12);
                             icons.add(R.drawable.msg_edit);
                         }
-                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0 && !selectedObject.isAnimatedEmoji() && !selectedObject.isDice()) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0 && !selectedObject.isAnimatedEmoji() && !selectedObject.isDice()) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", false)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
@@ -19839,7 +19839,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             options.add(102);
                             icons.add(R.drawable.msg_schedule);
                         }
-                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0 && !selectedObject.isAnimatedEmoji() && !selectedObject.isDice()) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", true)) {
+                        if (!selectedObject.isOutOwner() && (messageText != null && messageText.length() > 0 && !selectedObject.isAnimatedEmoji() && !selectedObject.isDice()) && MessagesController.getGlobalMainSettings().getBoolean("translate_button", false)) {
                             items.add(LocaleController.getString("TranslateMessage", R.string.TranslateMessage));
                             options.add(29);
                             icons.add(R.drawable.msg_translate);
