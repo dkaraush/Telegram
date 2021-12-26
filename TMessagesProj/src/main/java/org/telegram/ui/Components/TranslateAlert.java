@@ -34,12 +34,16 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.ActionMode;
 import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
 import android.view.View;
@@ -67,6 +71,7 @@ import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.Emoji;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.R;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
@@ -103,6 +108,8 @@ public class TranslateAlert extends Dialog {
     private TextView buttonTextView;
     private FrameLayout buttonView;
     private FrameLayout buttonShadowView;
+    private TextView allTextsView;
+    private FrameLayout textsContainerView;
 
     private FrameLayout.LayoutParams titleLayout;
     private FrameLayout.LayoutParams subtitleLayout;
@@ -125,7 +132,7 @@ public class TranslateAlert extends Dialog {
         titleLayout.topMargin = dp(lerp(22, 8, t));
         titleLayout.leftMargin = dp(lerp(22, 72, t));
         titleView.setLayoutParams(titleLayout);
-
+//
 //        statusBar.setAlpha(Math.max(0, (t - .8f) / .2f));
 //        statusBar.setTranslationY(Math.max(0, (1f - (t - .9f) / .1f) * dp(48)));
 //        statusBar.setScaleY(Math.max(0, (t - .8f) / .2f));
@@ -250,7 +257,7 @@ public class TranslateAlert extends Dialog {
 //                );
 //            }
 //        };
-//        statusBar.setBackgroundColor(Theme.getColor(Theme.key_dialogBackground));
+//        statusBar.setBackgroundColor(Theme.getColor(Theme.key_chat_attachEmptyImage));
 //        statusBar.setPivotY(AndroidUtilities.statusBarHeight);
 //        contentView.addView(statusBar, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, AndroidUtilities.statusBarHeight / AndroidUtilities.density, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, -AndroidUtilities.statusBarHeight / AndroidUtilities.density, 0, 0));
 
@@ -286,12 +293,28 @@ public class TranslateAlert extends Dialog {
                 contentHeight = Math.min(contentHeight, bottom - top);
             }
 
+            private Path containerPath = new Path();
             private RectF containerRect = new RectF();
+            private RectF rectF = new RectF();
             @Override
             protected void onDraw(Canvas canvas) {
+                int w = getWidth(), h = getHeight(), r = dp(12 * (1f - containerOpenAnimationT));
+                canvas.clipRect(0, 0, getWidth(), getHeight());
+
                 containerRect.set(0, 0, getWidth(), getHeight());
                 canvas.translate(0, (1f - openingT) * getHeight());
-                canvas.drawRoundRect(containerRect, dp(12 * (1f - containerOpenAnimationT)), dp(12 * (1f - containerOpenAnimationT)), containerPaint);
+
+                containerPath.reset();
+                containerPath.moveTo(0, h);
+                rectF.set(0, 0, r + r, r + r);
+                containerPath.arcTo(rectF, 180, 90);
+                rectF.set(w - r - r, 0, w, r + r);
+                containerPath.arcTo(rectF, 270, 90);
+                containerPath.lineTo(w, h);
+                containerPath.close();
+
+                canvas.drawPath(containerPath, containerPaint);
+//                canvas.drawRoundRect(containerRect, r, r, containerPaint);
                 super.onDraw(canvas);
             }
         };
@@ -355,7 +378,12 @@ public class TranslateAlert extends Dialog {
         header.setClipChildren(false);
         container.addView(header, headerLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 70, Gravity.FILL_HORIZONTAL | Gravity.TOP));
 
-        textsView = new LinearLayout(context);
+        textsView = new LinearLayout(context) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            }
+        };
         textsView.setOrientation(LinearLayout.VERTICAL);
         textsView.setPadding(dp(22) - LoadingTextView.padHorz, dp(12) - LoadingTextView.padVert, dp(22) - LoadingTextView.padHorz, dp(12) - LoadingTextView.padVert);
 
@@ -364,6 +392,8 @@ public class TranslateAlert extends Dialog {
         translateMoreView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         translateMoreView.setText(LocaleController.getString("TranslateMore", R.string.TranslateMore));
         translateMoreView.setVisibility(View.GONE);
+        translateMoreView.getPaint().setAntiAlias(true);
+        translateMoreView.getPaint().setFlags(Paint.ANTI_ALIAS_FLAG);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
         translateMoreView.setOnClickListener(e -> {
             openAnimationTo(1f, true);
@@ -372,6 +402,27 @@ public class TranslateAlert extends Dialog {
         translateMoreView.setPadding(LoadingTextView.padHorz, LoadingTextView.padVert, LoadingTextView.padHorz, LoadingTextView.padVert);
         textsView.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT,0, 0, 0, 0));
 
+        Paint selectionPaint = new Paint();
+        selectionPaint.setColor(Theme.getColor(Theme.key_chat_inTextSelectionHighlight));
+        FrameLayout allTextsContainer = new FrameLayout(context) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            }
+        };
+        allTextsContainer.setWillNotDraw(false);
+        allTextsContainer.setPadding(dp(22), dp(12), dp(22), dp(12));
+        allTextsView = new TextView(context);
+        allTextsView.setTextColor(0x00000000);
+        allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        allTextsView.setTextIsSelectable(true);
+        allTextsView.setMovementMethod(new LinkMovementMethod());
+        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+
+        textsContainerView = new FrameLayout(context);
+        textsContainerView.addView(textsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        textsContainerView.addView(allTextsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+
         scrollView = new NestedScrollView(context) {
             @Override
             public boolean onInterceptTouchEvent(MotionEvent ev) {
@@ -379,9 +430,11 @@ public class TranslateAlert extends Dialog {
             }
         };
         scrollView.setClipChildren(true);
-        scrollView.addView(textsView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1f));
+        scrollView.addView(textsContainerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1f));
+
         container.addView(scrollView, scrollViewLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.FILL, 0, 70, 0, 81));
 
+        translateMoreView.bringToFront();
         fetchNext();
 
         buttonShadowView = new FrameLayout(context);
@@ -406,6 +459,8 @@ public class TranslateAlert extends Dialog {
 
         container.addView(buttonView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 48, Gravity.BOTTOM, 16, 16, 16, 16));
         contentView.addView(container, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
+
+//        setUseLightStatusBar(true);
     }
 
 
@@ -424,7 +479,7 @@ public class TranslateAlert extends Dialog {
     }
 
     private boolean hasSelection() {
-        return false; // TODO(dkaraush)
+        return allTextsView.hasSelection();
     }
 
     private Rect containerRect = new Rect();
@@ -522,18 +577,46 @@ public class TranslateAlert extends Dialog {
         textView.setEllipsizeNull();
         textView.setTextColor(Theme.getColor(Theme.key_dialogTextBlack));
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        textView.setTextIsSelectable(true);
-        textView.setTranslationY((textsView.getChildCount() - 1) * -LoadingTextView.padVert * 2f);
-        textsView.addView(textView, textsView.getChildCount() - 1, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        textView.setTextIsSelectable(false);
+        textView.setTranslationY((textsView.getChildCount() - 1) * (LoadingTextView.padVert * -4f + dp(.48f)));
+        textsView.addView(textView, textsView.getChildCount() - 1, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT, 0, 0, 0, 0, 0));
         return textView;
     }
 
     private float openingT = 0f;
     private ValueAnimator openingAnimator;
 
+//    protected boolean useLightStatusBar = true;
+//    protected boolean useLightNavBar;
+//    public void setUseLightStatusBar(boolean value) {
+//        useLightStatusBar = value;
+//        if (Build.VERSION.SDK_INT >= 23) {
+//            int color = Theme.getColor(Theme.key_actionBarDefault, null, true);
+//            int flags = contentView.getSystemUiVisibility();
+//            if (useLightStatusBar && color == 0xffffffff) {
+//                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+//            } else {
+//                flags &=~ View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+//            }
+//            contentView.setSystemUiVisibility(flags);
+//        }
+//    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+//
+//        if (useLightStatusBar && Build.VERSION.SDK_INT >= 23) {
+//            int color = Theme.getColor(Theme.key_actionBarDefault, null, true);
+//            if (color == 0xffffffff) {
+//                int flags = contentView.getSystemUiVisibility();
+//                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+//                contentView.setSystemUiVisibility(flags);
+//            }
+//        }
+//        if (useLightNavBar && Build.VERSION.SDK_INT >= 26) {
+//            AndroidUtilities.setLightNavigationBar(getWindow(), false);
+//        }
 
         contentView.setPadding(0, 0, 0, 0);
         setContentView(contentView, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -554,7 +637,6 @@ public class TranslateAlert extends Dialog {
             params.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
                 WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR |
                 WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-            window.setStatusBarColor(Theme.getColor(Theme.key_dialogBackgroundGray));
         }
         params.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
         params.height = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -688,7 +770,12 @@ public class TranslateAlert extends Dialog {
             .start();
     }
 
+    private boolean loading = false;
     private void fetchNext() {
+        if (loading)
+            return;
+        loading = true;
+
         showTranslateMoreView(false);
         if (blockIndex >= textBlocks.size())
             return;
@@ -701,22 +788,39 @@ public class TranslateAlert extends Dialog {
             (String translatedText, String sourceLanguage) -> {
                 Spannable spannable = new SpannableStringBuilder(translatedText);
                 AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
-                URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
-                for (int i = 0; i < urlSpans.length; ++i) {
-                    URLSpan urlSpan = urlSpans[i];
+                MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
+                ClickableSpan[] clickableSpans = spannable.getSpans(0, spannable.length(), ClickableSpan.class);
+                for (int i = 0; i < clickableSpans.length; ++i) {
+                    ClickableSpan clickableSpan = clickableSpans[i];
+                    int start = spannable.getSpanStart(clickableSpan),
+                        end   = spannable.getSpanEnd(clickableSpan);
+                    spannable.removeSpan(clickableSpan);
                     spannable.setSpan(
-                        new ForegroundColorSpanThemable(Theme.key_dialogTextLink),
-                        spannable.getSpanStart(urlSpan),
-                        spannable.getSpanEnd(urlSpan),
+                        new ClickableSpan() {
+                            @Override
+                            public void onClick(@NonNull View view) {
+                                clickableSpan.onClick(view);
+                                dismiss();
+                            }
+
+                            @Override
+                            public void updateDrawState(@NonNull TextPaint ds) {
+                                super.updateDrawState(ds);
+                                ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
+                            }
+                        },
+                        start, end,
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                     );
                 }
                 blockView.setText(spannable);
+                allTextsView.setText(new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable));
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
 
                 blockIndex++;
                 showTranslateMoreView(blockIndex < textBlocks.size());
+                loading = false;
             },
             (boolean rateLimit) -> {
                 if (rateLimit)
@@ -893,7 +997,6 @@ public class TranslateAlert extends Dialog {
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
-            loadingTextView.setClipToOutline(false);
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             textView = new TextView(context) {
@@ -908,7 +1011,6 @@ public class TranslateAlert extends Dialog {
                     );
                 }
             };
-            textView.setClipToOutline(false);
             addView(textView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
 
             int c1 = Theme.getColor(Theme.key_dialogBackground),
@@ -953,12 +1055,13 @@ public class TranslateAlert extends Dialog {
             this.setLayoutParams(params);
         }
 
-        private TextPaint textPaint = new TextPaint();
-        private TextPaint loadingTextPaint = new TextPaint();
+        private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+        private TextPaint loadingTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private float gradientWidth = dp(350f);
         private void updateLoadingLayout() {
             float textWidth = loadingTextView.getMeasuredWidth();
             if (textWidth > 0) {
+                loadingTextPaint.setAntiAlias(true);
                 loadingLayout = new StaticLayout(
                     loadingString,
                     loadingTextPaint,
@@ -992,6 +1095,7 @@ public class TranslateAlert extends Dialog {
         }
         private void updateTextLayout() {
             float textWidth = textView.getMeasuredWidth();
+            textPaint.setAntiAlias(true);
             if (textWidth > 0) {
                 textLayout = new StaticLayout(
                     textView.getText(),
@@ -1081,7 +1185,6 @@ public class TranslateAlert extends Dialog {
         public void setText(CharSequence text) {
             text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
             textView.setText(text);
-            textView.setMovementMethod(new LinkMovementMethod());
             updateTextLayout();
             updateHeight();
 
@@ -1174,10 +1277,7 @@ public class TranslateAlert extends Dialog {
 //            canvas.save();
 //            canvas.clipPath(inPath);
 //            canvas.translate(padHorz, padVert);
-//            if (loadingT < 1f)
-//                textLayout.draw(canvas);
-//            else
-//                textView.draw(canvas);
+//            textLayout.draw(canvas);
 //            canvas.restore();
         }
         private Paint RED = new Paint();
