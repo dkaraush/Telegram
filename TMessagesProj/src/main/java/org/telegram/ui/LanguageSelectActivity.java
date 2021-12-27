@@ -455,8 +455,8 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
 //            header2.setTranslationY(-Math.max(doNotTranslateCell.getHeight(), info2.getHeight()));
 //            addView(header2, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
 
-            setLayoutParams(new RecyclerView.LayoutParams(LayoutHelper.MATCH_PARENT, height()));
-//            updateHeight();
+//            setLayoutParams(new RecyclerView.LayoutParams(LayoutHelper.MATCH_PARENT, height()));
+            updateHeight();
             update();
         }
 
@@ -529,10 +529,7 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         }
 
         void updateHeight() {
-            updateHeight(false);
-        }
-        void updateHeight(boolean search) {
-            int newHeight = /*search ? 0 : */height();
+            int newHeight = searching ? 0 : height();
             if (getLayoutParams() == null)
                 setLayoutParams(new RecyclerView.LayoutParams(LayoutHelper.MATCH_PARENT, newHeight));
             else if (getLayoutParams().height != newHeight) {
@@ -683,7 +680,7 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
                 case 2: {
                     TranslateSettings translateSettings = (TranslateSettings) holder.itemView;
                     translateSettings.setVisibility(searching ? View.GONE : View.VISIBLE);
-                    translateSettings.updateHeight(searching);
+                    translateSettings.updateHeight();
                 }
             }
         }
