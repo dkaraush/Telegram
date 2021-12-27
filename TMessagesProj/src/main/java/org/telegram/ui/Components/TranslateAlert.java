@@ -215,6 +215,7 @@ public class TranslateAlert extends Dialog {
         buttonShadowView.animate().alpha(canExpand ? 1f : 0f).setDuration((long) (Math.abs(buttonShadowView.getAlpha() - (canExpand ? 1f : 0f)) * 220)).start();
     }
 
+    private ValueAnimator scrollerToBottom = null;
     private String fromLanguage, toLanguage;
     private CharSequence text;
     public TranslateAlert(Context context, String fromLanguage, String toLanguage, CharSequence text) {
@@ -378,6 +379,23 @@ public class TranslateAlert extends Dialog {
         header.setClipChildren(false);
         container.addView(header, headerLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 70, Gravity.FILL_HORIZONTAL | Gravity.TOP));
 
+        scrollView = new NestedScrollView(context) {
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent ev) {
+                return containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
+            }
+
+            @Override
+            public void onNestedScroll(@NonNull View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
+                if (scrollerToBottom != null) {
+                    scrollerToBottom.cancel();
+                    scrollerToBottom = null;
+                }
+                super.onNestedScroll(target, dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed);
+            }
+        };
+        scrollView.setClipChildren(true);
+
         textsView = new LinearLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -396,8 +414,23 @@ public class TranslateAlert extends Dialog {
         translateMoreView.getPaint().setFlags(Paint.ANTI_ALIAS_FLAG);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
         translateMoreView.setOnClickListener(e -> {
+            boolean atBottom = (scrollView.getScrollY() >= scrollView.computeVerticalScrollRange() - scrollView.computeVerticalScrollExtent());
+
             openAnimationTo(1f, true);
             fetchNext();
+
+            if (containerOpenAnimationT >= 1f && canExpand() && atBottom) {
+                if (scrollerToBottom != null) {
+                    scrollerToBottom.cancel();
+                    scrollerToBottom = null;
+                }
+                scrollerToBottom = ValueAnimator.ofFloat(0, 1);
+                scrollerToBottom.addUpdateListener(a -> {
+                    scrollView.scrollTo(0, scrollView.computeVerticalScrollRange());
+                });
+                scrollerToBottom.setDuration(220);
+                scrollerToBottom.start();
+            }
         });
         translateMoreView.setPadding(LoadingTextView.padHorz, LoadingTextView.padVert, LoadingTextView.padHorz, LoadingTextView.padVert);
         textsView.addView(translateMoreView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT,0, 0, 0, 0));
@@ -423,13 +456,6 @@ public class TranslateAlert extends Dialog {
         textsContainerView.addView(textsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         textsContainerView.addView(allTextsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
-        scrollView = new NestedScrollView(context) {
-            @Override
-            public boolean onInterceptTouchEvent(MotionEvent ev) {
-                return containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
-            }
-        };
-        scrollView.setClipChildren(true);
         scrollView.addView(textsContainerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1f));
 
         container.addView(scrollView, scrollViewLayout = LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.FILL, 0, 70, 0, 81));
@@ -575,14 +601,7 @@ public class TranslateAlert extends Dialog {
     }
 
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
-        final int i = textsView.getChildCount();
-        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
-            @Override
-            protected void scrollToBottom() {
-                if ((textsView.getChildCount() - 1) == i && i > 1 && canExpand())
-                    scrollView.smoothScrollTo(0, scrollView.computeVerticalScrollRange());
-            }
-        };
+        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
         textView.setLines(0);
         textView.setMaxLines(0);
         textView.setSingleLine(false);
@@ -1095,8 +1114,8 @@ public class TranslateAlert extends Dialog {
 //            if (height > 0 || scaleFromZero)
                 params.height = height;
             this.setLayoutParams(params);
-            if (newHeight)
-                scrollToBottom();
+//            if (newHeight)
+//                scrollToBottom();
         }
 
 //        private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
@@ -1228,6 +1247,7 @@ public class TranslateAlert extends Dialog {
         public int multAlpha(int color, float mult) {
             return (color & 0x00ffffff) | ((int) ((color >> 24 & 0xff) * mult) << 24);
         }
+        boolean scrolled = false;
         private ValueAnimator animator = null;
         public void setText(CharSequence text) {
             text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
@@ -1265,16 +1285,15 @@ public class TranslateAlert extends Dialog {
                                 updateHeight();
                                 forceLayout();
                             });
-                            animator2.addListener(new Animator.AnimatorListener() {
-                                @Override public void onAnimationStart(Animator animator) {}
-                                @Override public void onAnimationEnd(Animator animator) { scrollToBottom(); }
-                                @Override public void onAnimationCancel(Animator animator) { scrollToBottom(); }
-                                @Override public void onAnimationRepeat(Animator animator) { }
-                            });
+//                            animator2.addListener(new Animator.AnimatorListener() {
+//                                @Override public void onAnimationStart(Animator animator) {}
+//                                @Override public void onAnimationEnd(Animator animator) { scrollToBottom(); }
+//                                @Override public void onAnimationCancel(Animator animator) { scrollToBottom(); }
+//                                @Override public void onAnimationRepeat(Animator animator) { }
+//                            });
                             animator2.setDuration(25 + scaleFromZeroDuration + scaleFromZeroStart - SystemClock.elapsedRealtime());
                             animator2.start();
                         }
-                        scrollToBottom();
                     }
                     @Override public void onAnimationCancel(Animator animator) { }
                     @Override public void onAnimationRepeat(Animator animator) {}
