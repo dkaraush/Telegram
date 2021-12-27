@@ -34,6 +34,7 @@ import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
+import android.text.style.CharacterStyle;
 import android.text.style.ClickableSpan;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.URLSpan;
@@ -215,6 +216,7 @@ public class TranslateAlert extends Dialog {
         buttonShadowView.animate().alpha(canExpand ? 1f : 0f).setDuration((long) (Math.abs(buttonShadowView.getAlpha() - (canExpand ? 1f : 0f)) * 220)).start();
     }
 
+    private boolean allowScroll = true;
     private ValueAnimator scrollerToBottom = null;
     private String fromLanguage, toLanguage;
     private CharSequence text;
@@ -233,7 +235,7 @@ public class TranslateAlert extends Dialog {
         }
 
         contentView = new FrameLayout(context);
-        contentView.setBackgroundDrawable(backDrawable);
+        contentView.setBackground(backDrawable);
         contentView.setClipChildren(false);
         contentView.setClipToPadding(false);
         if (Build.VERSION.SDK_INT >= 21) {
@@ -300,22 +302,22 @@ public class TranslateAlert extends Dialog {
             @Override
             protected void onDraw(Canvas canvas) {
                 int w = getWidth(), h = getHeight(), r = dp(12 * (1f - containerOpenAnimationT));
-                canvas.clipRect(0, 0, getWidth(), getHeight());
+                canvas.clipRect(0, 0, w, h);
 
-                containerRect.set(0, 0, getWidth(), getHeight());
-                canvas.translate(0, (1f - openingT) * getHeight());
+                containerRect.set(0, 0, w, h + r);
+                canvas.translate(0, (1f - openingT) * h);
 
-                containerPath.reset();
-                containerPath.moveTo(0, h);
-                rectF.set(0, 0, r + r, r + r);
-                containerPath.arcTo(rectF, 180, 90);
-                rectF.set(w - r - r, 0, w, r + r);
-                containerPath.arcTo(rectF, 270, 90);
-                containerPath.lineTo(w, h);
-                containerPath.close();
+//                containerPath.reset();
+//                containerPath.moveTo(0, h);
+//                rectF.set(0, 0, r + r, r + r);
+//                containerPath.arcTo(rectF, 180, 90);
+//                rectF.set(w - r - r, 0, w, r + r);
+//                containerPath.arcTo(rectF, 270, 90);
+//                containerPath.lineTo(w, h);
+//                containerPath.close();
+//                canvas.drawPath(containerPath, containerPaint);
 
-                canvas.drawPath(containerPath, containerPaint);
-//                canvas.drawRoundRect(containerRect, r, r, containerPaint);
+                canvas.drawRoundRect(containerRect, r, r, containerPaint);
                 super.onDraw(canvas);
             }
         };
@@ -382,15 +384,11 @@ public class TranslateAlert extends Dialog {
         scrollView = new NestedScrollView(context) {
             @Override
             public boolean onInterceptTouchEvent(MotionEvent ev) {
-                return containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
+                return allowScroll && containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
             }
 
             @Override
             public void onNestedScroll(@NonNull View target, int dxConsumed, int dyConsumed, int dxUnconsumed, int dyUnconsumed) {
-                if (scrollerToBottom != null) {
-                    scrollerToBottom.cancel();
-                    scrollerToBottom = null;
-                }
                 super.onNestedScroll(target, dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed);
             }
         };
@@ -416,17 +414,31 @@ public class TranslateAlert extends Dialog {
         translateMoreView.setOnClickListener(e -> {
             boolean atBottom = (scrollView.getScrollY() >= scrollView.computeVerticalScrollRange() - scrollView.computeVerticalScrollExtent());
 
+
             openAnimationTo(1f, true);
             fetchNext();
 
-            if (containerOpenAnimationT >= 1f && canExpand() && atBottom) {
+            if (containerOpenAnimationT >= 1f && canExpand()/* && atBottom*/) {
                 if (scrollerToBottom != null) {
                     scrollerToBottom.cancel();
                     scrollerToBottom = null;
                 }
-                scrollerToBottom = ValueAnimator.ofFloat(0, 1);
+                allowScroll = false;
+                scrollView.stopNestedScroll();
+                scrollerToBottom = ValueAnimator.ofFloat(0f, 1f);
+                int fromScroll = scrollView.getScrollY();
                 scrollerToBottom.addUpdateListener(a -> {
-                    scrollView.scrollTo(0, scrollView.computeVerticalScrollRange());
+                    scrollView.setScrollY((int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
+                });
+                scrollerToBottom.addListener(new Animator.AnimatorListener() {
+                    @Override public void onAnimationRepeat(Animator animator) {}
+                    @Override public void onAnimationStart(Animator animator) {}
+                    @Override public void onAnimationEnd(Animator animator) {
+                        allowScroll = true;
+                    }
+                    @Override public void onAnimationCancel(Animator animator) {
+                        allowScroll = true;
+                    }
                 });
                 scrollerToBottom.setDuration(220);
                 scrollerToBottom.start();
@@ -493,6 +505,7 @@ public class TranslateAlert extends Dialog {
     private void setScrollY(float t) {
         openAnimation(t);
         openingT = Math.max(Math.min(1f + t, 1), 0);
+        backDrawable.setAlpha((int) (openingT * 51));
         container.invalidate();
     }
     private void scrollYTo(float t) {
@@ -520,6 +533,7 @@ public class TranslateAlert extends Dialog {
     private boolean fromScrollRect = false;
     private boolean fromTranslateMoreView = false;
     private float fromScrollViewY = 0;
+    private Spannable allTexts;
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent event) {
         float x = event.getX();
@@ -535,6 +549,23 @@ public class TranslateAlert extends Dialog {
                     pressedOutside = false;
                     dismiss();
                     return true;
+                }
+            }
+        }
+
+        Layout allTextsLayout = allTextsView.getLayout();
+        int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
+            ty = (int) (y - allTextsView.getTop() - container.getTop());
+        final int line = allTextsLayout.getLineForVertical(ty);
+        final int off = allTextsLayout.getOffsetForHorizontal(line, tx);
+
+        final float left = allTextsLayout.getLineLeft(line);
+        if (allTexts != null && left <= tx && left + allTextsLayout.getLineWidth(line) >= tx) {
+            ClickableSpan[] links = allTexts.getSpans(off, off, ClickableSpan.class);
+            if (links != null && links.length >= 1) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
+                    allTextsView.setTextIsSelectable(true);
+                    return super.dispatchTouchEvent(event);
                 }
             }
         }
@@ -559,7 +590,7 @@ public class TranslateAlert extends Dialog {
             fromScrollY = getScrollY();
             fromScrollViewY = scrollView.getScrollY();
             return super.dispatchTouchEvent(event) || true;
-        } else if (maybeScrolling && !fromTranslateMoreView && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
+        } else if (maybeScrolling && !hasSelection() && !fromTranslateMoreView && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
             float dy = fromY - y;
             if (fromScrollRect) {
                 dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
@@ -594,7 +625,7 @@ public class TranslateAlert extends Dialog {
                 }
 //                if (fromScrollRect)
 //                    return super.dispatchTouchEvent(event) || true;
-                return true;
+//                return true;
             }
         }
         return super.dispatchTouchEvent(event);
@@ -716,6 +747,7 @@ public class TranslateAlert extends Dialog {
         if (openingAnimator != null)
             openingAnimator.cancel();
         openingAnimator = ValueAnimator.ofFloat(openingT, T);
+        backDrawable.setAlpha((int) (openingT * 51));
         openingAnimator.addUpdateListener(a -> {
             openingT = (float) a.getAnimatedValue();
             container.invalidate();
@@ -735,8 +767,9 @@ public class TranslateAlert extends Dialog {
             @Override public void onAnimationRepeat(Animator animator) { }
             @Override public void onAnimationStart(Animator animator) { }
         });
-        openingAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT);
-        openingAnimator.setDuration((long) (Math.abs(openingT - T) * 220));
+        openingAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
+        openingAnimator.setDuration((long) (Math.abs(openingT - T) * 380));
+        openingAnimator.setStartDelay(60);
         openingAnimator.start();
     }
     public void dismissInternal() {
@@ -794,7 +827,7 @@ public class TranslateAlert extends Dialog {
         translateMoreView.setVisibility(View.VISIBLE);
         translateMoreView
             .animate()
-            .translationX(show ? 0f : dp(4))
+//            .translationX(show ? 0f : dp(4))
             .alpha(show ? 1f : 0f)
             .withEndAction(() -> {
                 if (!show)
@@ -845,6 +878,7 @@ public class TranslateAlert extends Dialog {
                             public void updateDrawState(@NonNull TextPaint ds) {
                                 int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
 //                                super.updateDrawState(ds);
+                                ds.setUnderlineText(true);
                                 ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
                                 ds.setAlpha(alpha);
                             }
@@ -854,7 +888,8 @@ public class TranslateAlert extends Dialog {
                     );
                 }
                 blockView.setText(spannable);
-                allTextsView.setText(new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable));
+                allTexts = new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable);
+                allTextsView.setText(allTexts);
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
 
@@ -887,7 +922,7 @@ public class TranslateAlert extends Dialog {
     public interface OnTranslationFail {
         public void run(boolean rateLimit);
     }
-    private long minFetchingDuration = 250;
+    private long minFetchingDuration = 600;
     private void fetchTranslation(CharSequence text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
@@ -1114,8 +1149,6 @@ public class TranslateAlert extends Dialog {
 //            if (height > 0 || scaleFromZero)
                 params.height = height;
             this.setLayoutParams(params);
-//            if (newHeight)
-//                scrollToBottom();
         }
 
 //        private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
@@ -1232,6 +1265,7 @@ public class TranslateAlert extends Dialog {
 //            loadingTextPaint.setTextSize(size);
 //            textPaint.setTextSize(size);
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
         }
@@ -1241,6 +1275,7 @@ public class TranslateAlert extends Dialog {
 //            loadingTextPaint.setTextSize(sz(unit, size));
 //            textPaint.setTextSize(sz(unit, size));
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
         }
@@ -1252,8 +1287,8 @@ public class TranslateAlert extends Dialog {
         public void setText(CharSequence text) {
             text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
             textView.setText(text);
+            textView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             updateTextLayout();
-            updateHeight();
 
             if (!loaded) {
                 loaded = true;
@@ -1268,7 +1303,6 @@ public class TranslateAlert extends Dialog {
                 animator.addUpdateListener(a -> {
                     loadingT = (float) a.getAnimatedValue();
                     updateHeight();
-                    forceLayout();
                     invalidate();
                 });
                 animator.addListener(new Animator.AnimatorListener() {
@@ -1301,7 +1335,8 @@ public class TranslateAlert extends Dialog {
                 animator.setInterpolator(CubicBezierInterpolator.EASE_IN);
                 animator.setDuration(220);
                 animator.start();
-            }
+            } else
+                updateHeight();
         }
 
         private long start = SystemClock.elapsedRealtime();
@@ -1365,7 +1400,13 @@ public class TranslateAlert extends Dialog {
             if (child == textView) {
                 canvas.save();
                 canvas.clipPath(inPath);
+                if (loadingT < 1f) {
+                    rect.set(0, 0, getWidth(), getHeight());
+                    canvas.saveLayerAlpha(rect, (int) (255 * loadingT), Canvas.ALL_SAVE_FLAG);
+                }
                 boolean r = super.drawChild(canvas, child, drawingTime);
+                if (loadingT < 1f)
+                    canvas.restore();
                 canvas.restore();
                 return r;
             }
