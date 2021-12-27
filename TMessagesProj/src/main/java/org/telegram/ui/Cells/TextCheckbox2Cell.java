@@ -93,7 +93,7 @@ public class TextCheckbox2Cell extends FrameLayout {
         checkbox.setDrawUnchecked(true);
         checkbox.setDrawBackgroundAsArc(10);
         checkbox.setDuration(100);
-        checkbox.setColor(Theme.key_statisticChartLine_lightblue, Theme.key_checkboxDisabled, Theme.key_checkboxCheck);
+        checkbox.setColor(Theme.key_radioBackgroundChecked, Theme.key_checkboxDisabled, Theme.key_checkboxCheck);
         addView(checkbox, LayoutHelper.createFrame(20, 20, (LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT) | Gravity.CENTER_VERTICAL, 22, 0, 22, 0));
 
         setClipChildren(false);

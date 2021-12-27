@@ -177,6 +177,13 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
                     if (listView != null) {
                         listView.setAdapter(searchListViewAdapter);
                     }
+                } else {
+                    searching = false;
+                    searchWas = false;
+                    if (listView != null) {
+                        emptyView.setVisibility(View.GONE);
+                        listView.setAdapter(listAdapter);
+                    }
                 }
             }
         });
@@ -206,10 +213,11 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             if (getParentActivity() == null || parentLayout == null || !(view instanceof TextCheckbox2Cell)) {
                 return;
             }
-            if (!searching)
+            boolean search = listView.getAdapter() == searchListViewAdapter;
+            if (!search)
                 position--;
             LocaleController.LocaleInfo localeInfo;
-            if (searching) {
+            if (search) {
                 localeInfo = searchResult.get(position);
             } else {
                 localeInfo = sortedLanguages.get(position);
@@ -238,10 +246,11 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             if (getParentActivity() == null || parentLayout == null || !(view instanceof TextCheckbox2Cell)) {
                 return false;
             }
-            if (!searching)
+            boolean search = listView.getAdapter() == searchListViewAdapter;
+            if (!search)
                 position--;
             LocaleController.LocaleInfo localeInfo;
-            if (searching) {
+            if (search) {
                 localeInfo = searchResult.get(position);
             } else {
                 localeInfo = sortedLanguages.get(position);
@@ -348,24 +357,24 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             } catch (Exception e) {
                 FileLog.e(e);
             }
-            searchTimer = new Timer();
-            searchTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        searchTimer.cancel();
-                        searchTimer = null;
-                    } catch (Exception e) {
-                        FileLog.e(e);
-                    }
+//            searchTimer = new Timer();
+//            searchTimer.schedule(new TimerTask() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        searchTimer.cancel();
+//                        searchTimer = null;
+//                    } catch (Exception e) {
+//                        FileLog.e(e);
+//                    }
                     processSearch(query);
-                }
-            }, 100, 300);
+//                }
+//            }, 100, 300);
         }
     }
 
     private void processSearch(final String query) {
-        Utilities.searchQueue.postRunnable(() -> {
+//        Utilities.searchQueue.postRunnable(() -> {
 
             String q = query.trim().toLowerCase();
             if (q.length() == 0) {
@@ -390,7 +399,7 @@ public class RestrictedLanguagesSelectActivity extends BaseFragment implements N
             }
 
             updateSearchResults(resultArray);
-        });
+//        });
     }
 
     private void updateSearchResults(final ArrayList<LocaleController.LocaleInfo> arrCounties) {

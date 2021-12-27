@@ -575,7 +575,14 @@ public class TranslateAlert extends Dialog {
     }
 
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
-        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
+        final int i = textsView.getChildCount();
+        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
+            @Override
+            protected void scrollToBottom() {
+                if ((textsView.getChildCount() - 1) == i && i > 1 && canExpand())
+                    scrollView.smoothScrollTo(0, scrollView.computeVerticalScrollRange());
+            }
+        };
         textView.setLines(0);
         textView.setMaxLines(0);
         textView.setSingleLine(false);
@@ -810,8 +817,10 @@ public class TranslateAlert extends Dialog {
 
                             @Override
                             public void updateDrawState(@NonNull TextPaint ds) {
-                                super.updateDrawState(ds);
+                                int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
+//                                super.updateDrawState(ds);
                                 ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
+                                ds.setAlpha(alpha);
                             }
                         },
                         start, end,
@@ -946,8 +955,8 @@ public class TranslateAlert extends Dialog {
         public TextView textView;
 
         private CharSequence loadingString;
-        private StaticLayout loadingLayout;
-        private StaticLayout textLayout;
+//        private StaticLayout loadingLayout;
+//        private StaticLayout textLayout;
         private Paint loadingPaint = new Paint();
         private Path loadingPath = new Path();
         private RectF fetchedPathRect = new RectF();
@@ -1001,7 +1010,7 @@ public class TranslateAlert extends Dialog {
             setPadding(padHorz, padVert, padHorz, padVert);
 
             loadingT = 0f;
-            loadingTextView = new TextView(context);/* {
+            loadingTextView = new TextView(context) {
                 @Override
                 protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                     super.onMeasure(
@@ -1012,7 +1021,7 @@ public class TranslateAlert extends Dialog {
                         )
                     );
                 }
-            }*/;
+            };
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
@@ -1043,52 +1052,62 @@ public class TranslateAlert extends Dialog {
             updateLoadingLayout();
         }
 
+        protected void scrollToBottom() {}
+
         @Override
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
 
-            updateLoadingLayout();
-            updateTextLayout();
+//            updateLoadingLayout();
+//            updateTextLayout();
             updateHeight();
         }
 
         private void updateHeight() {
-            int loadingHeight = loadingLayout != null ? loadingLayout.getHeight() : loadingTextView.getMeasuredHeight();
+//            int loadingHeight = loadingLayout != null ? loadingLayout.getHeight() : loadingTextView.getMeasuredHeight();
+            int loadingHeight = loadingTextView.getMeasuredHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
             int height = (
                 (int) (
                     (
                         padVert * 2 +
                         loadingHeight + (
-                            Math.max(textView.getMeasuredHeight(), textView.getHeight()) -
+                            textView.getMeasuredHeight() -
                             loadingHeight
                         ) * loadingT
                     ) * scaleFromZeroT
                 )
             );
             ViewGroup.LayoutParams params = (ViewGroup.LayoutParams) getLayoutParams();
-            if (params == null)
+            boolean newHeight = false;
+            if (params == null) {
+                newHeight = true;
                 params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height);
+            } else
+                newHeight = params.height != height;
 //            if (height > 0 || scaleFromZero)
                 params.height = height;
             this.setLayoutParams(params);
+            if (newHeight)
+                scrollToBottom();
         }
 
-        private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-        private TextPaint loadingTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+//        private TextPaint textPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+//        private TextPaint loadingTextPaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         private float gradientWidth = dp(350f);
         private void updateLoadingLayout() {
             float textWidth = loadingTextView.getMeasuredWidth();
             if (textWidth > 0) {
-                loadingTextPaint.setAntiAlias(true);
-                loadingLayout = new StaticLayout(
-                    loadingString,
-                    loadingTextPaint,
-                    (int) textWidth,
-                    Layout.Alignment.ALIGN_NORMAL,
-                    1f, 0f, false
-                );
-                loadingPath.reset();
+//                loadingTextPaint.setAntiAlias(true);
+//                loadingLayout = new StaticLayout(
+//                    loadingString,
+//                    loadingTextPaint,
+//                    (int) textWidth,
+//                    Layout.Alignment.ALIGN_NORMAL,
+//                    1f, 0f, false
+//                );
+//                loadingPath.reset();
+                Layout loadingLayout = loadingTextView.getLayout();
                 for (int i = 0; i < loadingLayout.getLineCount(); ++i) {
                     int start = loadingLayout.getLineStart(i), end = loadingLayout.getLineEnd(i);
                     if (start + 1 == end)
@@ -1113,17 +1132,17 @@ public class TranslateAlert extends Dialog {
             }
         }
         private void updateTextLayout() {
-            float textWidth = textView.getMeasuredWidth();
-            textPaint.setAntiAlias(true);
-            if (textWidth > 0) {
-                textLayout = new StaticLayout(
-                    textView.getText(),
-                    textPaint,
-                    (int) textWidth,
-                    Layout.Alignment.ALIGN_NORMAL,
-                    1f, 0f, false
-                );
-            }
+//            float textWidth = textView.getMeasuredWidth();
+//            textPaint.setAntiAlias(true);
+//            if (textWidth > 0) {
+//                textLayout = new StaticLayout(
+//                    textView.getText(),
+//                    textPaint,
+//                    (int) textWidth,
+//                    Layout.Alignment.ALIGN_NORMAL,
+//                    1f, 0f, false
+//                );
+//            }
         }
 
         @Override
@@ -1132,8 +1151,9 @@ public class TranslateAlert extends Dialog {
 //            float loadingHeight = loadingLayout == null ? measureHeight : loadingLayout.getHeight();
 //            float height = measureHeight + (loadingHeight - measureHeight) * (1f - loadingT);
             super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-            updateLoadingLayout();
-            updateTextLayout();
+//            updateLoadingLayout();
+//            updateTextLayout();
+            this.resize();
         }
 
         public boolean loaded = false;
@@ -1168,9 +1188,10 @@ public class TranslateAlert extends Dialog {
             showLoadingTextValue = show;
         }
         public void setTextColor(int textColor) {
-            loadingTextPaint.setColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
-            loadingTextView.setTextColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
-            textPaint.setColor(textColor);
+//            loadingTextPaint.setColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
+//            loadingTextView.setTextColor(multAlpha(textColor, showLoadingTextValue ? 0.08f : 0f));
+//            textPaint.setColor(textColor);
+            loadingTextView.setTextColor(textColor);
             textView.setTextColor(textColor);
         }
         private float sz(int unit, float size) {
@@ -1182,8 +1203,8 @@ public class TranslateAlert extends Dialog {
         public void setTextSize(int size) {
             loadingTextView.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
             textView.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
-            loadingTextPaint.setTextSize(size);
-            textPaint.setTextSize(size);
+//            loadingTextPaint.setTextSize(size);
+//            textPaint.setTextSize(size);
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
@@ -1191,8 +1212,8 @@ public class TranslateAlert extends Dialog {
         public void setTextSize(int unit, float size) {
             loadingTextView.setTextSize(unit, size);
             textView.setTextSize(unit, size);
-            loadingTextPaint.setTextSize(sz(unit, size));
-            textPaint.setTextSize(sz(unit, size));
+//            loadingTextPaint.setTextSize(sz(unit, size));
+//            textPaint.setTextSize(sz(unit, size));
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
@@ -1237,9 +1258,16 @@ public class TranslateAlert extends Dialog {
                                 updateHeight();
                                 forceLayout();
                             });
+                            animator2.addListener(new Animator.AnimatorListener() {
+                                @Override public void onAnimationStart(Animator animator) {}
+                                @Override public void onAnimationEnd(Animator animator) { scrollToBottom(); }
+                                @Override public void onAnimationCancel(Animator animator) { scrollToBottom(); }
+                                @Override public void onAnimationRepeat(Animator animator) { }
+                            });
                             animator2.setDuration(25 + scaleFromZeroDuration + scaleFromZeroStart - SystemClock.elapsedRealtime());
                             animator2.start();
                         }
+                        scrollToBottom();
                     }
                     @Override public void onAnimationCancel(Animator animator) { }
                     @Override public void onAnimationRepeat(Animator animator) {}
@@ -1287,10 +1315,15 @@ public class TranslateAlert extends Dialog {
             canvas.restore();
 
             canvas.save();
+            rect.set(0, 0, w, h);
             canvas.clipPath(inPath, Region.Op.DIFFERENCE);
             canvas.translate(padHorz, padVert);
-            if (loadingLayout != null)
-                loadingLayout.draw(canvas);
+//            if (loadingLayout != null)
+//                loadingLayout.draw(canvas);
+            canvas.saveLayerAlpha(rect, (int) (255 * (showLoadingTextValue ? 0.08f : 0f)), Canvas.ALL_SAVE_FLAG);
+//            loadingTextView.setAlpha(showLoadingTextValue ? 0.08f : 0f);
+            loadingTextView.draw(canvas);
+            canvas.restore();
             canvas.restore();
 
 //            canvas.save();
