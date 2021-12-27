@@ -743,8 +743,12 @@ public class TranslateAlert extends Dialog {
     public void updateSourceLanguage() {
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
-        if (from != null && to != null)
+        if (from != null && to != null) {
+            subtitleView.setAlpha(1);
             subtitleView.setText(LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, from, to));
+        } else if (loaded) {
+            subtitleView.animate().alpha(0).setDuration(150).start();
+        }
     }
 
     private ArrayList<CharSequence> cutInBlocks(CharSequence full, int maxBlockSize) {
@@ -783,6 +787,7 @@ public class TranslateAlert extends Dialog {
     }
 
     private boolean loading = false;
+    private boolean loaded = false;
     private void fetchNext() {
         if (loading)
             return;
@@ -798,6 +803,8 @@ public class TranslateAlert extends Dialog {
         fetchTranslation(
             blockText,
             (String translatedText, String sourceLanguage) -> {
+                loaded = true;
+
                 Spannable spannable = new SpannableStringBuilder(translatedText);
                 AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
                 MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
