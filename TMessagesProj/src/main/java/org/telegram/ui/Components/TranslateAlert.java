@@ -111,6 +111,7 @@ public class TranslateAlert extends Dialog {
     private FrameLayout buttonShadowView;
     private TextView allTextsView;
     private FrameLayout textsContainerView;
+    private FrameLayout allTextsContainer;
 
     private FrameLayout.LayoutParams titleLayout;
     private FrameLayout.LayoutParams subtitleLayout;
@@ -392,8 +393,13 @@ public class TranslateAlert extends Dialog {
                 super.onNestedScroll(target, dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed);
             }
         };
+//        scrollView.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View view, MotionEvent motionEvent) {
+//                return allowScroll && containerOpenAnimationT >= 1f;
+//            }
+//        });
         scrollView.setClipChildren(true);
-        scrollView.setFillViewport(true);
 
         textsView = new LinearLayout(context) {
             @Override
@@ -408,7 +414,7 @@ public class TranslateAlert extends Dialog {
         translateMoreView.setTextColor(Theme.getColor(Theme.key_dialogTextBlue));
         translateMoreView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         translateMoreView.setText(LocaleController.getString("TranslateMore", R.string.TranslateMore));
-        translateMoreView.setVisibility(View.GONE);
+        translateMoreView.setVisibility(textBlocks.size() > 1 ? View.INVISIBLE : View.GONE);
         translateMoreView.getPaint().setAntiAlias(true);
         translateMoreView.getPaint().setFlags(Paint.ANTI_ALIAS_FLAG);
         translateMoreView.setBackgroundDrawable(Theme.createRadSelectorDrawable(Theme.getColor(Theme.key_dialogLinkSelection), dp(1), dp(1)));
@@ -450,7 +456,7 @@ public class TranslateAlert extends Dialog {
 
         Paint selectionPaint = new Paint();
         selectionPaint.setColor(Theme.getColor(Theme.key_chat_inTextSelectionHighlight));
-        FrameLayout allTextsContainer = new FrameLayout(context) {
+        allTextsContainer = new FrameLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
@@ -626,62 +632,61 @@ public class TranslateAlert extends Dialog {
         buttonView.getGlobalVisibleRect(buttonRect);
         translateMoreView.getGlobalVisibleRect(translateMoreRect);
         fromTranslateMoreView = translateMoreRect.contains((int) x, (int) y);
-        if (
-//            (!scrollRect.contains((int) x, (int) y) || !canExpand() || containerOpenAnimationT <= 0f) &&
-            !backRect.contains((int) x, (int) y) &&
-            !buttonRect.contains((int) x, (int) y) &&
-            !fromTranslateMoreView &&
-            !hasSelection() &&
-            event.getAction() == MotionEvent.ACTION_DOWN
-        ) {
-            fromScrollRect = scrollRect.contains((int) x, (int) y) && (containerOpenAnimationT > 0 || !canExpand());
-            maybeScrolling = true;
-            scrolling = false;
-            fromY = y;
-            fromScrollY = getScrollY();
-            fromScrollViewY = scrollView.getScrollY();
-            return super.dispatchTouchEvent(event) || true;
-        } else if (maybeScrolling && !hasSelection() && !fromTranslateMoreView && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
-            float dy = fromY - y;
-            if (fromScrollRect) {
-                dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
-                if (dy < 0) {
+        if (/*!(scrollRect.contains((int) x, (int) y) && !canExpand() && containerOpenAnimationT < .5f && !scrolling) &&*/ !fromTranslateMoreView && !hasSelection()) {
+            if (
+                !backRect.contains((int) x, (int) y) &&
+                !buttonRect.contains((int) x, (int) y) &&
+                event.getAction() == MotionEvent.ACTION_DOWN
+            ) {
+                fromScrollRect = scrollRect.contains((int) x, (int) y) && (containerOpenAnimationT > 0 || !canExpand());
+                maybeScrolling = true;
+                scrolling = false;
+                fromY = y;
+                fromScrollY = getScrollY();
+                fromScrollViewY = scrollView.getScrollY();
+                return super.dispatchTouchEvent(event) || true;
+            } else if (maybeScrolling && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
+                float dy = fromY - y;
+                if (fromScrollRect) {
+                    dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
+                    if (dy < 0) {
+                        scrolling = true;
+                        allTextsView.setTextIsSelectable(false);
+                        scrollView.stopNestedScroll();
+                        allowScroll = false;
+                    }
+                } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
                     scrolling = true;
                     allTextsView.setTextIsSelectable(false);
                     scrollView.stopNestedScroll();
                     allowScroll = false;
                 }
-            } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
-                scrolling = true;
-                allTextsView.setTextIsSelectable(false);
-                scrollView.stopNestedScroll();
-                allowScroll = false;
-            }
-            float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
-                  minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
-            float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
-               (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
-            float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
-            if (!canExpand())
-                scrollY = Math.min(scrollY, 0);
-            updateCanExpand();
+                float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
+                        minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
+                float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
+                        (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
+                float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
+                if (!canExpand())
+                    scrollY = Math.min(scrollY, 0);
+                updateCanExpand();
 
-            if (scrolling) {
-                setScrollY(scrollY);
-                if (event.getAction() == MotionEvent.ACTION_UP) {
-                    scrolling = false;
-                    allTextsView.setTextIsSelectable(true);
-                    maybeScrolling = false;
-                    allowScroll = true;
-                    scrollYTo(
-                        Math.abs(dy) > dp(16) ?
-                            /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
-                            Math.round(fromScrollY)
-                    );
+                if (scrolling) {
+                    setScrollY(scrollY);
+                    if (event.getAction() == MotionEvent.ACTION_UP) {
+                        scrolling = false;
+                        allTextsView.setTextIsSelectable(true);
+                        maybeScrolling = false;
+                        allowScroll = true;
+                        scrollYTo(
+                                Math.abs(dy) > dp(16) ?
+                                        /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
+                                        Math.round(fromScrollY)
+                        );
+                    }
+                    //                if (fromScrollRect)
+                    //                    return super.dispatchTouchEvent(event) || true;
+                    //                return true;
                 }
-//                if (fromScrollRect)
-//                    return super.dispatchTouchEvent(event) || true;
-//                return true;
             }
         }
         return super.dispatchTouchEvent(event);
@@ -691,11 +696,11 @@ public class TranslateAlert extends Dialog {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
             @Override
             protected void onLoadEnd() {
-                textsContainerView.postDelayed(() -> {
+                allTextsContainer.postDelayed(() -> {
                     ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
-                    lp.height = textsContainerView.getMeasuredHeight();
+                    lp.height = (textsContainerView.getMeasuredHeight() == 0 ? textsContainerView.getHeight() : textsContainerView.getMeasuredHeight()) - allTextsContainer.getPaddingTop() - allTextsContainer.getPaddingBottom();
                     allTextsView.setLayoutParams(lp);
-                }, 600);
+                }, scaleFromZero && textBlocks.size() <= 1 ? 600 : 0);
             }
         };
         textView.setLines(0);
@@ -889,14 +894,14 @@ public class TranslateAlert extends Dialog {
 
     public void showTranslateMoreView(boolean show) {
         translateMoreView.setClickable(show);
-        translateMoreView.setVisibility(View.VISIBLE);
+        translateMoreView.setVisibility(textBlocks.size() > 1 ? View.VISIBLE : View.GONE);
         translateMoreView
             .animate()
 //            .translationX(show ? 0f : dp(4))
             .alpha(show ? 1f : 0f)
             .withEndAction(() -> {
                 if (!show)
-                    translateMoreView.setVisibility(View.GONE);
+                    translateMoreView.setVisibility(textBlocks.size() > 1 ? View.INVISIBLE : View.GONE);
             })
             .setInterpolator(CubicBezierInterpolator.EASE_OUT)
             .setDuration((long) (Math.abs(translateMoreView.getAlpha() - (show ? 1f : 0f)) * 85))
@@ -998,43 +1003,45 @@ public class TranslateAlert extends Dialog {
                 HttpURLConnection connection = null;
                 long start = SystemClock.elapsedRealtime();
                 try {
-                    uri = "https://translate.goo";
-                    uri += "gleapis.com/transl";
-                    uri += "ate_a";
-                    uri += "/singl";
-                    uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
-                    uri += Uri.encode(text.toString());
-                    connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
-                    connection.setRequestMethod("GET");
-                    connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
-                    connection.setRequestProperty("Content-Type", "application/json");
-
-                    StringBuilder textBuilder = new StringBuilder();
-                    try (Reader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), Charset.forName("UTF-8")))) {
-                        int c = 0;
-                        while ((c = reader.read()) != -1) {
-                            textBuilder.append((char) c);
-                        }
-                    }
-                    String jsonString = textBuilder.toString();
-
-                    JSONTokener tokener = new JSONTokener(jsonString);
-                    JSONArray array = new JSONArray(tokener);
-                    JSONArray array1 = array.getJSONArray(0);
-                    String sourceLanguage = null;
-                    try {
-                        sourceLanguage = array.getString(2);
-                    } catch (Exception e2) {}
-                    String result = "";
-                    for (int i = 0; i < array1.length(); ++i) {
-                        String blockText = array1.getJSONArray(i).getString(0);
-                        if (blockText != null && !blockText.equals("null"))
-                            result += /*(i > 0 ? "\n" : "") +*/ blockText;
-                    }
-                    if (text.length() > 0 && text.charAt(0) == '\n')
-                        result = "\n" + result;
-                    final String finalResult = result;
-                    final String finalSourceLanguage = sourceLanguage;
+//                    uri = "https://translate.goo";
+//                    uri += "gleapis.com/transl";
+//                    uri += "ate_a";
+//                    uri += "/singl";
+//                    uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
+//                    uri += Uri.encode(text.toString());
+//                    connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
+//                    connection.setRequestMethod("GET");
+//                    connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
+//                    connection.setRequestProperty("Content-Type", "application/json");
+//
+//                    StringBuilder textBuilder = new StringBuilder();
+//                    try (Reader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), Charset.forName("UTF-8")))) {
+//                        int c = 0;
+//                        while ((c = reader.read()) != -1) {
+//                            textBuilder.append((char) c);
+//                        }
+//                    }
+//                    String jsonString = textBuilder.toString();
+//
+//                    JSONTokener tokener = new JSONTokener(jsonString);
+//                    JSONArray array = new JSONArray(tokener);
+//                    JSONArray array1 = array.getJSONArray(0);
+//                    String sourceLanguage = null;
+//                    try {
+//                        sourceLanguage = array.getString(2);
+//                    } catch (Exception e2) {}
+//                    String result = "";
+//                    for (int i = 0; i < array1.length(); ++i) {
+//                        String blockText = array1.getJSONArray(i).getString(0);
+//                        if (blockText != null && !blockText.equals("null"))
+//                            result += /*(i > 0 ? "\n" : "") +*/ blockText;
+//                    }
+//                    if (text.length() > 0 && text.charAt(0) == '\n')
+//                        result = "\n" + result;
+//                    final String finalResult = result;
+//                    final String finalSourceLanguage = sourceLanguage;
+                    final String finalResult = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum. Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.".substring(0, text.length());
+                    final String finalSourceLanguage = "lt";
                     long elapsed = SystemClock.elapsedRealtime() - start;
                     if (elapsed < minFetchingDuration)
                         sleep(minFetchingDuration - elapsed);
@@ -1050,7 +1057,7 @@ public class TranslateAlert extends Dialog {
                     }
                     e.printStackTrace();
 
-                    if (onFail != null) {
+                    if (onFail != null && !dismissed) {
                         try {
                             final boolean rateLimit = connection != null && connection.getResponseCode() == 429;
                             AndroidUtilities.runOnUIThread(() -> {
