@@ -332,7 +332,7 @@ public class TranslateAlert extends Dialog {
         header = new FrameLayout(context);
 
         titleView = new TextView(context);
-        titleView.setPivotX(0);
+        titleView.setPivotX(LocaleController.isRTL ? titleView.getWidth() : 0);
         titleView.setPivotY(0);
         titleView.setLines(1);
         titleView.setText(LocaleController.getString("AutomaticTranslation", R.string.AutomaticTranslation));
@@ -346,6 +346,9 @@ public class TranslateAlert extends Dialog {
             Gravity.FILL_HORIZONTAL | Gravity.TOP,
             22, 22,22, 0
         ));
+        titleView.post(() -> {
+            titleView.setPivotX(LocaleController.isRTL ? titleView.getWidth() : 0);
+        });
 
         String from = languageName(fromLanguage);
         String to = languageName(toLanguage);
@@ -1467,6 +1470,7 @@ public class TranslateAlert extends Dialog {
             rect.set(0, 0, w, h);
             canvas.clipPath(inPath, Region.Op.DIFFERENCE);
             canvas.translate(padHorz, padVert);
+            canvas.clipPath(loadingPath);
 //            if (loadingLayout != null)
 //                loadingLayout.draw(canvas);
             canvas.saveLayerAlpha(rect, (int) (255 * (showLoadingTextValue ? 0.08f : 0f)), Canvas.ALL_SAVE_FLAG);
