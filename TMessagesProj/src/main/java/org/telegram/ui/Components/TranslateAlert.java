@@ -521,16 +521,18 @@ public class TranslateAlert extends Dialog {
             protected void onDraw(Canvas canvas) {
                 super.onDraw(canvas);
                 if (pressedLink != null) {
-                    Layout layout = getLayout();
-                    int start = allTexts.getSpanStart(pressedLink);
-                    int end = allTexts.getSpanEnd(pressedLink);
-                    layout.getSelectionPath(start, end, pressedLinkPath);
+                    try {
+                        Layout layout = getLayout();
+                        int start = allTexts.getSpanStart(pressedLink);
+                        int end = allTexts.getSpanEnd(pressedLink);
+                        layout.getSelectionPath(start, end, pressedLinkPath);
 
-                    if (pressedLinkPaint == null) {
-                        pressedLinkPaint = new Paint();
-                        pressedLinkPaint.setColor(Theme.getColor(Theme.key_chat_linkSelectBackground));
-                    }
-                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
+                        if (pressedLinkPaint == null) {
+                            pressedLinkPaint = new Paint();
+                            pressedLinkPaint.setColor(Theme.getColor(Theme.key_chat_linkSelectBackground));
+                        }
+                        canvas.drawPath(pressedLinkPath, pressedLinkPaint);
+                    } catch (Exception e) { }
                 }
             }
         };
@@ -1005,37 +1007,37 @@ public class TranslateAlert extends Dialog {
             blockText,
             (String translatedText, String sourceLanguage) -> {
                 loaded = true;
-
                 Spannable spannable = new SpannableStringBuilder(translatedText);
-                AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
-                MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
-                URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
-                for (int i = 0; i < urlSpans.length; ++i) {
-                    URLSpan urlSpan = urlSpans[i];
-                    int start = spannable.getSpanStart(urlSpan),
-                        end   = spannable.getSpanEnd(urlSpan);
-                    spannable.removeSpan(urlSpan);
-                    spannable.setSpan(
-                        new ClickableSpan() {
-                            @Override
-                            public void onClick(@NonNull View view) {
-//                                urlSpan.onClick(view);
-                                AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
-//                                dismiss();
-                            }
+                try {
+                    AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
+                    MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
+                    URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+                    for (int i = 0; i < urlSpans.length; ++i) {
+                        URLSpan urlSpan = urlSpans[i];
+                        int start = spannable.getSpanStart(urlSpan),
+                                end = spannable.getSpanEnd(urlSpan);
+                        spannable.removeSpan(urlSpan);
+                        spannable.setSpan(
+                            new ClickableSpan() {
+                                @Override
+                                public void onClick(@NonNull View view) {
+                                    AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
+                                }
 
-                            @Override
-                            public void updateDrawState(@NonNull TextPaint ds) {
-                                int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
-//                                super.updateDrawState(ds);
-                                ds.setUnderlineText(true);
-                                ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
-                                ds.setAlpha(alpha);
-                            }
-                        },
-                        start, end,
-                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                    );
+                                @Override
+                                public void updateDrawState(@NonNull TextPaint ds) {
+                                    int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
+                                    ds.setUnderlineText(true);
+                                    ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
+                                    ds.setAlpha(alpha);
+                                }
+                            },
+                            start, end,
+                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        );
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
                 blockView.setText(spannable);
                 allTexts = new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable);
