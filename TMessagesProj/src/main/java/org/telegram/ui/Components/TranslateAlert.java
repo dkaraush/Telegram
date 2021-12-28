@@ -154,11 +154,12 @@ public class TranslateAlert extends Dialog {
 
         scrollViewLayout.topMargin = (int) lerp(dp(70), dp(56), t);
         scrollView.setLayoutParams(scrollViewLayout);
-        for (int i = 0; i < textsView.getChildCount(); ++i) {
-            View child = textsView.getChildAt(i);
-            if (child instanceof LoadingTextView)
-                ((LoadingTextView) child).setTextIsSelectable(t >= 1f);
-        }
+        allTextsView.setTextIsSelectable(t >= 1f);
+//        for (int i = 0; i < textsView.getChildCount(); ++i) {
+//            View child = textsView.getChildAt(i);
+//            if (child instanceof LoadingTextView)
+//                ((LoadingTextView) child).setTextIsSelectable(t >= 1f);
+//        }
     }
     private boolean openAnimationToAnimatorPriority = false;
     private ValueAnimator openAnimationToAnimator = null;
@@ -217,6 +218,7 @@ public class TranslateAlert extends Dialog {
         buttonShadowView.animate().alpha(canExpand ? 1f : 0f).setDuration((long) (Math.abs(buttonShadowView.getAlpha() - (canExpand ? 1f : 0f)) * 220)).start();
     }
 
+    private int scrollShouldBe = -1;
     private boolean allowScroll = true;
     private ValueAnimator scrollerToBottom = null;
     private String fromLanguage, toLanguage;
@@ -459,16 +461,18 @@ public class TranslateAlert extends Dialog {
         allTextsContainer = new FrameLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
-            }
-
-            @Override
-            protected void measureChild(View child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
-                super.measureChild(child, parentWidthMeasureSpec, parentHeightMeasureSpec);
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(textsContainerView.getMeasuredHeight(), MeasureSpec.AT_MOST));
             }
         };
+        allTextsContainer.setClipChildren(false);
+        allTextsContainer.setClipToPadding(false);
         allTextsContainer.setPadding(dp(22), dp(12), dp(22), dp(12));
+
         allTextsView = new TextView(context) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(999999, MeasureSpec.AT_MOST));
+            }
             private Paint pressedLinkPaint = null;
             private Path pressedLinkPath = new Path() {
                 private RectF rectF = new RectF();
@@ -500,7 +504,7 @@ public class TranslateAlert extends Dialog {
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         allTextsView.setTextIsSelectable(true);
         allTextsView.setMovementMethod(new LinkMovementMethod());
-        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, textBlocks.size() > 1 ? 0 : LayoutHelper.MATCH_PARENT));
+        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         textsContainerView = new FrameLayout(context);
         textsContainerView.addView(allTextsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -693,14 +697,14 @@ public class TranslateAlert extends Dialog {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
             @Override
             protected void onLoadEnd() {
-                allTextsContainer.postDelayed(() -> {
-                    ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
-                    lp.height = (textsContainerView.getMeasuredHeight() == 0 ? textsContainerView.getHeight() : textsContainerView.getMeasuredHeight()) - allTextsContainer.getPaddingTop() - allTextsContainer.getPaddingBottom();
-                    allTextsView.setLayoutParams(lp);
-
-                    updateCanExpand();
-                    allTextsView.setTextIsSelectable(true);
-                }, scaleFromZero && textBlocks.size() <= 1 ? 600 : 200);
+//                allTextsContainer.postDelayed(() -> {
+//                    ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
+//                    lp.height = (textsContainerView.getMeasuredHeight() == 0 ? textsContainerView.getHeight() : textsContainerView.getMeasuredHeight()) - allTextsContainer.getPaddingTop() - allTextsContainer.getPaddingBottom();
+//                    allTextsView.setLayoutParams(lp);
+//
+//                    updateCanExpand();
+//                    allTextsView.setTextIsSelectable(true);
+//                }, scaleFromZero && textBlocks.size() <= 1 ? 1500 : 200);
             }
         };
         textView.setLines(0);
@@ -975,6 +979,7 @@ public class TranslateAlert extends Dialog {
                 blockView.setText(spannable);
                 allTexts = new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable);
                 allTextsView.setText(allTexts);
+                allTextsContainer.forceLayout();
 
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
