@@ -393,6 +393,7 @@ public class TranslateAlert extends Dialog {
             }
         };
         scrollView.setClipChildren(true);
+        scrollView.setFillViewport(true);
 
         textsView = new LinearLayout(context) {
             @Override
@@ -428,7 +429,7 @@ public class TranslateAlert extends Dialog {
                 scrollerToBottom = ValueAnimator.ofFloat(0f, 1f);
                 int fromScroll = scrollView.getScrollY();
                 scrollerToBottom.addUpdateListener(a -> {
-                    scrollView.scrollTo(0, (int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
+                    scrollView.setScrollY((int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
                 });
                 scrollerToBottom.addListener(new Animator.AnimatorListener() {
                     @Override public void onAnimationRepeat(Animator animator) {}
@@ -454,8 +455,12 @@ public class TranslateAlert extends Dialog {
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             }
+
+            @Override
+            protected void measureChild(View child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
+                super.measureChild(child, parentWidthMeasureSpec, parentHeightMeasureSpec);
+            }
         };
-        allTextsContainer.setWillNotDraw(false);
         allTextsContainer.setPadding(dp(22), dp(12), dp(22), dp(12));
         allTextsView = new TextView(context) {
             private Paint pressedLinkPaint = null;
@@ -489,11 +494,11 @@ public class TranslateAlert extends Dialog {
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         allTextsView.setTextIsSelectable(true);
         allTextsView.setMovementMethod(new LinkMovementMethod());
-        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT));
+        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0));
 
         textsContainerView = new FrameLayout(context);
-        textsContainerView.addView(textsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
         textsContainerView.addView(allTextsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+        textsContainerView.addView(textsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         scrollView.addView(textsContainerView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 1f));
 
@@ -643,10 +648,14 @@ public class TranslateAlert extends Dialog {
                 if (dy < 0) {
                     scrolling = true;
                     allTextsView.setTextIsSelectable(false);
+                    scrollView.stopNestedScroll();
+                    allowScroll = false;
                 }
             } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
                 scrolling = true;
                 allTextsView.setTextIsSelectable(false);
+                scrollView.stopNestedScroll();
+                allowScroll = false;
             }
             float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
                   minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
@@ -663,6 +672,7 @@ public class TranslateAlert extends Dialog {
                     scrolling = false;
                     allTextsView.setTextIsSelectable(true);
                     maybeScrolling = false;
+                    allowScroll = true;
                     scrollYTo(
                         Math.abs(dy) > dp(16) ?
                             /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
@@ -678,7 +688,16 @@ public class TranslateAlert extends Dialog {
     }
 
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
-        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero);
+        LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
+            @Override
+            protected void onLoadEnd() {
+                textsContainerView.postDelayed(() -> {
+                    ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
+                    lp.height = textsContainerView.getMeasuredHeight();
+                    allTextsView.setLayoutParams(lp);
+                }, 600);
+            }
+        };
         textView.setLines(0);
         textView.setMaxLines(0);
         textView.setSingleLine(false);
@@ -936,6 +955,7 @@ public class TranslateAlert extends Dialog {
                 blockView.setText(spannable);
                 allTexts = new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable);
                 allTextsView.setText(allTexts);
+
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
 
@@ -1162,6 +1182,7 @@ public class TranslateAlert extends Dialog {
         }
 
         protected void scrollToBottom() {}
+        protected void onLoadEnd() {}
 
         @Override
         protected void onAttachedToWindow() {
@@ -1174,7 +1195,7 @@ public class TranslateAlert extends Dialog {
 
         private void updateHeight() {
 //            int loadingHeight = loadingLayout != null ? loadingLayout.getHeight() : loadingTextView.getMeasuredHeight();
-            int loadingHeight = loadingTextView.getHeight();
+            int loadingHeight = loadingTextView.getMeasuredHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
             int height = (
                 (int) (
@@ -1352,6 +1373,27 @@ public class TranslateAlert extends Dialog {
                     loadingT = (float) a.getAnimatedValue();
                     updateHeight();
                     invalidate();
+                });
+                animator.addListener(new Animator.AnimatorListener() {
+                    @Override
+                    public void onAnimationStart(Animator animator) {
+
+                    }
+
+                    @Override
+                    public void onAnimationEnd(Animator animator) {
+                        onLoadEnd();
+                    }
+
+                    @Override
+                    public void onAnimationCancel(Animator animator) {
+                        onLoadEnd();
+                    }
+
+                    @Override
+                    public void onAnimationRepeat(Animator animator) {
+
+                    }
                 });
                 animator.setInterpolator(CubicBezierInterpolator.EASE_IN);
                 animator.setDuration(220);
