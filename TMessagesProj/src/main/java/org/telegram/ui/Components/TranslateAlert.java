@@ -385,7 +385,7 @@ public class TranslateAlert extends Dialog {
         scrollView = new NestedScrollView(context) {
             @Override
             public boolean onInterceptTouchEvent(MotionEvent ev) {
-                return allowScroll && containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
+                return allowScroll && getScrollY() >= .5f && canExpand() && super.onInterceptTouchEvent(ev);
             }
 
             @Override
@@ -500,7 +500,7 @@ public class TranslateAlert extends Dialog {
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         allTextsView.setTextIsSelectable(true);
         allTextsView.setMovementMethod(new LinkMovementMethod());
-        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0));
+        allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, textBlocks.size() > 1 ? 0 : LayoutHelper.MATCH_PARENT));
 
         textsContainerView = new FrameLayout(context);
         textsContainerView.addView(allTextsContainer, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
@@ -594,7 +594,7 @@ public class TranslateAlert extends Dialog {
             }
         }
 
-        allTextsView.getGlobalVisibleRect(textRect);
+        allTextsContainer.getGlobalVisibleRect(textRect);
         if (textRect.contains((int) x, (int) y)) {
             Layout allTextsLayout = allTextsView.getLayout();
             int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
@@ -700,7 +700,10 @@ public class TranslateAlert extends Dialog {
                     ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
                     lp.height = (textsContainerView.getMeasuredHeight() == 0 ? textsContainerView.getHeight() : textsContainerView.getMeasuredHeight()) - allTextsContainer.getPaddingTop() - allTextsContainer.getPaddingBottom();
                     allTextsView.setLayoutParams(lp);
-                }, scaleFromZero && textBlocks.size() <= 1 ? 600 : 0);
+
+                    updateCanExpand();
+                    allTextsView.setTextIsSelectable(true);
+                }, scaleFromZero && textBlocks.size() <= 1 ? 600 : 200);
             }
         };
         textView.setLines(0);
@@ -793,7 +796,7 @@ public class TranslateAlert extends Dialog {
         super.show();
 
         openAnimation(0);
-        openTo(1, true);
+        openTo(1, true, true);
     }
     
     private boolean dismissed = false;
@@ -805,11 +808,14 @@ public class TranslateAlert extends Dialog {
 
         openTo(0, true);
     }
+    private void openTo(float t, boolean priority) {
+        openTo(t, priority, false);
+    }
     private void openTo(float t) {
         openTo(t, false);
     }
     private boolean openingAnimatorPriority = false;
-    private void openTo(float t, boolean priority) {
+    private void openTo(float t, boolean priority, boolean setAfter) {
         final float T = Math.min(Math.max(t, 0), 1);
         if (openingAnimatorPriority && !priority)
             return;
@@ -827,11 +833,23 @@ public class TranslateAlert extends Dialog {
             @Override public void onAnimationCancel(Animator animator) {
                 if (T <= 0f)
                     dismissInternal();
+                else if (setAfter) {
+                    allTextsView.setTextIsSelectable(true);
+                    allTextsView.invalidate();
+                    scrollView.stopNestedScroll();
+                    openAnimation(T - 1f);
+                }
                 openingAnimatorPriority = false;
             }
             @Override public void onAnimationEnd(Animator animator) {
                 if (T <= 0f)
                     dismissInternal();
+                else if (setAfter) {
+                    allTextsView.setTextIsSelectable(true);
+                    allTextsView.invalidate();
+                    scrollView.stopNestedScroll();
+                    openAnimation(T - 1f);
+                }
                 openingAnimatorPriority = false;
             }
             @Override public void onAnimationRepeat(Animator animator) { }
