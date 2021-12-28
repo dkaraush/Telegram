@@ -74,6 +74,7 @@ import org.telegram.messenger.FileLog;
 import org.telegram.messenger.LocaleController;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.R;
+import org.telegram.messenger.browser.Browser;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.BackDrawable;
@@ -154,7 +155,7 @@ public class TranslateAlert extends Dialog {
 
         scrollViewLayout.topMargin = (int) lerp(dp(70), dp(56), t);
         scrollView.setLayoutParams(scrollViewLayout);
-        allTextsView.setTextIsSelectable(t >= 1f);
+//        allTextsView.setTextIsSelectable(t >= 1f);
 //        for (int i = 0; i < textsView.getChildCount(); ++i) {
 //            View child = textsView.getChildAt(i);
 //            if (child instanceof LoadingTextView)
@@ -223,9 +224,11 @@ public class TranslateAlert extends Dialog {
     private ValueAnimator scrollerToBottom = null;
     private String fromLanguage, toLanguage;
     private CharSequence text;
-    public TranslateAlert(Context context, String fromLanguage, String toLanguage, CharSequence text) {
+    private BaseFragment fragment;
+    public TranslateAlert(BaseFragment fragment, Context context, String fromLanguage, String toLanguage, CharSequence text) {
         super(context, R.style.TransparentDialog);
 
+        this.fragment = fragment;
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
         this.toLanguage = toLanguage;
         this.text = text;
@@ -437,7 +440,7 @@ public class TranslateAlert extends Dialog {
                 scrollerToBottom = ValueAnimator.ofFloat(0f, 1f);
                 int fromScroll = scrollView.getScrollY();
                 scrollerToBottom.addUpdateListener(a -> {
-                    scrollView.setScrollY((int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
+                    scrollView.setScrollY((int) (fromScroll + dp(150) * (float) a.getAnimatedValue()));
                 });
                 scrollerToBottom.addListener(new Animator.AnimatorListener() {
                     @Override public void onAnimationRepeat(Animator animator) {}
@@ -479,7 +482,7 @@ public class TranslateAlert extends Dialog {
                 @Override
                 public void addRect(float left, float top, float right, float bottom, @NonNull Direction dir) {
 //                    super.addRect(left, top, right, bottom, dir);
-                    rectF.set(left - LoadingTextView.padHorz, top - LoadingTextView.padVert, right + LoadingTextView.padHorz, bottom + LoadingTextView.padVert);
+                    rectF.set(left - LoadingTextView.padHorz / 2, top - LoadingTextView.padVert, right + LoadingTextView.padHorz / 2, bottom + LoadingTextView.padVert);
                     addRoundRect(rectF, dp(4), dp(4), Direction.CW);
                 }
             };
@@ -496,7 +499,7 @@ public class TranslateAlert extends Dialog {
                         pressedLinkPaint = new Paint();
                         pressedLinkPaint.setColor(Theme.getColor(Theme.key_chat_linkSelectBackground));
                     }
-//                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
+                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
                 }
             }
         };
@@ -599,7 +602,7 @@ public class TranslateAlert extends Dialog {
         }
 
         allTextsContainer.getGlobalVisibleRect(textRect);
-        if (textRect.contains((int) x, (int) y)) {
+        if (textRect.contains((int) x, (int) y) && !scrolling) {
             Layout allTextsLayout = allTextsView.getLayout();
             int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
                     ty = (int) (y - allTextsView.getTop() - container.getTop() - scrollView.getTop() + scrollView.getScrollY());
@@ -614,7 +617,7 @@ public class TranslateAlert extends Dialog {
                         pressedLink.onClick(allTextsView);
                         pressedLink = null;
                         allTextsView.setTextIsSelectable(true);
-                    } else {
+                    } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
                         pressedLink = links[0];
                     }
                     allTextsView.invalidate();
@@ -628,6 +631,9 @@ public class TranslateAlert extends Dialog {
                 allTextsView.invalidate();
                 pressedLink = null;
             }
+        } else if (pressedLink != null) {
+            allTextsView.invalidate();
+            pressedLink = null;
         }
 
         scrollView.getGlobalVisibleRect(scrollRect);
@@ -635,7 +641,7 @@ public class TranslateAlert extends Dialog {
         buttonView.getGlobalVisibleRect(buttonRect);
         translateMoreView.getGlobalVisibleRect(translateMoreRect);
         fromTranslateMoreView = translateMoreRect.contains((int) x, (int) y);
-        if (/*!(scrollRect.contains((int) x, (int) y) && !canExpand() && containerOpenAnimationT < .5f && !scrolling) &&*/ !fromTranslateMoreView && !hasSelection()) {
+        if (pressedLink == null && /*!(scrollRect.contains((int) x, (int) y) && !canExpand() && containerOpenAnimationT < .5f && !scrolling) &&*/ !fromTranslateMoreView && !hasSelection()) {
             if (
                 !backRect.contains((int) x, (int) y) &&
                 !buttonRect.contains((int) x, (int) y) &&
@@ -684,9 +690,9 @@ public class TranslateAlert extends Dialog {
                                         Math.round(fromScrollY)
                         );
                     }
-                    //                if (fromScrollRect)
-                    //                    return super.dispatchTouchEvent(event) || true;
-                    //                return true;
+//                    if (fromScrollRect)
+//                        return super.dispatchTouchEvent(event) || true;
+                    return true;
                 }
             }
         }
@@ -697,14 +703,9 @@ public class TranslateAlert extends Dialog {
         LoadingTextView textView = new LoadingTextView(getContext(), startText, scaleFromZero) {
             @Override
             protected void onLoadEnd() {
-//                allTextsContainer.postDelayed(() -> {
-//                    ViewGroup.LayoutParams lp = allTextsView.getLayoutParams();
-//                    lp.height = (textsContainerView.getMeasuredHeight() == 0 ? textsContainerView.getHeight() : textsContainerView.getMeasuredHeight()) - allTextsContainer.getPaddingTop() - allTextsContainer.getPaddingBottom();
-//                    allTextsView.setLayoutParams(lp);
-//
-//                    updateCanExpand();
-//                    allTextsView.setTextIsSelectable(true);
-//                }, scaleFromZero && textBlocks.size() <= 1 ? 1500 : 200);
+                scrollView.postDelayed(() -> {
+                    allTextsView.setText(allTexts);
+                }, textBlocks.size() > 1 ? 700 : 0);
             }
         };
         textView.setLines(0);
@@ -857,8 +858,8 @@ public class TranslateAlert extends Dialog {
             @Override public void onAnimationStart(Animator animator) { }
         });
         openingAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
-        openingAnimator.setDuration((long) (Math.abs(openingT - T) * 380));
-        openingAnimator.setStartDelay(60);
+        openingAnimator.setDuration((long) (Math.abs(openingT - T) * (setAfter ? 380 : 200)));
+        openingAnimator.setStartDelay(setAfter ? 60 : 0);
         openingAnimator.start();
     }
     public void dismissInternal() {
@@ -949,18 +950,19 @@ public class TranslateAlert extends Dialog {
                 Spannable spannable = new SpannableStringBuilder(translatedText);
                 AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
                 MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
-                ClickableSpan[] clickableSpans = spannable.getSpans(0, spannable.length(), ClickableSpan.class);
-                for (int i = 0; i < clickableSpans.length; ++i) {
-                    ClickableSpan clickableSpan = clickableSpans[i];
-                    int start = spannable.getSpanStart(clickableSpan),
-                        end   = spannable.getSpanEnd(clickableSpan);
-                    spannable.removeSpan(clickableSpan);
+                URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+                for (int i = 0; i < urlSpans.length; ++i) {
+                    URLSpan urlSpan = urlSpans[i];
+                    int start = spannable.getSpanStart(urlSpan),
+                        end   = spannable.getSpanEnd(urlSpan);
+                    spannable.removeSpan(urlSpan);
                     spannable.setSpan(
                         new ClickableSpan() {
                             @Override
                             public void onClick(@NonNull View view) {
-                                clickableSpan.onClick(view);
-                                dismiss();
+//                                urlSpan.onClick(view);
+                                AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
+//                                dismiss();
                             }
 
                             @Override
@@ -978,8 +980,6 @@ public class TranslateAlert extends Dialog {
                 }
                 blockView.setText(spannable);
                 allTexts = new SpannableStringBuilder(allTextsView.getText()).append(blockIndex == 0 ? "" : "\n").append(spannable);
-                allTextsView.setText(allTexts);
-                allTextsContainer.forceLayout();
 
                 fromLanguage = sourceLanguage;
                 updateSourceLanguage();
@@ -1093,7 +1093,7 @@ public class TranslateAlert extends Dialog {
     }
 
     public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text) {
-        TranslateAlert alert = new TranslateAlert(context, fromLanguage, toLanguage, text);
+        TranslateAlert alert = new TranslateAlert(fragment, context, fromLanguage, toLanguage, text);
         if (fragment != null) {
             if (fragment.getParentActivity() != null) {
                 fragment.showDialog(alert);
