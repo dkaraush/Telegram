@@ -869,11 +869,11 @@ public class TranslateAlert extends Dialog {
     }
 
     public String languageName(String locale) {
-        if (locale != null && !locale.equals("und") && !locale.equals("auto")) {
-            String passportLang = LocaleController.getString("PassportLanguage_" + locale.toUpperCase());
-            if (passportLang != null && passportLang.length() > 0)
-                return passportLang;
-        }
+//        if (locale != null && !locale.equals("und") && !locale.equals("auto")) {
+//            String passportLang = LocaleController.getString("PassportLanguage_" + locale.toUpperCase());
+//            if (passportLang != null && passportLang.length() > 0)
+//                return passportLang;
+//        }
         LocaleController.LocaleInfo localeInfo = LocaleController.getInstance().getLanguageByPlural(locale);
         if (localeInfo != null && localeInfo.nameEnglish != null)
             return localeInfo.nameEnglish;
