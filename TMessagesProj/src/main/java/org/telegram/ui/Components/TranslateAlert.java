@@ -385,7 +385,7 @@ public class TranslateAlert extends Dialog {
         scrollView = new NestedScrollView(context) {
             @Override
             public boolean onInterceptTouchEvent(MotionEvent ev) {
-                return allowScroll && getScrollY() >= .5f && canExpand() && super.onInterceptTouchEvent(ev);
+                return allowScroll && containerOpenAnimationT >= 1f && canExpand() && super.onInterceptTouchEvent(ev);
             }
 
             @Override
@@ -492,7 +492,7 @@ public class TranslateAlert extends Dialog {
                         pressedLinkPaint = new Paint();
                         pressedLinkPaint.setColor(Theme.getColor(Theme.key_chat_linkSelectBackground));
                     }
-                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
+//                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
                 }
             }
         };
@@ -610,8 +610,7 @@ public class TranslateAlert extends Dialog {
                         pressedLink.onClick(allTextsView);
                         pressedLink = null;
                         allTextsView.setTextIsSelectable(true);
-                    } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        allTextsView.setTextIsSelectable(false);
+                    } else {
                         pressedLink = links[0];
                     }
                     allTextsView.invalidate();
@@ -652,8 +651,6 @@ public class TranslateAlert extends Dialog {
                     if (dy < 0) {
                         scrolling = true;
                         allTextsView.setTextIsSelectable(false);
-                        scrollView.stopNestedScroll();
-                        allowScroll = false;
                     }
                 } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
                     scrolling = true;
