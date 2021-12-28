@@ -1003,45 +1003,43 @@ public class TranslateAlert extends Dialog {
                 HttpURLConnection connection = null;
                 long start = SystemClock.elapsedRealtime();
                 try {
-//                    uri = "https://translate.goo";
-//                    uri += "gleapis.com/transl";
-//                    uri += "ate_a";
-//                    uri += "/singl";
-//                    uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
-//                    uri += Uri.encode(text.toString());
-//                    connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
-//                    connection.setRequestMethod("GET");
-//                    connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
-//                    connection.setRequestProperty("Content-Type", "application/json");
-//
-//                    StringBuilder textBuilder = new StringBuilder();
-//                    try (Reader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), Charset.forName("UTF-8")))) {
-//                        int c = 0;
-//                        while ((c = reader.read()) != -1) {
-//                            textBuilder.append((char) c);
-//                        }
-//                    }
-//                    String jsonString = textBuilder.toString();
-//
-//                    JSONTokener tokener = new JSONTokener(jsonString);
-//                    JSONArray array = new JSONArray(tokener);
-//                    JSONArray array1 = array.getJSONArray(0);
-//                    String sourceLanguage = null;
-//                    try {
-//                        sourceLanguage = array.getString(2);
-//                    } catch (Exception e2) {}
-//                    String result = "";
-//                    for (int i = 0; i < array1.length(); ++i) {
-//                        String blockText = array1.getJSONArray(i).getString(0);
-//                        if (blockText != null && !blockText.equals("null"))
-//                            result += /*(i > 0 ? "\n" : "") +*/ blockText;
-//                    }
-//                    if (text.length() > 0 && text.charAt(0) == '\n')
-//                        result = "\n" + result;
-//                    final String finalResult = result;
-//                    final String finalSourceLanguage = sourceLanguage;
-                    final String finalResult = "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum. Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.".substring(0, text.length());
-                    final String finalSourceLanguage = "lt";
+                    uri = "https://translate.goo";
+                    uri += "gleapis.com/transl";
+                    uri += "ate_a";
+                    uri += "/singl";
+                    uri += "e?client=gtx&sl=" + Uri.encode(fromLanguage) + "&tl=" + Uri.encode(toLanguage) + "&dt=t" + "&ie=UTF-8&oe=UTF-8&otf=1&ssel=0&tsel=0&kc=7&dt=at&dt=bd&dt=ex&dt=ld&dt=md&dt=qca&dt=rw&dt=rm&dt=ss&q=";
+                    uri += Uri.encode(text.toString());
+                    connection = (HttpURLConnection) new URI(uri).toURL().openConnection();
+                    connection.setRequestMethod("GET");
+                    connection.setRequestProperty("User-Agent", userAgents[(int) Math.round(Math.random() * (userAgents.length - 1))]);
+                    connection.setRequestProperty("Content-Type", "application/json");
+
+                    StringBuilder textBuilder = new StringBuilder();
+                    try (Reader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), Charset.forName("UTF-8")))) {
+                        int c = 0;
+                        while ((c = reader.read()) != -1) {
+                            textBuilder.append((char) c);
+                        }
+                    }
+                    String jsonString = textBuilder.toString();
+
+                    JSONTokener tokener = new JSONTokener(jsonString);
+                    JSONArray array = new JSONArray(tokener);
+                    JSONArray array1 = array.getJSONArray(0);
+                    String sourceLanguage = null;
+                    try {
+                        sourceLanguage = array.getString(2);
+                    } catch (Exception e2) {}
+                    String result = "";
+                    for (int i = 0; i < array1.length(); ++i) {
+                        String blockText = array1.getJSONArray(i).getString(0);
+                        if (blockText != null && !blockText.equals("null"))
+                            result += /*(i > 0 ? "\n" : "") +*/ blockText;
+                    }
+                    if (text.length() > 0 && text.charAt(0) == '\n')
+                        result = "\n" + result;
+                    final String finalResult = result;
+                    final String finalSourceLanguage = sourceLanguage;
                     long elapsed = SystemClock.elapsedRealtime() - start;
                     if (elapsed < minFetchingDuration)
                         sleep(minFetchingDuration - elapsed);
