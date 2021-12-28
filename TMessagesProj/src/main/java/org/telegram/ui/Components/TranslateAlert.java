@@ -87,6 +87,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -358,22 +359,28 @@ public class TranslateAlert extends Dialog {
 //        String subtitleText = LocaleController.formatString("FromLanguageToLanguage", R.string.FromLanguageToLanguage, (from != null ? from : ""), (to != null ? to : ""));
         subtitleView = new LinearLayout(context);
         subtitleView.setOrientation(LinearLayout.HORIZONTAL);
+        if (Build.VERSION.SDK_INT >= 17)
+            subtitleView.setLayoutDirection(LocaleController.isRTL ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
         subtitleView.setGravity(LocaleController.isRTL ? Gravity.RIGHT : Gravity.LEFT);
+        subtitleView.setPadding(0, 0, LoadingTextView.padHorz, 0);
 
         String fromLanguageName = languageName(fromLanguage);
         subtitleFromView = new LoadingTextView(context, fromLanguageName == null ? languageName(toLanguage) : fromLanguageName, false, true);
         subtitleFromView.showLoadingText(false);
         subtitleFromView.setLines(1);
-        if (fromLanguageName != null)
-            subtitleFromView.setText(fromLanguageName);
         subtitleFromView.setTextColor(Theme.getColor(Theme.key_player_actionBarSubtitle));
         subtitleFromView.setTextSize(TypedValue.COMPLEX_UNIT_PX, dp(14));
-        subtitleView.addView(subtitleFromView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+        if (fromLanguageName != null)
+            subtitleFromView.setText(fromLanguageName);
+        subtitleView.addView(subtitleFromView, LayoutHelper.createLinear(0, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
+        subtitleFromView.updateHeight();
 
         subtitleArrowView = new ImageView(context);
         subtitleArrowView.setImageResource(R.drawable.search_arrow);
         subtitleArrowView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_player_actionBarSubtitle), PorterDuff.Mode.MULTIPLY));
-        subtitleView.addView(subtitleArrowView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, (int) (2 - LoadingTextView.padHorz / AndroidUtilities.density), 0, 2, 0));
+        if (LocaleController.isRTL)
+            subtitleArrowView.setScaleX(-1f);
+        subtitleView.addView(subtitleArrowView, LayoutHelper.createLinear(LayoutHelper.WRAP_CONTENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_VERTICAL, (int) (2 - LoadingTextView.padHorz / AndroidUtilities.density), 1, 3, 0));
 
         subtitleToView = new TextView(context);
         subtitleToView.setLines(1);
@@ -530,7 +537,19 @@ public class TranslateAlert extends Dialog {
         allTextsView.setTextColor(0x00000000);
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         allTextsView.setTextIsSelectable(true);
-        allTextsView.setHighlightColor(Theme.getColor(Theme.key_chat_outTextSelectionHighlight));
+        allTextsView.setHighlightColor(Theme.getColor(Theme.key_chat_inTextSelectionHighlight));
+        int handleColor = Theme.getColor(Theme.key_chat_TextSelectionCursor);
+        try {
+            if (Build.VERSION.SDK_INT >= 29) {
+                Drawable left = allTextsView.getTextSelectHandleLeft();
+                left.setColorFilter(handleColor, PorterDuff.Mode.SRC_IN);
+                allTextsView.setTextSelectHandleLeft(left);
+
+                Drawable right = allTextsView.getTextSelectHandleRight();
+                right.setColorFilter(handleColor, PorterDuff.Mode.SRC_IN);
+                allTextsView.setTextSelectHandleRight(right);
+            }
+        } catch (Exception e) {}
         allTextsView.setMovementMethod(new LinkMovementMethod());
         allTextsContainer.addView(allTextsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
@@ -1086,6 +1105,9 @@ public class TranslateAlert extends Dialog {
                     try {
                         sourceLanguage = array.getString(2);
                     } catch (Exception e2) {}
+                    if (sourceLanguage != null && sourceLanguage.contains("-")) {
+                        sourceLanguage = sourceLanguage.substring(0, sourceLanguage.indexOf("-"));
+                    }
                     String result = "";
                     for (int i = 0; i < array1.length(); ++i) {
                         String blockText = array1.getJSONArray(i).getString(0);
@@ -1207,8 +1229,8 @@ public class TranslateAlert extends Dialog {
                     super.onMeasure(
                         animateWidth ?
                             MeasureSpec.makeMeasureSpec(
-                                MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(widthMeasureSpec),
-                                MeasureSpec.getMode(widthMeasureSpec)
+                                999999,
+                                MeasureSpec.AT_MOST
                             ) : widthMeasureSpec,
                         MeasureSpec.makeMeasureSpec(
                             MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(heightMeasureSpec),
@@ -1220,7 +1242,7 @@ public class TranslateAlert extends Dialog {
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
-            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(animateWidth ? 999999 : getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             textView = new TextView(context) {
@@ -1229,8 +1251,8 @@ public class TranslateAlert extends Dialog {
                     super.onMeasure(
                         animateWidth ?
                             MeasureSpec.makeMeasureSpec(
-                                MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(widthMeasureSpec),
-                                MeasureSpec.getMode(widthMeasureSpec)
+                                999999,
+                                MeasureSpec.AT_MOST
                             ) : widthMeasureSpec,
                         MeasureSpec.makeMeasureSpec(
                             MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST ? 999999 : MeasureSpec.getSize(heightMeasureSpec),
@@ -1290,8 +1312,9 @@ public class TranslateAlert extends Dialog {
                 params.height = height;
 
             if (animateWidth) {
+                int loadingWidth = loadingTextView.getMeasuredWidth() + padHorz * 2;
                 int textWidth = (textView.getMeasuredWidth() <= 0 ? loadingTextView.getMeasuredWidth() : textView.getMeasuredWidth()) + padHorz * 2;
-                params.width = (int) ((loadingTextView.getMeasuredWidth() + (textWidth - loadingTextView.getMeasuredWidth()) * loadingT) * scaleFromZeroT);
+                params.width = (int) ((loadingWidth + (textWidth - loadingWidth) * loadingT) * scaleFromZeroT);
             }
 
             this.setLayoutParams(params);
@@ -1411,7 +1434,7 @@ public class TranslateAlert extends Dialog {
 //            loadingTextPaint.setTextSize(size);
 //            textPaint.setTextSize(size);
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
-            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(animateWidth ? 999999 : getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
         }
@@ -1421,7 +1444,7 @@ public class TranslateAlert extends Dialog {
 //            loadingTextPaint.setTextSize(sz(unit, size));
 //            textPaint.setTextSize(sz(unit, size));
             loadingTextView.setText(loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false));
-            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(animateWidth ? 999999 : getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             textView.setText(Emoji.replaceEmoji(textView.getText(), textView.getPaint().getFontMetricsInt(), dp(14), false));
             updateLoadingLayout();
         }
@@ -1433,7 +1456,7 @@ public class TranslateAlert extends Dialog {
         public void setText(CharSequence text) {
             text = Emoji.replaceEmoji(text, textView.getPaint().getFontMetricsInt(), dp(14), false);
             textView.setText(text);
-            textView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
+            textView.measure(MeasureSpec.makeMeasureSpec(animateWidth ? 999999 : getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             updateTextLayout();
 
             if (!loaded) {
