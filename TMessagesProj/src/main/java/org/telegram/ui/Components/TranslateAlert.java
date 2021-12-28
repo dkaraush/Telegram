@@ -428,7 +428,7 @@ public class TranslateAlert extends Dialog {
                 scrollerToBottom = ValueAnimator.ofFloat(0f, 1f);
                 int fromScroll = scrollView.getScrollY();
                 scrollerToBottom.addUpdateListener(a -> {
-                    scrollView.setScrollY((int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
+                    scrollView.scrollTo(0, (int) (fromScroll + dp(250) * (float) a.getAnimatedValue()));
                 });
                 scrollerToBottom.addListener(new Animator.AnimatorListener() {
                     @Override public void onAnimationRepeat(Animator animator) {}
@@ -457,7 +457,34 @@ public class TranslateAlert extends Dialog {
         };
         allTextsContainer.setWillNotDraw(false);
         allTextsContainer.setPadding(dp(22), dp(12), dp(22), dp(12));
-        allTextsView = new TextView(context);
+        allTextsView = new TextView(context) {
+            private Paint pressedLinkPaint = null;
+            private Path pressedLinkPath = new Path() {
+                private RectF rectF = new RectF();
+                @Override
+                public void addRect(float left, float top, float right, float bottom, @NonNull Direction dir) {
+//                    super.addRect(left, top, right, bottom, dir);
+                    rectF.set(left - LoadingTextView.padHorz, top - LoadingTextView.padVert, right + LoadingTextView.padHorz, bottom + LoadingTextView.padVert);
+                    addRoundRect(rectF, dp(4), dp(4), Direction.CW);
+                }
+            };
+            @Override
+            protected void onDraw(Canvas canvas) {
+                super.onDraw(canvas);
+                if (pressedLink != null) {
+                    Layout layout = getLayout();
+                    int start = allTexts.getSpanStart(pressedLink);
+                    int end = allTexts.getSpanEnd(pressedLink);
+                    layout.getSelectionPath(start, end, pressedLinkPath);
+
+                    if (pressedLinkPaint == null) {
+                        pressedLinkPaint = new Paint();
+                        pressedLinkPaint.setColor(Theme.getColor(Theme.key_chat_linkSelectBackground));
+                    }
+                    canvas.drawPath(pressedLinkPath, pressedLinkPaint);
+                }
+            }
+        };
         allTextsView.setTextColor(0x00000000);
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
         allTextsView.setTextIsSelectable(true);
@@ -522,6 +549,7 @@ public class TranslateAlert extends Dialog {
     }
 
     private Rect containerRect = new Rect();
+    private Rect textRect = new Rect();
     private Rect translateMoreRect = new Rect();
     private Rect buttonRect = new Rect();
     private Rect backRect = new Rect();
@@ -534,10 +562,12 @@ public class TranslateAlert extends Dialog {
     private boolean fromTranslateMoreView = false;
     private float fromScrollViewY = 0;
     private Spannable allTexts;
+    private ClickableSpan pressedLink;
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent event) {
         float x = event.getX();
         float y = event.getY();
+        container.invalidate();
 
         container.getGlobalVisibleRect(containerRect);
         if (!containerRect.contains((int) x, (int) y)) {
@@ -553,20 +583,36 @@ public class TranslateAlert extends Dialog {
             }
         }
 
-        Layout allTextsLayout = allTextsView.getLayout();
-        int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
-            ty = (int) (y - allTextsView.getTop() - container.getTop());
-        final int line = allTextsLayout.getLineForVertical(ty);
-        final int off = allTextsLayout.getOffsetForHorizontal(line, tx);
+        allTextsView.getGlobalVisibleRect(textRect);
+        if (textRect.contains((int) x, (int) y)) {
+            Layout allTextsLayout = allTextsView.getLayout();
+            int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
+                    ty = (int) (y - allTextsView.getTop() - container.getTop() - scrollView.getTop() + scrollView.getScrollY());
+            final int line = allTextsLayout.getLineForVertical(ty);
+            final int off = allTextsLayout.getOffsetForHorizontal(line, tx);
 
-        final float left = allTextsLayout.getLineLeft(line);
-        if (allTexts != null && left <= tx && left + allTextsLayout.getLineWidth(line) >= tx) {
-            ClickableSpan[] links = allTexts.getSpans(off, off, ClickableSpan.class);
-            if (links != null && links.length >= 1) {
-                if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_UP) {
-                    allTextsView.setTextIsSelectable(true);
-                    return super.dispatchTouchEvent(event);
+            final float left = allTextsLayout.getLineLeft(line);
+            if (allTexts != null && left <= tx && left + allTextsLayout.getLineWidth(line) >= tx) {
+                ClickableSpan[] links = allTexts.getSpans(off, off, ClickableSpan.class);
+                if (links != null && links.length >= 1) {
+                    if (event.getAction() == MotionEvent.ACTION_UP && pressedLink == links[0]) {
+                        pressedLink.onClick(allTextsView);
+                        pressedLink = null;
+                        allTextsView.setTextIsSelectable(true);
+                    } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                        allTextsView.setTextIsSelectable(false);
+                        pressedLink = links[0];
+                    }
+                    allTextsView.invalidate();
+//                    return super.dispatchTouchEvent(event) || true;
+                    return true;
+                } else if (pressedLink != null) {
+                    allTextsView.invalidate();
+                    pressedLink = null;
                 }
+            } else if (pressedLink != null) {
+                allTextsView.invalidate();
+                pressedLink = null;
             }
         }
 
@@ -896,6 +942,7 @@ public class TranslateAlert extends Dialog {
                 blockIndex++;
                 showTranslateMoreView(blockIndex < textBlocks.size());
                 loading = false;
+
             },
             (boolean rateLimit) -> {
                 if (rateLimit)
@@ -922,7 +969,7 @@ public class TranslateAlert extends Dialog {
     public interface OnTranslationFail {
         public void run(boolean rateLimit);
     }
-    private long minFetchingDuration = 600;
+    private long minFetchingDuration = 1000;
     private void fetchTranslation(CharSequence text, OnTranslationSuccess onSuccess, OnTranslationFail onFail) {
         new Thread() {
             @Override
@@ -1086,6 +1133,7 @@ public class TranslateAlert extends Dialog {
             loadingString = Emoji.replaceEmoji(loadingString, loadingTextView.getPaint().getFontMetricsInt(), dp(14), false);
             loadingTextView.setText(this.loadingString = loadingString);
             loadingTextView.setVisibility(INVISIBLE);
+            loadingTextView.measure(MeasureSpec.makeMeasureSpec(getWidth(), MeasureSpec.AT_MOST), MeasureSpec.makeMeasureSpec(9999999, MeasureSpec.AT_MOST));
             addView(loadingTextView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.TOP));
 
             textView = new TextView(context) {
@@ -1126,7 +1174,7 @@ public class TranslateAlert extends Dialog {
 
         private void updateHeight() {
 //            int loadingHeight = loadingLayout != null ? loadingLayout.getHeight() : loadingTextView.getMeasuredHeight();
-            int loadingHeight = loadingTextView.getMeasuredHeight();
+            int loadingHeight = loadingTextView.getHeight();
             float scaleFromZeroT = scaleFromZero ? Math.max(Math.min((float) (SystemClock.elapsedRealtime() - scaleFromZeroStart) / (float) scaleFromZeroDuration, 1f), 0f) : 1f;
             int height = (
                 (int) (
@@ -1305,33 +1353,6 @@ public class TranslateAlert extends Dialog {
                     updateHeight();
                     invalidate();
                 });
-                animator.addListener(new Animator.AnimatorListener() {
-                    @Override public void onAnimationStart(Animator animator) { }
-
-                    @Override
-                    public void onAnimationEnd(Animator animator) {
-                        loadingT = 1f;
-                        if (scaleFromZero && SystemClock.elapsedRealtime() < scaleFromZeroStart + scaleFromZeroDuration + 25) {
-                            if (animator != null)
-                                animator.cancel();
-                            ValueAnimator animator2 = ValueAnimator.ofFloat(0f, 1f);
-                            animator2.addUpdateListener(a -> {
-                                updateHeight();
-                                forceLayout();
-                            });
-//                            animator2.addListener(new Animator.AnimatorListener() {
-//                                @Override public void onAnimationStart(Animator animator) {}
-//                                @Override public void onAnimationEnd(Animator animator) { scrollToBottom(); }
-//                                @Override public void onAnimationCancel(Animator animator) { scrollToBottom(); }
-//                                @Override public void onAnimationRepeat(Animator animator) { }
-//                            });
-                            animator2.setDuration(25 + scaleFromZeroDuration + scaleFromZeroStart - SystemClock.elapsedRealtime());
-                            animator2.start();
-                        }
-                    }
-                    @Override public void onAnimationCancel(Animator animator) { }
-                    @Override public void onAnimationRepeat(Animator animator) {}
-                });
                 animator.setInterpolator(CubicBezierInterpolator.EASE_IN);
                 animator.setDuration(220);
                 animator.start();
@@ -1362,7 +1383,7 @@ public class TranslateAlert extends Dialog {
             canvas.clipPath(inPath, Region.Op.DIFFERENCE);
 
             loadingPaint.setAlpha((int) ((1f - loadingT) * 255));
-            float dx = gradientWidth - (((SystemClock.elapsedRealtime() - start) / 1200f * gradientWidth) % gradientWidth);
+            float dx = gradientWidth - (((SystemClock.elapsedRealtime() - start) / 1000f * gradientWidth) % gradientWidth);
             shadePath.reset();
             shadePath.addRect(0, 0, w, h, Path.Direction.CW);
 
