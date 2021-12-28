@@ -166,90 +166,98 @@ public class LanguageSelectActivity extends BaseFragment implements Notification
         frameLayout.addView(listView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
 
         listView.setOnItemClickListener((view, position) -> {
-            if (getParentActivity() == null || parentLayout == null || !(view instanceof TextRadioCell)) {
-                return;
-            }
-            boolean search = listView.getAdapter() == searchListViewAdapter;
-            if (!search)
-                position -= 2;
-            LocaleController.LocaleInfo localeInfo;
-            if (search) {
-                localeInfo = searchResult.get(position);
-            } else if (!unofficialLanguages.isEmpty() && position >= 0 && position < unofficialLanguages.size()) {
-                localeInfo = unofficialLanguages.get(position);
-            } else {
-                if (!unofficialLanguages.isEmpty()) {
-                    position -= unofficialLanguages.size() + 1;
+            try {
+                if (getParentActivity() == null || parentLayout == null || !(view instanceof TextRadioCell)) {
+                    return;
                 }
-                localeInfo = sortedLanguages.get(position);
-            }
-            if (localeInfo != null) {
-                LocaleController.LocaleInfo prevLocale = LocaleController.getInstance().getCurrentLocaleInfo();
-                LocaleController.getInstance().applyLanguage(localeInfo, true, false, false, true, currentAccount);
-                parentLayout.rebuildAllFragmentViews(false, false);
-
-                String langCode = localeInfo.pluralLangCode,
-                        prevLangCode = prevLocale.pluralLangCode;
-                SharedPreferences preferences = MessagesController.getGlobalMainSettings();
-                HashSet<String> selectedLanguages = RestrictedLanguagesSelectActivity.getRestrictedLanguages();
-                HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
-
-                if (selectedLanguages.contains(langCode)) {
-                    newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
-                    if (!selectedLanguages.contains(prevLangCode))
-                        newSelectedLanguages.add(prevLangCode);
+                boolean search = listView.getAdapter() == searchListViewAdapter;
+                if (!search)
+                    position -= 2;
+                LocaleController.LocaleInfo localeInfo;
+                if (search) {
+                    localeInfo = searchResult.get(position);
+                } else if (!unofficialLanguages.isEmpty() && position >= 0 && position < unofficialLanguages.size()) {
+                    localeInfo = unofficialLanguages.get(position);
+                } else {
+                    if (!unofficialLanguages.isEmpty()) {
+                        position -= unofficialLanguages.size() + 1;
+                    }
+                    localeInfo = sortedLanguages.get(position);
                 }
-                preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
+                if (localeInfo != null) {
+                    LocaleController.LocaleInfo prevLocale = LocaleController.getInstance().getCurrentLocaleInfo();
+                    LocaleController.getInstance().applyLanguage(localeInfo, true, false, false, true, currentAccount);
+                    parentLayout.rebuildAllFragmentViews(false, false);
 
-                finishFragment();
+                    String langCode = localeInfo.pluralLangCode,
+                            prevLangCode = prevLocale.pluralLangCode;
+                    SharedPreferences preferences = MessagesController.getGlobalMainSettings();
+                    HashSet<String> selectedLanguages = RestrictedLanguagesSelectActivity.getRestrictedLanguages();
+                    HashSet<String> newSelectedLanguages = new HashSet<String>(selectedLanguages);
+
+                    if (selectedLanguages.contains(langCode)) {
+                        newSelectedLanguages.removeIf(s -> s != null && s.equals(langCode));
+                        if (!selectedLanguages.contains(prevLangCode))
+                            newSelectedLanguages.add(prevLangCode);
+                    }
+                    preferences.edit().putStringSet("translate_button_restricted_languages", newSelectedLanguages).apply();
+
+                    finishFragment();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
 
         listView.setOnItemLongClickListener((view, position) -> {
-            if (getParentActivity() == null || parentLayout == null || !(view instanceof TextRadioCell)) {
-                return false;
-            }
-            boolean search = listView.getAdapter() == searchListViewAdapter;
-            if (!search)
-                position--;
-            LocaleController.LocaleInfo localeInfo;
-            if (search) {
-                localeInfo = searchResult.get(position);
-            } else if (!unofficialLanguages.isEmpty() && position >= 0 && position < unofficialLanguages.size()) {
-                localeInfo = unofficialLanguages.get(position);
-            } else {
-                if (!unofficialLanguages.isEmpty()) {
-                    position -= unofficialLanguages.size() + 1;
+            try {
+                if (getParentActivity() == null || parentLayout == null || !(view instanceof TextRadioCell)) {
+                    return false;
                 }
-                localeInfo = sortedLanguages.get(position);
-            }
-            if (localeInfo == null || localeInfo.pathToFile == null || localeInfo.isRemote() && localeInfo.serverIndex != Integer.MAX_VALUE) {
-                return false;
-            }
-            final LocaleController.LocaleInfo finalLocaleInfo = localeInfo;
-            AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
-            builder.setTitle(LocaleController.getString("DeleteLocalizationTitle", R.string.DeleteLocalizationTitle));
-            builder.setMessage(AndroidUtilities.replaceTags(LocaleController.formatString("DeleteLocalizationText", R.string.DeleteLocalizationText, localeInfo.name)));
-            builder.setPositiveButton(LocaleController.getString("Delete", R.string.Delete), (dialogInterface, i) -> {
-                if (LocaleController.getInstance().deleteLanguage(finalLocaleInfo, currentAccount)) {
-                    fillLanguages();
-                    if (searchResult != null) {
-                        searchResult.remove(finalLocaleInfo);
+                boolean search = listView.getAdapter() == searchListViewAdapter;
+                if (!search)
+                    position--;
+                LocaleController.LocaleInfo localeInfo;
+                if (search) {
+                    localeInfo = searchResult.get(position);
+                } else if (!unofficialLanguages.isEmpty() && position >= 0 && position < unofficialLanguages.size()) {
+                    localeInfo = unofficialLanguages.get(position);
+                } else {
+                    if (!unofficialLanguages.isEmpty()) {
+                        position -= unofficialLanguages.size() + 1;
                     }
-                    if (listAdapter != null) {
-                        listAdapter.notifyDataSetChanged();
-                    }
-                    if (searchListViewAdapter != null) {
-                        searchListViewAdapter.notifyDataSetChanged();
-                    }
+                    localeInfo = sortedLanguages.get(position);
                 }
-            });
-            builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
-            AlertDialog alertDialog = builder.create();
-            showDialog(alertDialog);
-            TextView button = (TextView) alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-            if (button != null) {
-                button.setTextColor(Theme.getColor(Theme.key_dialogTextRed2));
+                if (localeInfo == null || localeInfo.pathToFile == null || localeInfo.isRemote() && localeInfo.serverIndex != Integer.MAX_VALUE) {
+                    return false;
+                }
+                final LocaleController.LocaleInfo finalLocaleInfo = localeInfo;
+                AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+                builder.setTitle(LocaleController.getString("DeleteLocalizationTitle", R.string.DeleteLocalizationTitle));
+                builder.setMessage(AndroidUtilities.replaceTags(LocaleController.formatString("DeleteLocalizationText", R.string.DeleteLocalizationText, localeInfo.name)));
+                builder.setPositiveButton(LocaleController.getString("Delete", R.string.Delete), (dialogInterface, i) -> {
+                    if (LocaleController.getInstance().deleteLanguage(finalLocaleInfo, currentAccount)) {
+                        fillLanguages();
+                        if (searchResult != null) {
+                            searchResult.remove(finalLocaleInfo);
+                        }
+                        if (listAdapter != null) {
+                            listAdapter.notifyDataSetChanged();
+                        }
+                        if (searchListViewAdapter != null) {
+                            searchListViewAdapter.notifyDataSetChanged();
+                        }
+                    }
+                });
+                builder.setNegativeButton(LocaleController.getString("Cancel", R.string.Cancel), null);
+                AlertDialog alertDialog = builder.create();
+                showDialog(alertDialog);
+                TextView button = (TextView) alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+                if (button != null) {
+                    button.setTextColor(Theme.getColor(Theme.key_dialogTextRed2));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
             return true;
         });

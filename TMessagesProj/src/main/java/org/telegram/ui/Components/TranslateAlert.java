@@ -627,46 +627,51 @@ public class TranslateAlert extends Dialog {
     private ClickableSpan pressedLink;
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent event) {
-        float x = event.getX();
-        float y = event.getY();
-        container.invalidate();
+        try {
+            float x = event.getX();
+            float y = event.getY();
+            container.invalidate();
 
-        container.getGlobalVisibleRect(containerRect);
-        if (!containerRect.contains((int) x, (int) y)) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                pressedOutside = true;
-                return true;
-            } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (pressedOutside) {
-                    pressedOutside = false;
-                    dismiss();
+            container.getGlobalVisibleRect(containerRect);
+            if (!containerRect.contains((int) x, (int) y)) {
+                if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                    pressedOutside = true;
                     return true;
+                } else if (event.getAction() == MotionEvent.ACTION_UP) {
+                    if (pressedOutside) {
+                        pressedOutside = false;
+                        dismiss();
+                        return true;
+                    }
                 }
             }
-        }
 
-        allTextsContainer.getGlobalVisibleRect(textRect);
-        if (textRect.contains((int) x, (int) y) && !scrolling) {
-            Layout allTextsLayout = allTextsView.getLayout();
-            int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
-                    ty = (int) (y - allTextsView.getTop() - container.getTop() - scrollView.getTop() + scrollView.getScrollY());
-            final int line = allTextsLayout.getLineForVertical(ty);
-            final int off = allTextsLayout.getOffsetForHorizontal(line, tx);
+            allTextsContainer.getGlobalVisibleRect(textRect);
+            if (textRect.contains((int) x, (int) y) && !scrolling) {
+                Layout allTextsLayout = allTextsView.getLayout();
+                int tx = (int) (x - allTextsView.getLeft() - container.getLeft()),
+                        ty = (int) (y - allTextsView.getTop() - container.getTop() - scrollView.getTop() + scrollView.getScrollY());
+                final int line = allTextsLayout.getLineForVertical(ty);
+                final int off = allTextsLayout.getOffsetForHorizontal(line, tx);
 
-            final float left = allTextsLayout.getLineLeft(line);
-            if (allTexts != null && left <= tx && left + allTextsLayout.getLineWidth(line) >= tx) {
-                ClickableSpan[] links = allTexts.getSpans(off, off, ClickableSpan.class);
-                if (links != null && links.length >= 1) {
-                    if (event.getAction() == MotionEvent.ACTION_UP && pressedLink == links[0]) {
-                        pressedLink.onClick(allTextsView);
+                final float left = allTextsLayout.getLineLeft(line);
+                if (allTexts != null && allTexts instanceof Spannable && left <= tx && left + allTextsLayout.getLineWidth(line) >= tx) {
+                    ClickableSpan[] links = allTexts.getSpans(off, off, ClickableSpan.class);
+                    if (links != null && links.length >= 1) {
+                        if (event.getAction() == MotionEvent.ACTION_UP && pressedLink == links[0]) {
+                            pressedLink.onClick(allTextsView);
+                            pressedLink = null;
+                            allTextsView.setTextIsSelectable(true);
+                        } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                            pressedLink = links[0];
+                        }
+                        allTextsView.invalidate();
+                        //                    return super.dispatchTouchEvent(event) || true;
+                        return true;
+                    } else if (pressedLink != null) {
+                        allTextsView.invalidate();
                         pressedLink = null;
-                        allTextsView.setTextIsSelectable(true);
-                    } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        pressedLink = links[0];
                     }
-                    allTextsView.invalidate();
-//                    return super.dispatchTouchEvent(event) || true;
-                    return true;
                 } else if (pressedLink != null) {
                     allTextsView.invalidate();
                     pressedLink = null;
@@ -675,79 +680,78 @@ public class TranslateAlert extends Dialog {
                 allTextsView.invalidate();
                 pressedLink = null;
             }
-        } else if (pressedLink != null) {
-            allTextsView.invalidate();
-            pressedLink = null;
-        }
 
-        scrollView.getGlobalVisibleRect(scrollRect);
-        backButton.getGlobalVisibleRect(backRect);
-        buttonView.getGlobalVisibleRect(buttonRect);
-        translateMoreView.getGlobalVisibleRect(translateMoreRect);
-        fromTranslateMoreView = translateMoreRect.contains((int) x, (int) y);
-        if (pressedLink == null && /*!(scrollRect.contains((int) x, (int) y) && !canExpand() && containerOpenAnimationT < .5f && !scrolling) &&*/ !fromTranslateMoreView && !hasSelection()) {
-            if (
-                !backRect.contains((int) x, (int) y) &&
-                !buttonRect.contains((int) x, (int) y) &&
-                event.getAction() == MotionEvent.ACTION_DOWN
-            ) {
-                fromScrollRect = scrollRect.contains((int) x, (int) y) && (containerOpenAnimationT > 0 || !canExpand());
-                maybeScrolling = true;
-                scrolling = false;
-                fromY = y;
-                fromScrollY = getScrollY();
-                fromScrollViewY = scrollView.getScrollY();
-                return super.dispatchTouchEvent(event) || true;
-            } else if (maybeScrolling && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
-                float dy = fromY - y;
-                if (fromScrollRect) {
-                    dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
-                    if (dy < 0) {
+            scrollView.getGlobalVisibleRect(scrollRect);
+            backButton.getGlobalVisibleRect(backRect);
+            buttonView.getGlobalVisibleRect(buttonRect);
+            translateMoreView.getGlobalVisibleRect(translateMoreRect);
+            fromTranslateMoreView = translateMoreRect.contains((int) x, (int) y);
+            if (pressedLink == null && /*!(scrollRect.contains((int) x, (int) y) && !canExpand() && containerOpenAnimationT < .5f && !scrolling) &&*/ !fromTranslateMoreView && !hasSelection()) {
+                if (
+                        !backRect.contains((int) x, (int) y) &&
+                                !buttonRect.contains((int) x, (int) y) &&
+                                event.getAction() == MotionEvent.ACTION_DOWN
+                ) {
+                    fromScrollRect = scrollRect.contains((int) x, (int) y) && (containerOpenAnimationT > 0 || !canExpand());
+                    maybeScrolling = true;
+                    scrolling = false;
+                    fromY = y;
+                    fromScrollY = getScrollY();
+                    fromScrollViewY = scrollView.getScrollY();
+                    return super.dispatchTouchEvent(event) || true;
+                } else if (maybeScrolling && (event.getAction() == MotionEvent.ACTION_MOVE || event.getAction() == MotionEvent.ACTION_UP)) {
+                    float dy = fromY - y;
+                    if (fromScrollRect) {
+                        dy = -Math.max(0, -(fromScrollViewY + dp(48)) - dy);
+                        if (dy < 0) {
+                            scrolling = true;
+                            allTextsView.setTextIsSelectable(false);
+                        }
+                    } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
                         scrolling = true;
                         allTextsView.setTextIsSelectable(false);
+                        scrollView.stopNestedScroll();
+                        allowScroll = false;
                     }
-                } else if (Math.abs(dy) > dp(4) && !fromScrollRect) {
-                    scrolling = true;
-                    allTextsView.setTextIsSelectable(false);
-                    scrollView.stopNestedScroll();
-                    allowScroll = false;
-                }
-                float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
-                        minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
-                float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
-                        (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
-                float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
-                if (!canExpand())
-                    scrollY = Math.min(scrollY, 0);
-                updateCanExpand();
+                    float fullHeight = AndroidUtilities.displayMetrics.heightPixels,
+                            minHeight = Math.min(fullHeight, Math.min(dp(550), fullHeight * .5f));
+                    float scrollYPx = minHeight * (1f - -Math.min(Math.max(fromScrollY, -1), 0)) +
+                            (fullHeight - minHeight) * Math.min(1, Math.max(fromScrollY, 0)) + dy;
+                    float scrollY = scrollYPx > minHeight ? (scrollYPx - minHeight) / (fullHeight - minHeight) : -(1f - scrollYPx / minHeight);
+                    if (!canExpand())
+                        scrollY = Math.min(scrollY, 0);
+                    updateCanExpand();
 
-                if (scrolling) {
-                    setScrollY(scrollY);
-                    if (event.getAction() == MotionEvent.ACTION_UP) {
-                        scrolling = false;
-                        allTextsView.setTextIsSelectable(true);
-                        maybeScrolling = false;
-                        allowScroll = true;
-                        scrollYTo(
-                                Math.abs(dy) > dp(16) ?
-                                        /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
-                                        Math.round(fromScrollY)
-                        );
+                    if (scrolling) {
+                        setScrollY(scrollY);
+                        if (event.getAction() == MotionEvent.ACTION_UP) {
+                            scrolling = false;
+                            allTextsView.setTextIsSelectable(true);
+                            maybeScrolling = false;
+                            allowScroll = true;
+                            scrollYTo(
+                                    Math.abs(dy) > dp(16) ?
+                                            /*fromScrollRect && Math.ceil(fromScrollY) >= 1f ? -1f :*/ Math.round(fromScrollY) + (scrollY > fromScrollY ? 1f : -1f) * (float) Math.ceil(Math.abs(fromScrollY - scrollY)) :
+                                            Math.round(fromScrollY)
+                            );
+                        }
+                        //                    if (fromScrollRect)
+                        //                        return super.dispatchTouchEvent(event) || true;
+                        return true;
                     }
-//                    if (fromScrollRect)
-//                        return super.dispatchTouchEvent(event) || true;
-                    return true;
                 }
             }
+            if (hasSelection() && maybeScrolling) {
+                scrolling = false;
+                allTextsView.setTextIsSelectable(true);
+                maybeScrolling = false;
+                allowScroll = true;
+                scrollYTo(Math.round(fromScrollY));
+            }
+            return super.dispatchTouchEvent(event);
+        } catch (Exception e) {
+            return super.dispatchTouchEvent(event);
         }
-        if (hasSelection() && maybeScrolling) {
-            scrolling = false;
-            allTextsView.setTextIsSelectable(true);
-            maybeScrolling = false;
-            allowScroll = true;
-            scrollYTo(Math.round(fromScrollY));
-        }
-        return super.dispatchTouchEvent(event);
     }
 
     private LoadingTextView addBlock(CharSequence startText, boolean scaleFromZero) {
