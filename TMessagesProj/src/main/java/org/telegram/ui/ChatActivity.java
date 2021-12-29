@@ -20084,6 +20084,12 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                 scrimPopupWindow.dismiss();
                             }
                         });
+                        cell.postDelayed(() -> {
+                            if (onLangDetectionDone.get() != null) {
+                                onLangDetectionDone.get().run();
+                                onLangDetectionDone.set(null);
+                            }
+                        }, 250);
                     } else {
                         cell.setOnClickListener(e -> {
                             if (selectedObject == null || i >= options.size()) {
