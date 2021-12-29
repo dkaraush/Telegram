@@ -20076,7 +20076,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), this, fromLang[0], toLang, finalMessageText, currentChat.noforwards);
+                            TranslateAlert.showAlert(getParentActivity(), this, fromLang[0], toLang, finalMessageText, currentChat != null && currentChat.noforwards);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();
@@ -20095,7 +20095,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), this, "und", toLang, finalMessageText, currentChat.noforwards);
+                            TranslateAlert.showAlert(getParentActivity(), this, "und", toLang, finalMessageText, currentChat != null && currentChat.noforwards);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();
