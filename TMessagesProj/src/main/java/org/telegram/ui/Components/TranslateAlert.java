@@ -81,6 +81,7 @@ import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheet;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ChatActivity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -223,6 +224,10 @@ public class TranslateAlert extends Dialog {
         buttonShadowView.animate().alpha(canExpand ? 1f : 0f).setDuration((long) (Math.abs(buttonShadowView.getAlpha() - (canExpand ? 1f : 0f)) * 220)).start();
     }
 
+    public interface OnLinkPress {
+        public void run(URLSpan urlSpan);
+    }
+
     private int scrollShouldBe = -1;
     private boolean allowScroll = true;
     private ValueAnimator scrollerToBottom = null;
@@ -230,9 +235,11 @@ public class TranslateAlert extends Dialog {
     private CharSequence text;
     private BaseFragment fragment;
     private boolean noforwards;
-    public TranslateAlert(BaseFragment fragment, Context context, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards) {
+    private OnLinkPress onLinkPress = null;
+    public TranslateAlert(BaseFragment fragment, Context context, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards, OnLinkPress onLinkPress) {
         super(context, R.style.TransparentDialog);
 
+        this.onLinkPress = onLinkPress;
         this.noforwards = noforwards;
         this.fragment = fragment;
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
@@ -1011,7 +1018,6 @@ public class TranslateAlert extends Dialog {
                 loaded = true;
                 Spannable spannable = new SpannableStringBuilder(translatedText);
                 try {
-                    AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
                     MessageObject.addUrlsByPattern(false, spannable, false, 0, 0, true);
                     URLSpan[] urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
                     for (int i = 0; i < urlSpans.length; ++i) {
@@ -1023,19 +1029,52 @@ public class TranslateAlert extends Dialog {
                             new ClickableSpan() {
                                 @Override
                                 public void onClick(@NonNull View view) {
-                                    AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
+                                    if (onLinkPress != null) {
+                                        onLinkPress.run(urlSpan);
+                                        dismiss();
+                                    } else
+                                        AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
                                 }
 
                                 @Override
                                 public void updateDrawState(@NonNull TextPaint ds) {
                                     int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
-                                    ds.setUnderlineText(true);
+                                    if (!(urlSpan instanceof URLSpanNoUnderline))
+                                        ds.setUnderlineText(true);
                                     ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
                                     ds.setAlpha(alpha);
                                 }
                             },
                             start, end,
                             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                        );
+                    }
+
+                    AndroidUtilities.addLinks(spannable, Linkify.WEB_URLS);
+                    urlSpans = spannable.getSpans(0, spannable.length(), URLSpan.class);
+                    for (int i = 0; i < urlSpans.length; ++i) {
+                        URLSpan urlSpan = urlSpans[i];
+                        int start = spannable.getSpanStart(urlSpan),
+                                end = spannable.getSpanEnd(urlSpan);
+                        spannable.removeSpan(urlSpan);
+                        spannable.setSpan(
+                                new ClickableSpan() {
+                                    @Override
+                                    public void onClick(@NonNull View view) {
+                                        AlertsCreator.showOpenUrlAlert(fragment, urlSpan.getURL(), false, false);
+                                    }
+
+                                    @Override
+                                    public void updateDrawState(@NonNull TextPaint ds) {
+                                        int alpha = Math.min(ds.getAlpha(), ds.getColor() >> 24 & 0xff);
+                                        if (!(urlSpan instanceof URLSpanNoUnderline))
+                                            ds.setUnderlineText(true);
+                                        ds.setColor(Theme.getColor(Theme.key_dialogTextLink));
+                                        ds.setAlpha(alpha);
+                                    }
+                                },
+                                start, end,
+                                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                         );
                     }
                 } catch (Exception e) {
@@ -1158,8 +1197,8 @@ public class TranslateAlert extends Dialog {
         }.start();
     }
 
-    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards) {
-        TranslateAlert alert = new TranslateAlert(fragment, context, fromLanguage, toLanguage, text, noforwards);
+    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards, OnLinkPress onLinkPress) {
+        TranslateAlert alert = new TranslateAlert(fragment, context, fromLanguage, toLanguage, text, noforwards, onLinkPress);
         if (fragment != null) {
             if (fragment.getParentActivity() != null) {
                 fragment.showDialog(alert);
