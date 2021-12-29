@@ -252,6 +252,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19970,6 +19972,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 return;
             }
 
+            final AtomicBoolean waitForLangDetection = new AtomicBoolean(false);
+            final AtomicReference<Runnable> onLangDetectionDone = new AtomicReference(null);
+
             Rect rect = new Rect();
 
             ActionBarPopupWindow.ActionBarPopupWindowLayout popupLayout = new ActionBarPopupWindow.ActionBarPopupWindowLayout(getParentActivity(), R.drawable.popup_fixed_alert, themeDelegate);
@@ -20036,11 +20041,13 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
                 });
                 if (option == 29) {
+                    // "Translate" button
                     String toLang = LocaleController.getInstance().getCurrentLocale().getLanguage();
                     final CharSequence finalMessageText = messageText;
                     if (LanguageDetector.hasSupport()) {
                         final String[] fromLang = { null };
                         cell.setVisibility(View.GONE);
+                        waitForLangDetection.set(true);
                         LanguageDetector.detectLanguage(
                             finalMessageText.toString(),
                             (String lang) -> {
@@ -20049,17 +20056,27 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                         !RestrictedLanguagesSelectActivity.getRestrictedLanguages().contains(fromLang[0])) {
                                     cell.setVisibility(View.VISIBLE);
                                 }
+                                waitForLangDetection.set(false);
+                                if (onLangDetectionDone.get() != null) {
+                                    onLangDetectionDone.get().run();
+                                    onLangDetectionDone.set(null);
+                                }
                             },
                             (Exception e) -> {
                                 Log.e("mlkit", "failed to detect language in message");
                                 e.printStackTrace();
+                                waitForLangDetection.set(false);
+                                if (onLangDetectionDone.get() != null) {
+                                    onLangDetectionDone.get().run();
+                                    onLangDetectionDone.set(null);
+                                }
                             }
                         );
                         cell.setOnClickListener(e -> {
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), this, fromLang[0], toLang, finalMessageText);
+                            TranslateAlert.showAlert(getParentActivity(), this, fromLang[0], toLang, finalMessageText, currentChat.noforwards);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();
@@ -20072,7 +20089,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             if (selectedObject == null || i >= options.size()) {
                                 return;
                             }
-                            TranslateAlert.showAlert(getParentActivity(), this, "und", toLang, finalMessageText);
+                            TranslateAlert.showAlert(getParentActivity(), this, "und", toLang, finalMessageText, currentChat.noforwards);
                             scrimView = null;
                             contentView.invalidate();
                             chatListView.invalidate();
@@ -20382,7 +20399,13 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             } else {
                 popupY = inBubbleMode ? 0 : AndroidUtilities.statusBarHeight;
             }
-            scrimPopupWindow.showAtLocation(chatListView, Gravity.LEFT | Gravity.TOP, scrimPopupX = popupX, scrimPopupY = popupY);
+            final int finalPopupX = scrimPopupX = popupX;
+            final int finalPopupY = scrimPopupY = popupY;
+            Runnable showMenu = () -> scrimPopupWindow.showAtLocation(chatListView, Gravity.LEFT | Gravity.TOP, finalPopupX, finalPopupY);
+            if (waitForLangDetection.get()) {
+                onLangDetectionDone.set(showMenu);
+            } else
+                showMenu.run();
             chatListView.stopScroll();
             chatLayoutManager.setCanScrollVertically(false);
             scrimView = v;

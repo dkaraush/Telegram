@@ -229,9 +229,11 @@ public class TranslateAlert extends Dialog {
     private String fromLanguage, toLanguage;
     private CharSequence text;
     private BaseFragment fragment;
-    public TranslateAlert(BaseFragment fragment, Context context, String fromLanguage, String toLanguage, CharSequence text) {
+    private boolean noforwards;
+    public TranslateAlert(BaseFragment fragment, Context context, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards) {
         super(context, R.style.TransparentDialog);
 
+        this.noforwards = noforwards;
         this.fragment = fragment;
         this.fromLanguage = fromLanguage != null && fromLanguage.equals("und") ? "auto" : fromLanguage;
         this.toLanguage = toLanguage;
@@ -538,7 +540,7 @@ public class TranslateAlert extends Dialog {
         };
         allTextsView.setTextColor(0x00000000);
         allTextsView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
-        allTextsView.setTextIsSelectable(true);
+        allTextsView.setTextIsSelectable(!noforwards);
         allTextsView.setHighlightColor(Theme.getColor(Theme.key_chat_inTextSelectionHighlight));
         int handleColor = Theme.getColor(Theme.key_chat_TextSelectionCursor);
         try {
@@ -663,7 +665,7 @@ public class TranslateAlert extends Dialog {
                         if (event.getAction() == MotionEvent.ACTION_UP && pressedLink == links[0]) {
                             pressedLink.onClick(allTextsView);
                             pressedLink = null;
-                            allTextsView.setTextIsSelectable(true);
+                            allTextsView.setTextIsSelectable(!noforwards);
                         } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
                             pressedLink = links[0];
                         }
@@ -728,7 +730,7 @@ public class TranslateAlert extends Dialog {
                         setScrollY(scrollY);
                         if (event.getAction() == MotionEvent.ACTION_UP) {
                             scrolling = false;
-                            allTextsView.setTextIsSelectable(true);
+                            allTextsView.setTextIsSelectable(!noforwards);
                             maybeScrolling = false;
                             allowScroll = true;
                             scrollYTo(
@@ -745,7 +747,7 @@ public class TranslateAlert extends Dialog {
             }
             if (hasSelection() && maybeScrolling) {
                 scrolling = false;
-                allTextsView.setTextIsSelectable(true);
+                allTextsView.setTextIsSelectable(!noforwards);
                 maybeScrolling = false;
                 allowScroll = true;
                 scrollYTo(Math.round(fromScrollY));
@@ -893,7 +895,7 @@ public class TranslateAlert extends Dialog {
                 if (T <= 0f)
                     dismissInternal();
                 else if (setAfter) {
-                    allTextsView.setTextIsSelectable(true);
+                    allTextsView.setTextIsSelectable(!noforwards);
                     allTextsView.invalidate();
                     scrollView.stopNestedScroll();
                     openAnimation(T - 1f);
@@ -904,7 +906,7 @@ public class TranslateAlert extends Dialog {
                 if (T <= 0f)
                     dismissInternal();
                 else if (setAfter) {
-                    allTextsView.setTextIsSelectable(true);
+                    allTextsView.setTextIsSelectable(!noforwards);
                     allTextsView.invalidate();
                     scrollView.stopNestedScroll();
                     openAnimation(T - 1f);
@@ -1156,8 +1158,8 @@ public class TranslateAlert extends Dialog {
         }.start();
     }
 
-    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text) {
-        TranslateAlert alert = new TranslateAlert(fragment, context, fromLanguage, toLanguage, text);
+    public static void showAlert(Context context, BaseFragment fragment, String fromLanguage, String toLanguage, CharSequence text, boolean noforwards) {
+        TranslateAlert alert = new TranslateAlert(fragment, context, fromLanguage, toLanguage, text, noforwards);
         if (fragment != null) {
             if (fragment.getParentActivity() != null) {
                 fragment.showDialog(alert);
